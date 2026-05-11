@@ -1,0 +1,29 @@
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 打包产物
+dist/
+build/
+*.spec
+
+# IDE
+.vscode/
+.idea/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试输出
+test_output/
+*.mp4
+*.mkv
+*.flv
+*.mov
