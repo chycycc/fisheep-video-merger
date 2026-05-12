@@ -179,24 +179,47 @@ class ResultSummaryDialog(QDialog):
 class NameInputDialog(QDialog):
     """手动配对时输入输出文件名对话框"""
 
-    def __init__(self, video_name: str, audio_name: str, parent=None):
+    def __init__(self, video_name: str, audio_name: str,
+                 source_dir: str = "", default_name: str = "", parent=None):
         super().__init__(parent)
         self.setWindowTitle("输入输出文件名")
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(450)
 
         layout = QVBoxLayout(self)
 
         info = QLabel(
             f"视频: {video_name}\n"
             f"音频: {audio_name}\n\n"
-            "请输入输出文件名（不含扩展名）："
+            "输出文件名（不含扩展名）："
         )
         info.setWordWrap(True)
         layout.addWidget(info)
 
+        # 文件名输入行 + 浏览按钮
+        name_row = QHBoxLayout()
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("输入文件名...")
-        layout.addWidget(self.name_edit)
+        if default_name:
+            self.name_edit.setText(default_name)
+            self.name_edit.selectAll()
+        name_row.addWidget(self.name_edit, 1)
+
+        browse_btn = QPushButton("📂 来源文件夹")
+        browse_btn.setToolTip("从文件夹名获取输出文件名")
+        if source_dir:
+            browse_btn.clicked.connect(
+                lambda: self._pick_folder_name(source_dir)
+            )
+        else:
+            browse_btn.clicked.connect(self._pick_folder)
+        name_row.addWidget(browse_btn)
+
+        layout.addLayout(name_row)
+
+        hint = QLabel("提示：输出文件名默认取自文件所在文件夹的名称，可点击「来源文件夹」重新选择")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: gray; font-size: 10px;")
+        layout.addWidget(hint)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
@@ -204,6 +227,25 @@ class NameInputDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _pick_folder_name(self, source_dir: str):
+        """从源文件夹名获取输出文件名"""
+        name = os.path.basename(source_dir)
+        if name:
+            self.name_edit.setText(name)
+            self.name_edit.selectAll()
+
+    def _pick_folder(self):
+        """浏览选择文件夹，用其名称作为输出文件名"""
+        from PySide6.QtWidgets import QFileDialog
+        folder = QFileDialog.getExistingDirectory(
+            self, "选择来源文件夹（用其名称作为输出文件名）"
+        )
+        if folder:
+            name = os.path.basename(folder)
+            if name:
+                self.name_edit.setText(name)
+                self.name_edit.selectAll()
 
     def get_name(self) -> str:
         """获取输入的文件名"""

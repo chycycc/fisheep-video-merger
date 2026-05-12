@@ -30,12 +30,15 @@ class PendingTab(QWidget):
     preview_requested = Signal(str)
     # 信号：标记文件为已完整
     mark_complete_requested = Signal(StreamInfo)
+    # 信号：请求移除文件
+    remove_requested = Signal(list)  # list[StreamInfo]
 
     COL_TYPE = 0     # 类型图标
     COL_FILENAME = 1  # 文件名
     COL_FOLDER = 2    # 所在文件夹
+    COL_SIZE = 3      # 文件大小
 
-    HEADERS = ["类型", "文件名", "所在文件夹"]
+    HEADERS = ["类型", "文件名", "所在文件夹", "大小"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,6 +60,8 @@ class PendingTab(QWidget):
         header.setSectionResizeMode(self.COL_TYPE, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Stretch)
         header.setSectionResizeMode(self.COL_FOLDER, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_SIZE, QHeaderView.Fixed)
+        self.table.setColumnWidth(self.COL_SIZE, 80)
 
         # 选择模式
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -117,6 +122,22 @@ class PendingTab(QWidget):
             folder_item.setToolTip(folder)
             self.table.setItem(i, self.COL_FOLDER, folder_item)
 
+            # 文件大小
+            try:
+                size_bytes = os.path.getsize(info.filepath)
+                if size_bytes >= 1024 * 1024:
+                    size_text = f"{size_bytes / (1024 * 1024):.1f} MB"
+                elif size_bytes >= 1024:
+                    size_text = f"{size_bytes / 1024:.0f} KB"
+                else:
+                    size_text = f"{size_bytes} B"
+            except OSError:
+                size_text = "—"
+            size_item = QTableWidgetItem(size_text)
+            size_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            size_item.setFlags(size_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(i, self.COL_SIZE, size_item)
+
             # 存储原始数据用于检索
             type_item.setData(Qt.UserRole, info.filepath)
             type_item.setData(Qt.UserRole + 1, stream_type.value)
@@ -168,6 +189,13 @@ class PendingTab(QWidget):
             menu.addAction(pair_action)
 
         menu.addSeparator()
+
+        # 移除所选
+        remove_action = QAction("🗑 移除所选", self)
+        remove_action.triggered.connect(
+            lambda: self.remove_requested.emit(selected)
+        )
+        menu.addAction(remove_action)
 
         # 预览
         if len(selected) == 1:

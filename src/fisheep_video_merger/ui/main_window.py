@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 from PySide6.QtCore import Qt, Signal, QObject, Slot
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence
 
 from fisheep_video_merger.core.matcher import (
     MergeTask,
@@ -37,11 +37,13 @@ from fisheep_video_merger.core.path_utils import (
 )
 from fisheep_video_merger.core.merger import (
     merge_single,
+    remux_single,
     ConflictStrategy,
     MergeResult,
 )
 from fisheep_video_merger.ui.merge_queue_tab import MergeQueueTab
 from fisheep_video_merger.ui.pending_tab import PendingTab
+from fisheep_video_merger.ui.muxed_tab import MuxedTab
 from fisheep_video_merger.ui.settings_panel import SettingsPanel
 from fisheep_video_merger.ui.dialogs import (
     BatchRenameDialog,
@@ -68,6 +70,7 @@ class MergeSignals(QObject):
     progress = Signal(int, int, str)  # 当前序号, 总数, 状态文本
     task_status = Signal(int, bool, object)  # 索引, 成功标志, 错误信息
     finished = Signal(list)  # MergeResult 列表
+    conflict_requested = Signal(str)  # 请求显示重名冲突对话框
 
 
 class MainWindow(QMainWindow):
@@ -114,6 +117,15 @@ class MainWindow(QMainWindow):
         self.add_folder_btn.clicked.connect(self._on_add_folder)
         toolbar_layout.addWidget(self.add_folder_btn)
 
+        self.add_files_btn = QPushButton("📄 添加文件")
+        self.add_files_btn.clicked.connect(self._on_add_files)
+        toolbar_layout.addWidget(self.add_files_btn)
+
+        self.pair_btn = QPushButton("🔗 配对所选")
+        self.pair_btn.setEnabled(False)
+        self.pair_btn.clicked.connect(self._on_pair_btn)
+        toolbar_layout.addWidget(self.pair_btn)
+
         self.clear_btn = QPushButton("🧹 清空列表")
         self.clear_btn.clicked.connect(self._on_clear)
         toolbar_layout.addWidget(self.clear_btn)
@@ -137,9 +149,11 @@ class MainWindow(QMainWindow):
         self.tab_widget = QTabWidget()
         self.merge_queue_tab = MergeQueueTab()
         self.pending_tab = PendingTab()
+        self.muxed_tab = MuxedTab()
 
         self.tab_widget.addTab(self.merge_queue_tab, "合并队列")
         self.tab_widget.addTab(self.pending_tab, "待整理")
+        self.tab_widget.addTab(self.muxed_tab, "已完整")
 
         left_layout.addWidget(self.tab_widget)
         splitter.addWidget(left_widget)
@@ -189,6 +203,13 @@ class MainWindow(QMainWindow):
         # === 连接信号 ===
         self._connect_signals()
 
+        # === 快捷键 ===
+        QShortcut(QKeySequence("Ctrl+O"), self, self._on_add_folder)
+        QShortcut(QKeySequence("Ctrl+P"), self, self._on_pair_btn)
+        QShortcut(QKeySequence(Qt.Key_Delete), self,
+                  lambda: self.merge_queue_tab.remove_selected_tasks())
+        QShortcut(QKeySequence("Ctrl+Return"), self, self._on_start_merge)
+
     def _connect_signals(self):
         """连接信号"""
         # 设置面板
@@ -200,12 +221,18 @@ class MainWindow(QMainWindow):
         self.pending_tab.pair_requested.connect(self._on_pair_requested)
         self.pending_tab.preview_requested.connect(self._on_preview)
         self.pending_tab.mark_complete_requested.connect(self._on_mark_complete)
+        self.pending_tab.remove_requested.connect(self._on_pending_remove)
 
         # 合并队列标签页
         self.merge_queue_tab.preview_requested.connect(self._on_preview)
         self.merge_queue_tab.tasks_changed.connect(self._update_status)
         self.merge_queue_tab.batch_rename_requested.connect(self._on_batch_rename)
         self.merge_queue_tab.checked_state_changed.connect(self._update_status)
+
+        # muxed 标签页
+        self.muxed_tab.preview_requested.connect(self._on_preview)
+        self.muxed_tab.remux_requested.connect(self._on_remux_requested)
+        self.muxed_tab.tasks_changed.connect(self._update_status)
 
     def _update_status(self):
         """更新界面状态"""
@@ -215,6 +242,7 @@ class MainWindow(QMainWindow):
             len(self.pending_tab.video_files) +
             len(self.pending_tab.audio_files)
         )
+        muxed_count = self.muxed_tab.get_file_count()
         output_dir = self.settings_panel.get_output_dir()
 
         # 更新状态文本
@@ -223,10 +251,23 @@ class MainWindow(QMainWindow):
             parts.append(f"队列: {checked_count}/{task_count}")
         if pending_count > 0:
             parts.append(f"待整理: {pending_count} 个文件")
+        if muxed_count > 0:
+            parts.append(f"已完整: {muxed_count} 个")
         if not parts:
             parts.append("就绪")
 
         self.status_text.setText(" | ".join(parts))
+
+        # 配对按钮状态
+        selected = self.pending_tab.get_selected_infos()
+        videos = [s for s in selected if s.stream_type == StreamType.VIDEO_ONLY]
+        audios = [s for s in selected if s.stream_type == StreamType.AUDIO_ONLY]
+        can_pair = (
+            len(videos) == 1 and len(audios) == 1
+            and len(selected) == 2
+            and not self.is_merging
+        )
+        self.pair_btn.setEnabled(can_pair)
 
         # 更新开始合并按钮状态
         can_merge = (
@@ -259,6 +300,71 @@ class MainWindow(QMainWindow):
         )
         if directory:
             self._add_folder(directory)
+
+    def _on_add_files(self):
+        """添加单个 m4s 文件按钮点击"""
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "选择 m4s 文件",
+            os.path.expanduser("~"),
+            "m4s 文件 (*.m4s);;所有文件 (*)",
+        )
+        if files:
+            self._add_files(files)
+
+    def _add_files(self, filepaths: list[str]):
+        """添加单个文件并分析流类型"""
+        from fisheep_video_merger.utils.ffprobe import analyze_file, StreamType
+
+        self.status_text.setText("正在分析文件...")
+        self.add_folder_btn.setEnabled(False)
+        self.add_files_btn.setEnabled(False)
+
+        new_videos, new_audios, new_muxed = [], [], []
+
+        for fp in filepaths:
+            if not fp.lower().endswith(".m4s"):
+                continue
+            info = analyze_file(fp)
+            self.all_stream_infos.append(info)
+            if info.stream_type == StreamType.VIDEO_ONLY:
+                new_videos.append(info)
+            elif info.stream_type == StreamType.AUDIO_ONLY:
+                new_audios.append(info)
+            elif info.stream_type == StreamType.MUXED:
+                new_muxed.append(info)
+
+        if new_videos or new_audios:
+            self.pending_tab.video_files.extend(new_videos)
+            self.pending_tab.audio_files.extend(new_audios)
+            self.pending_tab._refresh_table()
+
+        if new_muxed:
+            self.muxed_files.extend(new_muxed)
+            self.muxed_tab.set_files(self.muxed_files)
+
+        self.add_folder_btn.setEnabled(True)
+        self.add_files_btn.setEnabled(True)
+        self.clear_btn.setEnabled(True)
+
+        # 自动填充输出目录
+        self._auto_set_output_dir()
+
+        self._update_status()
+
+        total = len(new_videos) + len(new_audios) + len(new_muxed)
+        if total > 0:
+            self.status_text.setText(
+                f"已添加 {total} 个文件 "
+                f"(视频:{len(new_videos)} 音频:{len(new_audios)} 完整:{len(new_muxed)})"
+            )
+
+    def _on_pair_btn(self):
+        """配对按钮点击"""
+        selected = self.pending_tab.get_selected_infos()
+        videos = [s for s in selected if s.stream_type == StreamType.VIDEO_ONLY]
+        audios = [s for s in selected if s.stream_type == StreamType.AUDIO_ONLY]
+        if len(videos) == 1 and len(audios) == 1 and len(selected) == 2:
+            self._on_pair_requested(videos[0], audios[0])
 
     def _add_folder(self, directory: str):
         """添加文件夹并开始扫描"""
@@ -314,6 +420,10 @@ class MainWindow(QMainWindow):
             match_result.pending_audios,
         )
         self.muxed_files = match_result.muxed_files
+        self.muxed_tab.set_files(match_result.muxed_files)
+
+        # 自动填充输出目录
+        self._auto_set_output_dir()
 
         # 更新输出路径
         self._update_all_output_paths()
@@ -362,6 +472,7 @@ class MainWindow(QMainWindow):
             self.muxed_files.clear()
             self.merge_queue_tab.clear_tasks()
             self.pending_tab.clear()
+            self.muxed_tab.clear()
             self.progress_bar.setValue(0)
             self.progress_bar.setFormat("")
             self.task_status_label.setText("")
@@ -369,9 +480,15 @@ class MainWindow(QMainWindow):
 
     def _on_pair_requested(self, video_info: StreamInfo, audio_info: StreamInfo):
         """手动配对请求"""
+        # 自动用文件所在文件夹的名称作为默认输出文件名
+        source_dir = os.path.dirname(video_info.filepath)
+        default_name = os.path.basename(source_dir) if source_dir else ""
+
         dialog = NameInputDialog(
             os.path.basename(video_info.filepath),
             os.path.basename(audio_info.filepath),
+            source_dir,
+            default_name,
             self,
         )
         if dialog.exec() == NameInputDialog.Accepted:
@@ -420,6 +537,52 @@ class MainWindow(QMainWindow):
         self._remove_from_pending(info)
         self._update_status()
 
+    def _on_pending_remove(self, infos: list[StreamInfo]):
+        """从待整理中移除选中的文件"""
+        for info in infos:
+            self._remove_from_pending(info)
+        self._update_status()
+
+    def _on_remux_requested(self, indices: list[int]):
+        """转封装选中的 muxed 文件"""
+        output_dir = self.settings_panel.get_output_dir()
+        if not output_dir:
+            QMessageBox.warning(self, "提示", "请先设置输出目录")
+            return
+
+        fmt = self.settings_panel.get_output_format()
+        infos = self.muxed_tab.infos
+        selected = [infos[i] for i in indices if i < len(infos)]
+
+        if not selected:
+            return
+
+        success_count = 0
+        fail_count = 0
+
+        for info in selected:
+            name = os.path.splitext(os.path.basename(info.filepath))[0]
+            output_path = os.path.join(output_dir, f"{name}.{fmt}")
+
+            success, error = remux_single(
+                info.filepath, output_path,
+                progress_callback=lambda s: self.task_status_label.setText(s),
+            )
+
+            if success:
+                success_count += 1
+                self.muxed_tab.set_status(info.filepath, "success")
+            else:
+                fail_count += 1
+                self.muxed_tab.set_status(info.filepath, "error")
+                logger.error(f"转封装失败: {info.filepath} - {error}")
+
+        QMessageBox.information(
+            self, "转封装完成",
+            f"成功: {success_count} 个\n失败: {fail_count} 个",
+        )
+        self._update_status()
+
     def _on_batch_rename(self, rows: list[int]):
         """批量命名"""
         tasks = self.merge_queue_tab.get_tasks()
@@ -453,6 +616,18 @@ class MainWindow(QMainWindow):
             except ValueError:
                 continue
         return self.root_paths[0] if self.root_paths else ""
+
+    def _auto_set_output_dir(self):
+        """自动填充输出目录（如果未设置）"""
+        from PySide6.QtWidgets import QFileDialog
+        output_dir = self.settings_panel.get_output_dir()
+        if output_dir:
+            return
+        # 用第一个源目录的父级作为默认输出目录
+        if self.root_paths:
+            parent = os.path.dirname(os.path.abspath(self.root_paths[0]))
+            if parent and os.path.isdir(parent):
+                self.settings_panel.dir_edit.setText(parent)
 
     def _update_all_output_paths(self):
         """更新所有任务的预计输出路径"""
@@ -543,6 +718,8 @@ class MainWindow(QMainWindow):
         signals.progress.connect(self._on_merge_progress)
         signals.task_status.connect(self._on_task_status)
         signals.finished.connect(self._on_merge_finished)
+        # 冲突对话框通过 Signal 安全地跨线程传递
+        signals.conflict_requested.connect(self._show_conflict_dialog_sync)
 
         # 使用事件循环和信号来同步处理冲突对话框
         self._conflict_event = threading.Event()
@@ -566,12 +743,10 @@ class MainWindow(QMainWindow):
                 # 处理重名冲突
                 actual_path = output_path
                 if os.path.exists(output_path) and not applied_all:
-                    # 通过信号在主线程显示对话框，等待用户选择
+                    # 通过 Signal 安全地通知主线程显示对话框，等待用户选择
                     self._conflict_event.clear()
                     signals.progress.emit(i + 1, total, f"文件已存在: {output_name}")
-                    # 使用 QTimer.singleShot 在主线程显示对话框
-                    from PySide6.QtCore import QTimer
-                    QTimer.singleShot(0, lambda p=output_path: self._show_conflict_dialog_sync(p))
+                    signals.conflict_requested.emit(output_path)
                     self._conflict_event.wait()  # 等待用户选择
 
                     strategy = self._conflict_result[0]
@@ -736,8 +911,13 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event: QDropEvent):
         """拖拽放下事件"""
         urls = event.mimeData().urls()
+        m4s_files = []
         for url in urls:
             if url.isLocalFile():
                 path = url.toLocalFile()
                 if os.path.isdir(path):
                     self._add_folder(path)
+                elif path.lower().endswith(".m4s"):
+                    m4s_files.append(path)
+        if m4s_files:
+            self._add_files(m4s_files)

@@ -30,23 +30,40 @@ class StreamInfo:
     error: Optional[str] = None
 
 
+_probe_path: Optional[str] = None
+
+
+def _detect_probe_path() -> str:
+    """检测系统中可用的流分析工具，优先 ffprobe，回退到 ffmpeg"""
+    global _probe_path
+    if _probe_path is not None:
+        return _probe_path
+
+    for candidate in ["ffprobe", "ffmpeg"]:
+        try:
+            subprocess.run(
+                [candidate, "-version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            _probe_path = candidate
+            return candidate
+        except (subprocess.SubprocessError, FileNotFoundError):
+            continue
+
+    _probe_path = ""
+    return ""
+
+
 def get_ffprobe_path() -> str:
-    """获取 ffprobe 可执行文件路径"""
-    return "ffprobe"
+    """获取流分析工具路径（ffprobe 或 ffmpeg）"""
+    return _detect_probe_path()
 
 
 def check_ffmpeg_available() -> bool:
     """检查 ffmpeg/ffprobe 是否可用"""
-    try:
-        subprocess.run(
-            ["ffprobe", "-version"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True,
-        )
-        return True
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return False
+    return bool(_detect_probe_path())
 
 
 def analyze_file(filepath: str) -> StreamInfo:
@@ -54,6 +71,7 @@ def analyze_file(filepath: str) -> StreamInfo:
     分析单个 m4s 文件的流类型
 
     调用 ffprobe 获取文件的流信息，判断是纯视频、纯音频还是混合流。
+    若 ffprobe 不可用则回退使用 ffmpeg。
 
     Args:
         filepath: m4s 文件的绝对路径
@@ -62,13 +80,34 @@ def analyze_file(filepath: str) -> StreamInfo:
         StreamInfo 对象，包含流类型分析结果
     """
     try:
-        cmd = [
-            get_ffprobe_path(),
-            "-v", "quiet",
-            "-print_format", "json",
-            "-show_streams",
-            filepath,
-        ]
+        probe = get_ffprobe_path()
+        if not probe:
+            return StreamInfo(
+                filepath=filepath,
+                stream_type=StreamType.UNKNOWN,
+                has_video=False,
+                has_audio=False,
+                error="未检测到 ffmpeg/ffprobe",
+            )
+
+        # ffprobe 和 ffmpeg 的参数格式不同
+        if probe == "ffprobe":
+            cmd = [
+                probe,
+                "-v", "quiet",
+                "-print_format", "json",
+                "-show_streams",
+                filepath,
+            ]
+        else:
+            # ffmpeg 需要 -i 指定输入
+            cmd = [
+                probe,
+                "-v", "quiet",
+                "-print_format", "json",
+                "-show_streams",
+                "-i", filepath,
+            ]
         result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,

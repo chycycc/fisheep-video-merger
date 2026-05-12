@@ -16,6 +16,7 @@ build/
 # IDE
 .vscode/
 .idea/
+.history/
 
 # 操作系统
 .DS_Store

@@ -128,6 +128,85 @@ def handle_conflict(
     return output_path, ConflictStrategy.OVERWRITE, False
 
 
+def build_remux_command(
+    input_file: str,
+    output_path: str,
+) -> list[str]:
+    """
+    构建 ffmpeg 转封装命令（不改编码，仅换容器格式）
+
+    Args:
+        input_file: 输入文件路径
+        output_path: 输出文件路径
+
+    Returns:
+        ffmpeg 命令参数列表
+    """
+    return [
+        get_ffmpeg_path(),
+        "-i", input_file,
+        "-c", "copy",
+        "-map", "0",
+        "-y",
+        output_path,
+    ]
+
+
+def remux_single(
+    input_file: str,
+    output_path: str,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> tuple[bool, Optional[str]]:
+    """
+    执行单个 muxed 文件的转封装
+
+    Args:
+        input_file: 输入文件路径
+        output_path: 输出文件路径
+        progress_callback: 进度回调
+
+    Returns:
+        (成功标志, 错误信息)
+    """
+    output_dir = os.path.dirname(output_path)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except OSError as e:
+        return False, f"创建输出目录失败: {e}"
+
+    cmd = build_remux_command(input_file, output_path)
+
+    if progress_callback:
+        progress_callback(f"正在转封装: {os.path.basename(output_path)}")
+
+    logger.info(f"执行转封装: {' '.join(cmd)}")
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+        )
+        _, stderr = process.communicate(timeout=3600)
+
+        if process.returncode == 0:
+            logger.info(f"转封装成功: {output_path}")
+            return True, None
+        else:
+            error_msg = stderr.decode("utf-8", errors="replace")[:500]
+            logger.error(f"转封装失败: {output_path} - {error_msg}")
+            return False, error_msg
+    except subprocess.TimeoutExpired:
+        process.kill()
+        msg = "ffmpeg 执行超时（超过1小时）"
+        logger.error(msg)
+        return False, msg
+    except Exception as e:
+        logger.error(f"转封装异常: {e}")
+        return False, str(e)
+
+
 def merge_single(
     video_file: str,
     audio_file: str,

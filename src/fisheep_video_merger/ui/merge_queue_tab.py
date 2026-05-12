@@ -128,12 +128,39 @@ class MergeQueueTab(QWidget):
         self.tasks_changed.emit()
 
     def update_task_status(self, index: int, success: bool, error_msg: Optional[str] = None):
-        """更新任务状态"""
+        """更新单个任务状态（增量更新，不重建整个表格）"""
         if 0 <= index < len(self.tasks):
             task = self.tasks[index]
             task.status = "success" if success else "error"
             task.error_message = error_msg
-            self._refresh_table()
+            self._update_row(index)
+
+    def _update_row(self, row: int):
+        """增量更新指定行的显示"""
+        if row >= len(self.tasks) or row >= self.table.rowCount():
+            return
+        task = self.tasks[row]
+        self.table.blockSignals(True)
+
+        # 选择框列
+        check_item = self.table.item(row, self.COL_CHECK)
+        if check_item:
+            if task.status == "pending":
+                check_item.setCheckState(Qt.Checked)
+            else:
+                check_item.setCheckState(Qt.Unchecked)
+
+        # 状态
+        status_text = "✅" if task.status == "success" else (
+            "❌" if task.status == "error" else "⏳"
+        )
+        status_item = self.table.item(row, self.COL_STATUS)
+        if status_item:
+            status_item.setText(status_text)
+            if task.status == "error":
+                status_item.setToolTip(task.error_message or "未知错误")
+
+        self.table.blockSignals(False)
 
     def _refresh_table(self):
         """刷新表格显示"""
