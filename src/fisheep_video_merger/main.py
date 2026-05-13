@@ -16,11 +16,16 @@ from fisheep_video_merger.utils.logger import setup_logger, get_logger
 
 def main():
     """主函数"""
-    # 初始化日志
-    log_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "logs",
-    )
+    # 初始化日志目录 (自动适配 PyInstaller 打包环境与源码开发环境)
+    if getattr(sys, "frozen", False):
+        # 运行在打包后的单 EXE 中，日志文件夹生成在 EXE 同级目录下
+        base_dir = os.path.dirname(sys.executable)
+        log_dir = os.path.join(base_dir, "logs")
+    else:
+        # 源码开发环境运行，存放在 src 同级父目录的 logs 目录中
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        log_dir = os.path.abspath(os.path.join(base_dir, "..", "..", "logs"))
+
     setup_logger(log_dir)
     logger = get_logger()
     logger.info(f"启动 {__appname__} v{__version__}")
