@@ -212,14 +212,16 @@ class MergeQueueTab(QWidget):
                 name_item.setToolTip("疑似多集，请确认名称")
             self.table.setItem(i, self.COL_OUTPUT_NAME, name_item)
 
-            # 源视频文件
-            video_item = QTableWidgetItem(task.video_file)
+            # 源视频文件 (U-4: 仅显纯文件名防霸屏)
+            video_name = os.path.basename(task.video_file)
+            video_item = QTableWidgetItem(video_name)
             video_item.setFlags(video_item.flags() & ~Qt.ItemIsEditable)
             video_item.setToolTip(task.video_file)
             self.table.setItem(i, self.COL_VIDEO, video_item)
 
-            # 源音频文件
-            audio_item = QTableWidgetItem(task.audio_file)
+            # 源音频文件 (U-4: 仅显纯文件名防霸屏)
+            audio_name = os.path.basename(task.audio_file)
+            audio_item = QTableWidgetItem(audio_name)
             audio_item.setFlags(audio_item.flags() & ~Qt.ItemIsEditable)
             audio_item.setToolTip(task.audio_file)
             self.table.setItem(i, self.COL_AUDIO, audio_item)
@@ -235,15 +237,15 @@ class MergeQueueTab(QWidget):
 
         self.table.blockSignals(False)
 
-    def update_output_paths(self, paths: list[str]):
-        """更新预计输出路径列"""
+    def update_output_paths(self, paths_with_display: list[tuple[str, str]]):
+        """更新预计输出路径列 (U-4)"""
         self.table.blockSignals(True)
-        for i, path in enumerate(paths):
+        for i, (full_path, display_path) in enumerate(paths_with_display):
             if i < self.table.rowCount():
                 item = self.table.item(i, self.COL_OUTPUT_PATH)
                 if item:
-                    item.setText(path)
-                    item.setToolTip(path)
+                    item.setText(display_path)
+                    item.setToolTip(full_path)
         self.table.blockSignals(False)
 
     def _on_item_changed(self, item: QTableWidgetItem):

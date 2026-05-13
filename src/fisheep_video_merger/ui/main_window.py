@@ -244,6 +244,8 @@ class MainWindow(QMainWindow):
         self.pending_tab.preview_requested.connect(self._on_preview)
         self.pending_tab.mark_complete_requested.connect(self._on_mark_complete)
         self.pending_tab.remove_requested.connect(self._on_pending_remove)
+        # U-2: 监听待整理表格选择事件，实时刷新“配对所选”按钮可用状态
+        self.pending_tab.table.itemSelectionChanged.connect(self._update_status)
 
         # 合并队列标签页
         self.merge_queue_tab.preview_requested.connect(self._on_preview)
@@ -323,23 +325,14 @@ class MainWindow(QMainWindow):
             self._save_workspace_state()
 
     def _on_add_folder(self):
-        """添加文件夹按钮点击（支持多选）"""
-        dialog = QFileDialog(self)
-        dialog.setWindowTitle("选择包含 m4s 文件的文件夹")
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.ShowDirsOnly, True)
-        dialog.setOption(QFileDialog.DontUseNativeDialog, True)
-        dialog.setDirectory(os.path.expanduser("~"))
-
-        # 获取内部列表/树视图设置多选
-        for view_type in [QListView, QTreeView]:
-            for v in dialog.findChildren(view_type):
-                v.setSelectionMode(QAbstractItemView.ExtendedSelection)
-
-        if dialog.exec() == QFileDialog.Accepted:
-            directories = dialog.selectedFiles()
-            if directories:
-                self._add_folders(directories)
+        """添加文件夹按钮点击 (U-1: 还原为系统原生单选，保障颜值与一致性)"""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "选择包含 m4s 文件的文件夹",
+            os.path.expanduser("~")
+        )
+        if directory:
+            self._add_folders([directory])
 
     def _on_add_files(self):
         """添加单个 m4s 文件按钮点击"""
@@ -752,18 +745,23 @@ class MainWindow(QMainWindow):
         if not output_dir:
             return
 
-        paths = []
+        paths_with_display = []
         for task in self.merge_queue_tab.get_tasks():
-            path = generate_output_path(
+            full_path = generate_output_path(
                 output_dir,
                 task.source_dir,
                 task.root_path,
                 task.output_name,
                 fmt,
             )
-            paths.append(path)
+            # U-4: 计算相对路径瘦身展示
+            try:
+                display_path = os.path.relpath(full_path, output_dir)
+            except Exception:
+                display_path = os.path.basename(full_path)
+            paths_with_display.append((full_path, display_path))
 
-        self.merge_queue_tab.update_output_paths(paths)
+        self.merge_queue_tab.update_output_paths(paths_with_display)
 
     def _on_start_merge(self):
         """开始合并按钮点击"""
@@ -979,6 +977,26 @@ class MainWindow(QMainWindow):
 
         success_count = sum(1 for r in results if r.success)
         fail_count = sum(1 for r in results if not r.success)
+
+        # U-3: 将所有合并成功的成品视频即时追加收录到“已完整”标签页列表中
+        from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
+        newly_muxed = []
+        for r in results:
+            if r.success and os.path.exists(r.output_path):
+                # 构造 MUXED 流描述（因合并成功，必定同时包含音视频流），免去 ffprobe 开销
+                info = StreamInfo(
+                    filepath=os.path.abspath(r.output_path),
+                    stream_type=StreamType.MUXED,
+                    has_video=True,
+                    has_audio=True,
+                )
+                # 查重避免重复收录
+                if not any(m.filepath == info.filepath for m in self.muxed_files):
+                    newly_muxed.append(info)
+
+        if newly_muxed:
+            self.muxed_files.extend(newly_muxed)
+            self.muxed_tab.set_files(self.muxed_files)
 
         # 显示结果摘要
         summary = ResultSummaryDialog(success_count, fail_count, self)
