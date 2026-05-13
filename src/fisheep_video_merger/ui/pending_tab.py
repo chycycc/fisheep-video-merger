@@ -9,14 +9,16 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
     QAbstractItemView,
     QMenu,
+    QLineEdit,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QBrush, QColor
 
 from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 
@@ -50,6 +52,16 @@ class PendingTab(QWidget):
         """初始化界面"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        # 搜索栏
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(4, 4, 4, 4)
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("🔍 搜索文件名或文件夹...")
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.textChanged.connect(self._on_search)
+        search_layout.addWidget(self.search_edit)
+        layout.addLayout(search_layout)
 
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.HEADERS))
@@ -104,22 +116,46 @@ class PendingTab(QWidget):
 
         self.table.setRowCount(len(all_files))
 
+        # 统计目录文件配对状况以便推荐
+        from collections import defaultdict
+        dir_counts = defaultdict(lambda: {"video": 0, "audio": 0})
+        for st, info in all_files:
+            d = os.path.dirname(info.filepath)
+            if st == StreamType.VIDEO_ONLY:
+                dir_counts[d]["video"] += 1
+            elif st == StreamType.AUDIO_ONLY:
+                dir_counts[d]["audio"] += 1
+
         for i, (stream_type, info) in enumerate(all_files):
+            f_dir = os.path.dirname(info.filepath)
+            recommended = (
+                dir_counts[f_dir]["video"] == 1 and
+                dir_counts[f_dir]["audio"] == 1
+            )
+            bg = QBrush(QColor(235, 255, 235)) if recommended else None
+
             # 类型图标
             icon = "🎬" if stream_type == StreamType.VIDEO_ONLY else "🔊"
             type_item = QTableWidgetItem(icon)
             type_item.setTextAlignment(Qt.AlignCenter)
+            if bg:
+                type_item.setBackground(bg)
+                type_item.setToolTip("💡 推荐配对：同文件夹内唯一的音视频组合")
             self.table.setItem(i, self.COL_TYPE, type_item)
 
             # 文件名
             name_item = QTableWidgetItem(os.path.basename(info.filepath))
             name_item.setToolTip(info.filepath)
+            if bg:
+                name_item.setBackground(bg)
             self.table.setItem(i, self.COL_FILENAME, name_item)
 
             # 所在文件夹
             folder = os.path.dirname(info.filepath)
             folder_item = QTableWidgetItem(folder)
             folder_item.setToolTip(folder)
+            if bg:
+                folder_item.setBackground(bg)
             self.table.setItem(i, self.COL_FOLDER, folder_item)
 
             # 文件大小
@@ -136,11 +172,17 @@ class PendingTab(QWidget):
             size_item = QTableWidgetItem(size_text)
             size_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             size_item.setFlags(size_item.flags() & ~Qt.ItemIsEditable)
+            if bg:
+                size_item.setBackground(bg)
             self.table.setItem(i, self.COL_SIZE, size_item)
 
             # 存储原始数据用于检索
             type_item.setData(Qt.UserRole, info.filepath)
             type_item.setData(Qt.UserRole + 1, stream_type.value)
+
+        # 重新应用当前搜索过滤
+        if hasattr(self, "search_edit") and self.search_edit.text():
+            self._on_search(self.search_edit.text())
 
     def get_selected_infos(self) -> list[StreamInfo]:
         """获取选中的文件信息列表"""
@@ -213,3 +255,21 @@ class PendingTab(QWidget):
             menu.addAction(mark_action)
 
         menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _on_search(self, text: str):
+        """过滤搜索"""
+        text = text.strip().lower()
+        for row in range(self.table.rowCount()):
+            filename_item = self.table.item(row, self.COL_FILENAME)
+            folder_item = self.table.item(row, self.COL_FOLDER)
+
+            match = False
+            if not text:
+                match = True
+            else:
+                if filename_item and text in filename_item.text().lower():
+                    match = True
+                elif folder_item and text in folder_item.text().lower():
+                    match = True
+
+            self.table.setRowHidden(row, not match)

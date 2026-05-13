@@ -10,11 +10,13 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
     QAbstractItemView,
     QMenu,
+    QLineEdit,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QBrush, QAction
@@ -48,6 +50,16 @@ class MergeQueueTab(QWidget):
         """初始化界面"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        # 搜索栏
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(4, 4, 4, 4)
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("🔍 搜索输出文件名或源文件...")
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.textChanged.connect(self._on_search)
+        search_layout.addWidget(self.search_edit)
+        layout.addLayout(search_layout)
 
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.HEADERS))
@@ -217,6 +229,10 @@ class MergeQueueTab(QWidget):
             path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(i, self.COL_OUTPUT_PATH, path_item)
 
+        # 重新应用当前搜索过滤
+        if hasattr(self, "search_edit") and self.search_edit.text():
+            self._on_search(self.search_edit.text())
+
         self.table.blockSignals(False)
 
     def update_output_paths(self, paths: list[str]):
@@ -354,3 +370,24 @@ class MergeQueueTab(QWidget):
     def has_tasks(self) -> bool:
         """是否有任务"""
         return len(self.tasks) > 0
+
+    def _on_search(self, text: str):
+        """过滤搜索"""
+        text = text.strip().lower()
+        for row in range(self.table.rowCount()):
+            output_item = self.table.item(row, self.COL_OUTPUT_NAME)
+            video_item = self.table.item(row, self.COL_VIDEO)
+            audio_item = self.table.item(row, self.COL_AUDIO)
+
+            match = False
+            if not text:
+                match = True
+            else:
+                if output_item and text in output_item.text().lower():
+                    match = True
+                elif video_item and text in video_item.text().lower():
+                    match = True
+                elif audio_item and text in audio_item.text().lower():
+                    match = True
+
+            self.table.setRowHidden(row, not match)

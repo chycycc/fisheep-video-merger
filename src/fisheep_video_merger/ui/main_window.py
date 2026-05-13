@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QMessageBox,
     QApplication,
+    QListView,
+    QTreeView,
+    QAbstractItemView,
 )
 from PySide6.QtCore import Qt, Signal, QObject, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence
@@ -125,6 +128,11 @@ class MainWindow(QMainWindow):
         self.pair_btn.setEnabled(False)
         self.pair_btn.clicked.connect(self._on_pair_btn)
         toolbar_layout.addWidget(self.pair_btn)
+
+        self.auto_pair_btn = QPushButton("⚡ 智能配对待整理")
+        self.auto_pair_btn.setEnabled(False)
+        self.auto_pair_btn.clicked.connect(self._on_auto_match_pending)
+        toolbar_layout.addWidget(self.auto_pair_btn)
 
         self.clear_btn = QPushButton("🧹 清空列表")
         self.clear_btn.clicked.connect(self._on_clear)
@@ -269,6 +277,10 @@ class MainWindow(QMainWindow):
         )
         self.pair_btn.setEnabled(can_pair)
 
+        # 智能配对待整理按钮状态
+        has_pending = pending_count > 0
+        self.auto_pair_btn.setEnabled(has_pending and not self.is_merging)
+
         # 更新开始合并按钮状态
         can_merge = (
             checked_count > 0
@@ -293,13 +305,23 @@ class MainWindow(QMainWindow):
         self._update_all_output_paths()
 
     def _on_add_folder(self):
-        """添加文件夹按钮点击"""
-        directory = QFileDialog.getExistingDirectory(
-            self, "选择包含 m4s 文件的文件夹",
-            os.path.expanduser("~"),
-        )
-        if directory:
-            self._add_folder(directory)
+        """添加文件夹按钮点击（支持多选）"""
+        dialog = QFileDialog(self)
+        dialog.setWindowTitle("选择包含 m4s 文件的文件夹")
+        dialog.setFileMode(QFileDialog.Directory)
+        dialog.setOption(QFileDialog.ShowDirsOnly, True)
+        dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+        dialog.setDirectory(os.path.expanduser("~"))
+
+        # 获取内部列表/树视图设置多选
+        for view_type in [QListView, QTreeView]:
+            for v in dialog.findChildren(view_type):
+                v.setSelectionMode(QAbstractItemView.ExtendedSelection)
+
+        if dialog.exec() == QFileDialog.Accepted:
+            directories = dialog.selectedFiles()
+            if directories:
+                self._add_folders(directories)
 
     def _on_add_files(self):
         """添加单个 m4s 文件按钮点击"""
@@ -366,13 +388,78 @@ class MainWindow(QMainWindow):
         if len(videos) == 1 and len(audios) == 1 and len(selected) == 2:
             self._on_pair_requested(videos[0], audios[0])
 
-    def _add_folder(self, directory: str):
-        """添加文件夹并开始扫描"""
-        if directory in self.root_paths:
-            QMessageBox.information(self, "提示", "该文件夹已在列表中")
+    def _on_auto_match_pending(self):
+        """一键配对当前待整理列表中的所有可能文件"""
+        pending_videos = self.pending_tab.video_files
+        pending_audios = self.pending_tab.audio_files
+
+        if not pending_videos and not pending_audios:
+            QMessageBox.information(self, "提示", "待整理列表中没有零散文件。")
             return
 
-        self.root_paths.append(directory)
+        pending_infos = pending_videos + pending_audios
+
+        # 调用核心 auto_match 匹配剩余文件
+        match_result = auto_match(pending_infos, self.root_paths)
+
+        if not match_result.auto_tasks:
+            QMessageBox.information(
+                self, "智能配对",
+                "未在待整理列表中找到可自动配对的组合。\n\n"
+                "【配对规则】：同一文件夹下有唯一的视频和音频对，或者音视频数量完全等同。"
+            )
+            return
+
+        # 将新配对的追加进入主合并队列
+        for task in match_result.auto_tasks:
+            self.merge_queue_tab.add_task(task)
+
+        # 将待整理列表更新为排除配对后的纯净列表
+        self.pending_tab.set_files(
+            match_result.pending_videos,
+            match_result.pending_audios,
+        )
+
+        # 若产生新的 muxed（已完整音视频）文件则归集
+        if match_result.muxed_files:
+            for mf in match_result.muxed_files:
+                if mf.filepath not in [x.filepath for x in self.muxed_files]:
+                    self.muxed_files.append(mf)
+            self.muxed_tab.set_files(self.muxed_files)
+
+        self._update_all_output_paths()
+        self._update_status()
+
+        QMessageBox.information(
+            self, "智能配对",
+            f"智能配对成功！\n\n已自动匹配并新增了 {len(match_result.auto_tasks)} 个合并任务。"
+        )
+
+    def _add_folders(self, directories: list[str]):
+        """批量添加文件夹并开始扫描"""
+        added_count = 0
+        duplicate_folders = []
+
+        for directory in directories:
+            directory = os.path.abspath(directory)
+            if not os.path.isdir(directory):
+                continue
+
+            if directory in self.root_paths:
+                duplicate_folders.append(os.path.basename(directory))
+                continue
+
+            self.root_paths.append(directory)
+            added_count += 1
+
+        if added_count == 0:
+            if duplicate_folders:
+                QMessageBox.information(
+                    self, "提示", 
+                    f"文件夹已在列表中:\n{', '.join(duplicate_folders)}"
+                )
+            return
+
         self.status_text.setText("正在扫描...")
         self.add_folder_btn.setEnabled(False)
         self.clear_btn.setEnabled(False)
@@ -912,12 +999,16 @@ class MainWindow(QMainWindow):
         """拖拽放下事件"""
         urls = event.mimeData().urls()
         m4s_files = []
+        folders = []
         for url in urls:
             if url.isLocalFile():
                 path = url.toLocalFile()
                 if os.path.isdir(path):
-                    self._add_folder(path)
+                    folders.append(path)
                 elif path.lower().endswith(".m4s"):
                     m4s_files.append(path)
+        
+        if folders:
+            self._add_folders(folders)
         if m4s_files:
             self._add_files(m4s_files)
