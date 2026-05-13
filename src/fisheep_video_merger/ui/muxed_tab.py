@@ -67,9 +67,16 @@ class MuxedTab(QWidget):
         header.setSectionResizeMode(self.COL_CHECK, QHeaderView.Fixed)
         self.table.setColumnWidth(self.COL_CHECK, 30)
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Stretch)
-        header.setSectionResizeMode(self.COL_CODECS, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(self.COL_OUTPUT, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Interactive)
+        header.setSectionResizeMode(self.COL_CODECS, QHeaderView.Interactive)
+        header.setSectionResizeMode(self.COL_OUTPUT, QHeaderView.Interactive)
+
+        # 设置合理的初始缺省列宽，允许用户之后自由拉伸
+        self.table.setColumnWidth(self.COL_FILENAME, 250)
+        self.table.setColumnWidth(self.COL_CODECS, 120)
+        self.table.setColumnWidth(self.COL_OUTPUT, 250)
+
+        header.setStretchLastSection(True)
 
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)

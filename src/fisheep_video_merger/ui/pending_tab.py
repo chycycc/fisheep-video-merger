@@ -70,9 +70,10 @@ class PendingTab(QWidget):
         # 表头拉伸模式
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(self.COL_TYPE, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Interactive)
         header.setSectionResizeMode(self.COL_FOLDER, QHeaderView.Stretch)
         header.setSectionResizeMode(self.COL_SIZE, QHeaderView.Fixed)
+        self.table.setColumnWidth(self.COL_FILENAME, 350)
         self.table.setColumnWidth(self.COL_SIZE, 80)
 
         # 选择模式
