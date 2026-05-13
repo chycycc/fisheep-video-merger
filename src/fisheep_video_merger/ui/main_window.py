@@ -26,7 +26,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
 )
 from PySide6.QtCore import Qt, Signal, QObject, Slot, QStandardPaths
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence, QCloseEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence, QCloseEvent, QGuiApplication
+from fisheep_video_merger.utils.theme import apply_theme
 
 from fisheep_video_merger.core.matcher import (
     MergeTask,
@@ -103,6 +104,9 @@ class MainWindow(QMainWindow):
 
         # 恢复工作区状态 (E-2)
         self._load_workspace_state()
+        
+        # 初始化视觉主题 (D-5)
+        self._on_theme_changed()
 
         # 更新状态
         self._update_status()
@@ -228,6 +232,12 @@ class MainWindow(QMainWindow):
         self.settings_panel.start_merge_clicked.connect(self._on_start_merge)
         self.settings_panel.settings_changed.connect(self._update_status)
         self.settings_panel.settings_changed.connect(self._update_all_output_paths)
+        # 监听外观主题变更与系统级明暗反转信号
+        self.settings_panel.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        try:
+            QGuiApplication.styleHints().colorSchemeChanged.connect(self._on_theme_changed)
+        except Exception:
+            pass
 
         # 待整理标签页
         self.pending_tab.pair_requested.connect(self._on_pair_requested)
@@ -664,6 +674,16 @@ class MainWindow(QMainWindow):
                 progress_callback=lambda s: self.task_status_label.setText(s),
             )
 
+            # 记录转封装流水历史
+            self._record_merge_history(
+                video_path=info.filepath,
+                audio_path="",
+                output_path=output_path,
+                success=success,
+                error=error,
+                op_type="remux",
+            )
+
             if success:
                 success_count += 1
                 self.muxed_tab.set_status(info.filepath, "success")
@@ -890,9 +910,18 @@ class MainWindow(QMainWindow):
                                 break
                             counter += 1
 
-                # 执行合并
                 success, error = merge_single(
                     video_file, audio_file, actual_path,
+                )
+
+                # 记录合并流水历史
+                self._record_merge_history(
+                    video_path=video_file,
+                    audio_path=audio_file,
+                    output_path=actual_path,
+                    success=success,
+                    error=error,
+                    op_type="merge",
                 )
 
                 result = MergeResult(
@@ -1185,3 +1214,33 @@ class MainWindow(QMainWindow):
         if current_widget and hasattr(current_widget, "search_edit"):
             current_widget.search_edit.setFocus()
             current_widget.search_edit.selectAll()
+
+    def _on_theme_changed(self):
+        """当用户修改外观配置或操作系统夜间模式开启时，重绘全局界面外观"""
+        apply_theme(self.settings_panel.get_theme())
+
+    def _record_merge_history(self, video_path: str, audio_path: str, output_path: str, success: bool, error: str = None, op_type: str = "merge"):
+        """追加一条合并/转封装流水历史记录到本地文件中 (D-1)"""
+        try:
+            import json
+            from datetime import datetime
+            
+            app_data_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+            if not app_data_dir:
+                app_data_dir = os.path.abspath(os.path.expanduser("~/.fisheep_video_merger"))
+            os.makedirs(app_data_dir, exist_ok=True)
+            filepath = os.path.join(app_data_dir, "merge_history.jsonl")
+            
+            record = {
+                "timestamp": datetime.now().isoformat(),
+                "op_type": op_type,
+                "video": video_path,
+                "audio": audio_path,
+                "output": output_path,
+                "status": "success" if success else "failed",
+                "error": error,
+            }
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.warning(f"历史流水写入失败: {e}")

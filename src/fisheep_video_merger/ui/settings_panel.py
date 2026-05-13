@@ -53,6 +53,18 @@ class SettingsPanel(QWidget):
 
         layout.addWidget(format_group)
 
+        # === 组1.5：界面主题 ===
+        theme_group = QGroupBox("界面主题")
+        theme_layout = QVBoxLayout(theme_group)
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["跟随系统", "明亮模式", "深色护眼"])
+        self.theme_combo.setCurrentIndex(0)
+        self.theme_combo.currentIndexChanged.connect(lambda: self.settings_changed.emit())
+        theme_layout.addWidget(self.theme_combo)
+
+        layout.addWidget(theme_group)
+
         # === 组2：输出目录 ===
         dir_group = QGroupBox("输出目录")
         dir_layout = QVBoxLayout(dir_group)
@@ -140,6 +152,11 @@ class SettingsPanel(QWidget):
         """是否允许删除源文件"""
         return self.delete_cb.isChecked()
 
+    def get_theme(self) -> str:
+        """获取选中的外观主题：system / light / dark"""
+        # 返回映射到持久化存储的底层键名
+        return ["system", "light", "dark"][self.theme_combo.currentIndex()]
+
     def set_status(self, text: str, is_error: bool = False):
         """设置状态文本"""
         self.status_label.setText(text)
@@ -158,6 +175,7 @@ class SettingsPanel(QWidget):
             "output_format": self.get_output_format(),
             "output_dir": self.get_output_dir(),
             "delete_allowed": self.is_delete_allowed(),
+            "theme": self.get_theme(),
         }
 
     def load_settings_dict(self, data: dict):
@@ -173,5 +191,10 @@ class SettingsPanel(QWidget):
             self.dir_edit.setText(data.get("output_dir", ""))
             
             self.delete_cb.setChecked(bool(data.get("delete_allowed", False)))
+
+            # 载入主题状态
+            saved_theme = data.get("theme", "system")
+            theme_mapping = {"system": 0, "light": 1, "dark": 2}
+            self.theme_combo.setCurrentIndex(theme_mapping.get(saved_theme, 0))
         finally:
             self.blockSignals(False)
