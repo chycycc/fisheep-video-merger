@@ -221,7 +221,7 @@ class NameInputDialog(QDialog):
 
         layout.addLayout(name_row)
 
-        hint = QLabel("提示：输出文件名默认取自文件所在文件夹的名称，可点击「来源文件夹」重新选择")
+        hint = QLabel("提示：软件已智能推算最佳文件名，如不符预期，可点击「来源文件夹」快速还原为上级目录名。")
         hint.setWordWrap(True)
         hint.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(hint)

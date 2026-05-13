@@ -585,9 +585,31 @@ class MainWindow(QMainWindow):
 
     def _on_pair_requested(self, video_info: StreamInfo, audio_info: StreamInfo):
         """手动配对请求"""
-        # 自动用文件所在文件夹的名称作为默认输出文件名
+        # 💡 智能文件名自适应探测器 (同时完美兼顾官方纯数字下载名与第三方中文有义下载名)
+        import re
+        video_filename = os.path.basename(video_info.filepath)
+        video_stem, _ = os.path.splitext(video_filename)
+        
+        # 1. 嗅探该文件名是否属于无意义的“通用通货”（如 30280 / video / audio）
+        is_generic = False
+        if re.match(r"^\d+$", video_stem): # 纯数字流 ID
+            is_generic = True
+        elif video_stem.lower() in ["video", "audio", "m4s"]: # 纯通用类别词
+            is_generic = True
+            
+        # 2. 获取备用方案（父文件夹名）
         source_dir = os.path.dirname(video_info.filepath)
-        default_name = os.path.basename(source_dir) if source_dir else ""
+        folder_name = os.path.basename(source_dir) if source_dir else ""
+        
+        # 3. 做出智能博弈决策
+        if is_generic and folder_name:
+            # 属于无具体含义的通用流名，强力回退至父目录作为输出名（官方下载架构下最优）
+            default_name = folder_name
+        else:
+            # 属于包含具体文本的特征文件名（如三方下载工具直接带了全名）
+            # 自动执行「去噪切边」，把尾部类似 _2, _1, _video 的无用杂音剪掉，留存完美核心
+            clean_name = re.sub(r"(_[0-9]+|_[a-zA-Z]+)$", "", video_stem)
+            default_name = clean_name if clean_name else video_stem
 
         dialog = NameInputDialog(
             os.path.basename(video_info.filepath),
