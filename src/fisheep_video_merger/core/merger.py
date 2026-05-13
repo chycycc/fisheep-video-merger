@@ -152,6 +152,103 @@ def build_remux_command(
     ]
 
 
+def _run_ffmpeg_with_progress(
+    cmd: list[str],
+    output_path: str,
+    progress_callback: Optional[Callable[[str], None]],
+    op_name: str = "合并",
+) -> tuple[bool, Optional[str]]:
+    """
+    在后台运行 ffmpeg 并实时解析输出生成带百分比的进度
+
+    Args:
+        cmd: ffmpeg 命令参数列表
+        output_path: 输出路径
+        progress_callback: 进度回调
+        op_name: 操作名称，如 "合并" 或 "转封装"
+
+    Returns:
+        (成功标志, 错误信息)
+    """
+    import re
+    filename = os.path.basename(output_path)
+    # 正则表达式匹配 Duration 和 time= 进度
+    duration_regex = re.compile(r"Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
+    time_regex = re.compile(r"time=\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
+
+    def to_seconds(match) -> float:
+        h, m, s, ms = match.groups()
+        return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 100.0
+
+    total_seconds = 0.0
+    full_stderr = []
+
+    logger.info(f"开始执行 ffmpeg {op_name}: {' '.join(cmd)}")
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        # 逐字符读取以正确捕获 \r 字符（ffmpeg 进度输出）
+        buffer = ""
+        while True:
+            char = process.stderr.read(1)
+            if not char:
+                break
+            if char in ("\r", "\n"):
+                line = buffer.strip()
+                buffer = ""
+                if not line:
+                    continue
+                
+                full_stderr.append(line)
+
+                # 1. 从最初的控制台流信息中匹配视频/音频时长
+                if total_seconds == 0.0:
+                    dur_match = duration_regex.search(line)
+                    if dur_match:
+                        total_seconds = to_seconds(dur_match)
+
+                # 2. 实时流复制进程中解析 time=，推送百分比进度
+                if total_seconds > 0.0:
+                    t_match = time_regex.search(line)
+                    if t_match:
+                        curr = to_seconds(t_match)
+                        pct = min(99.9, (curr / total_seconds) * 100.0)
+                        if progress_callback:
+                            progress_callback(f"正在{op_name}: {filename} ({pct:.1f}%)")
+            else:
+                buffer += char
+
+        # 等待进程优雅退出
+        process.wait(timeout=30)
+        
+        if process.returncode == 0:
+            logger.info(f"{op_name}成功: {output_path}")
+            return True, None
+        else:
+            # 回退几行 stderr 寻找具体的 FFmpeg 错误反馈
+            tail = "\n".join(full_stderr[-5:])
+            logger.error(f"{op_name}失败: {output_path}\n{tail}")
+            return False, tail[:500]
+
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except:
+            pass
+        return False, "ffmpeg 进程执行超时"
+    except Exception as e:
+        logger.error(f"{op_name}执行时发生异常: {e}")
+        return False, str(e)
+
+
 def remux_single(
     input_file: str,
     output_path: str,
@@ -175,36 +272,11 @@ def remux_single(
         return False, f"创建输出目录失败: {e}"
 
     cmd = build_remux_command(input_file, output_path)
-
+    
     if progress_callback:
-        progress_callback(f"正在转封装: {os.path.basename(output_path)}")
+        progress_callback(f"正在准备转封装: {os.path.basename(output_path)}")
 
-    logger.info(f"执行转封装: {' '.join(cmd)}")
-
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-        )
-        _, stderr = process.communicate(timeout=3600)
-
-        if process.returncode == 0:
-            logger.info(f"转封装成功: {output_path}")
-            return True, None
-        else:
-            error_msg = stderr.decode("utf-8", errors="replace")[:500]
-            logger.error(f"转封装失败: {output_path} - {error_msg}")
-            return False, error_msg
-    except subprocess.TimeoutExpired:
-        process.kill()
-        msg = "ffmpeg 执行超时（超过1小时）"
-        logger.error(msg)
-        return False, msg
-    except Exception as e:
-        logger.error(f"转封装异常: {e}")
-        return False, str(e)
+    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "转封装")
 
 
 def merge_single(
@@ -225,44 +297,16 @@ def merge_single(
     Returns:
         (成功标志, 错误信息)
     """
-    # 创建输出目录
     output_dir = os.path.dirname(output_path)
     try:
         os.makedirs(output_dir, exist_ok=True)
     except OSError as e:
         return False, f"创建输出目录失败: {e}"
 
-    # 构建命令
     cmd = build_ffmpeg_command(video_file, audio_file, output_path)
 
     if progress_callback:
-        progress_callback(f"正在合并: {os.path.basename(output_path)}")
+        progress_callback(f"正在准备合并: {os.path.basename(output_path)}")
 
-    logger.info(f"执行 ffmpeg: {' '.join(cmd)}")
-
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-        )
-        _, stderr = process.communicate(timeout=3600)  # 1小时超时
-
-        if process.returncode == 0:
-            logger.info(f"合并成功: {output_path}")
-            return True, None
-        else:
-            error_msg = stderr.decode("utf-8", errors="replace")[:500]
-            logger.error(f"合并失败: {output_path} - {error_msg}")
-            return False, error_msg
-
-    except subprocess.TimeoutExpired:
-        process.kill()
-        msg = "ffmpeg 执行超时（超过1小时）"
-        logger.error(msg)
-        return False, msg
-    except Exception as e:
-        logger.error(f"合并异常: {e}")
-        return False, str(e)
+    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "合并")
 

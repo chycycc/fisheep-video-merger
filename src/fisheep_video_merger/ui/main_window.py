@@ -25,8 +25,8 @@ from PySide6.QtWidgets import (
     QTreeView,
     QAbstractItemView,
 )
-from PySide6.QtCore import Qt, Signal, QObject, Slot
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence
+from PySide6.QtCore import Qt, Signal, QObject, Slot, QStandardPaths
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShortcut, QKeySequence, QCloseEvent
 
 from fisheep_video_merger.core.matcher import (
     MergeTask,
@@ -100,6 +100,9 @@ class MainWindow(QMainWindow):
 
         # 设置接受拖拽
         self.setAcceptDrops(True)
+
+        # 恢复工作区状态 (E-2)
+        self._load_workspace_state()
 
         # 更新状态
         self._update_status()
@@ -217,6 +220,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence(Qt.Key_Delete), self,
                   lambda: self.merge_queue_tab.remove_selected_tasks())
         QShortcut(QKeySequence("Ctrl+Return"), self, self._on_start_merge)
+        QShortcut(QKeySequence("Ctrl+F"), self, self._on_ctrl_f)
 
     def _connect_signals(self):
         """连接信号"""
@@ -303,6 +307,10 @@ class MainWindow(QMainWindow):
 
         # 更新表格输出路径
         self._update_all_output_paths()
+
+        # 自动保存当前工作状态 (E-2)，排斥加载过程中的冗余触发
+        if not getattr(self, "_is_loading", False):
+            self._save_workspace_state()
 
     def _on_add_folder(self):
         """添加文件夹按钮点击（支持多选）"""
@@ -1012,3 +1020,168 @@ class MainWindow(QMainWindow):
             self._add_folders(folders)
         if m4s_files:
             self._add_files(m4s_files)
+
+    def closeEvent(self, event: QCloseEvent):
+        """窗口关闭事件：持久化最后的工作区状态"""
+        self._save_workspace_state()
+        event.accept()
+
+    def _get_state_file_path(self) -> str:
+        """获取本地状态 JSON 文件的绝对路径"""
+        # 获取平台标准的应用数据写入目录，如 Windows 下的 AppData/Local/fisheep-video-merger
+        app_data_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        if not app_data_dir:
+            # 若操作系统无法解析该目录，回退使用家目录下的隐藏配置文件
+            return os.path.abspath(os.path.expanduser("~/.fisheep_video_merger_state.json"))
+        
+        os.makedirs(app_data_dir, exist_ok=True)
+        return os.path.join(app_data_dir, "workspace_state.json")
+
+    def _save_workspace_state(self):
+        """将当前的设置、导入路径、队列以及待整理数据等持久化存盘为 JSON"""
+        try:
+            state = {
+                "settings": self.settings_panel.get_settings_dict(),
+                "root_paths": self.root_paths,
+                "tasks": [],
+                "pending_videos": [],
+                "pending_audios": [],
+                "muxed_files": [],
+            }
+
+            # 1. 序列化主合并队列任务
+            for task in self.merge_queue_tab.get_tasks():
+                state["tasks"].append({
+                    "output_name": task.output_name,
+                    "video_file": task.video_file,
+                    "audio_file": task.audio_file,
+                    "source_dir": task.source_dir,
+                    "root_path": task.root_path,
+                    "status": task.status,
+                    "error_message": task.error_message,
+                    "is_multi_episode": task.is_multi_episode,
+                })
+
+            # 2. 定义流信息转换字典的闭包
+            def serialize_info(info):
+                return {
+                    "filepath": info.filepath,
+                    "stream_type": info.stream_type.value,
+                    "has_video": info.has_video,
+                    "has_audio": info.has_audio,
+                    "video_codec": info.video_codec,
+                    "audio_codec": info.audio_codec,
+                    "error": info.error,
+                }
+
+            # 3. 序列化待整理与已完整
+            state["pending_videos"] = [serialize_info(x) for x in self.pending_tab.video_files]
+            state["pending_audios"] = [serialize_info(x) for x in self.pending_tab.audio_files]
+            state["muxed_files"] = [serialize_info(x) for x in self.muxed_files]
+
+            # 4. 写入 JSON 物理文件
+            filepath = self._get_state_file_path()
+            import json
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+            logger.debug(f"工作区状态已安全写入本地 {filepath}")
+        except Exception as e:
+            logger.warning(f"执行自动保存状态失败: {e}")
+
+    def _load_workspace_state(self):
+        """在启动阶段读取 JSON 状态文件，实现瞬时恢复"""
+        filepath = self._get_state_file_path()
+        if not os.path.exists(filepath):
+            return
+
+        # 启用加载阶段标志位以阻止保存死循环
+        self._is_loading = True
+        try:
+            import json
+            with open(filepath, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            
+            if not isinstance(state, dict):
+                return
+
+            # 1. 恢复设置面板参数
+            if "settings" in state:
+                self.settings_panel.load_settings_dict(state["settings"])
+
+            # 2. 恢复根目录路径
+            self.root_paths = state.get("root_paths", [])
+
+            # 3. 定义反序列化 StreamInfo 的闭包
+            def deserialize_info(d):
+                try:
+                    st_val = d.get("stream_type", "unknown")
+                    st_enum = StreamType.UNKNOWN
+                    for candidate in StreamType:
+                        if candidate.value == st_val:
+                            st_enum = candidate
+                            break
+
+                    return StreamInfo(
+                        filepath=d.get("filepath", ""),
+                        stream_type=st_enum,
+                        has_video=bool(d.get("has_video")),
+                        has_audio=bool(d.get("has_audio")),
+                        video_codec=d.get("video_codec"),
+                        audio_codec=d.get("audio_codec"),
+                        error=d.get("error"),
+                    )
+                except Exception:
+                    return None
+
+            # 4. 填充待整理文件并驱使视图刷新
+            raw_pv = state.get("pending_videos", [])
+            self.pending_tab.video_files = [x for x in (deserialize_info(d) for d in raw_pv) if x is not None]
+
+            raw_pa = state.get("pending_audios", [])
+            self.pending_tab.audio_files = [x for x in (deserialize_info(d) for d in raw_pa) if x is not None]
+            
+            self.pending_tab._refresh_table()
+
+            # 5. 填充已完整合并文件
+            raw_mf = state.get("muxed_files", [])
+            self.muxed_files = [x for x in (deserialize_info(d) for d in raw_mf) if x is not None]
+            self.muxed_tab.set_files(self.muxed_files)
+
+            # 6. 同步组装主进程流缓存
+            self.all_stream_infos = (
+                self.pending_tab.video_files +
+                self.pending_tab.audio_files +
+                self.muxed_files
+            )
+
+            # 7. 恢复主合并队列的任务
+            restored_tasks = []
+            for t in state.get("tasks", []):
+                try:
+                    restored_tasks.append(MergeTask(
+                        output_name=t.get("output_name", ""),
+                        video_file=t.get("video_file", ""),
+                        audio_file=t.get("audio_file", ""),
+                        source_dir=t.get("source_dir", ""),
+                        root_path=t.get("root_path", ""),
+                        status=t.get("status", "pending"),
+                        error_message=t.get("error_message"),
+                        is_multi_episode=bool(t.get("is_multi_episode", False)),
+                    ))
+                except Exception:
+                    continue
+            
+            self.merge_queue_tab.set_tasks(restored_tasks)
+            
+            logger.info(f"成功恢复工作状态：已还原 {len(restored_tasks)} 个任务队列")
+        except Exception as e:
+            logger.error(f"恢复本地工作状态异常: {e}")
+        finally:
+            self._is_loading = False
+
+    def _on_ctrl_f(self):
+        """通过 Ctrl+F 瞬时聚焦至当前活动标签页的搜索过滤框"""
+        current_widget = self.tab_widget.currentWidget()
+        if current_widget and hasattr(current_widget, "search_edit"):
+            current_widget.search_edit.setFocus()
+            current_widget.search_edit.selectAll()

@@ -9,11 +9,13 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
     QAbstractItemView,
     QMenu,
+    QLineEdit,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
@@ -46,6 +48,16 @@ class MuxedTab(QWidget):
         """初始化界面"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        # 搜索栏
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(4, 4, 4, 4)
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("🔍 搜索已完整文件名...")
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.textChanged.connect(self._on_search)
+        search_layout.addWidget(self.search_edit)
+        layout.addLayout(search_layout)
 
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.HEADERS))
@@ -151,6 +163,10 @@ class MuxedTab(QWidget):
             path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(i, self.COL_OUTPUT, path_item)
 
+        # 重新应用当前搜索过滤
+        if hasattr(self, "search_edit") and self.search_edit.text():
+            self._on_search(self.search_edit.text())
+
         self.table.blockSignals(False)
 
     def update_output_paths(self, paths: list[str]):
@@ -190,3 +206,18 @@ class MuxedTab(QWidget):
             menu.addAction(preview_action)
 
         menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _on_search(self, text: str):
+        """过滤搜索"""
+        text = text.strip().lower()
+        for row in range(self.table.rowCount()):
+            filename_item = self.table.item(row, self.COL_FILENAME)
+            
+            match = False
+            if not text:
+                match = True
+            else:
+                if filename_item and text in filename_item.text().lower():
+                    match = True
+
+            self.table.setRowHidden(row, not match)

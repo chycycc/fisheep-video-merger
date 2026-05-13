@@ -159,3 +159,19 @@ class SettingsPanel(QWidget):
             "output_dir": self.get_output_dir(),
             "delete_allowed": self.is_delete_allowed(),
         }
+
+    def load_settings_dict(self, data: dict):
+        """载入所有设置项"""
+        # 阻止信号发射避免干扰恢复流程
+        self.blockSignals(True)
+        try:
+            fmt = data.get("output_format", "mp4").lower()
+            idx = self.format_combo.findText(fmt)
+            if idx >= 0:
+                self.format_combo.setCurrentIndex(idx)
+            
+            self.dir_edit.setText(data.get("output_dir", ""))
+            
+            self.delete_cb.setChecked(bool(data.get("delete_allowed", False)))
+        finally:
+            self.blockSignals(False)
