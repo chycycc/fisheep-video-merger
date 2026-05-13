@@ -84,12 +84,12 @@ def extract_episode_number(filename: str) -> Optional[int]:
     """
     name, _ = os.path.splitext(filename)
 
-    # 模式1: 第\d+集 / 第X集（支持 集/话/篇/幕/次/期/P）
-    m = re.search(r"第\s*(\d+)\s*[集话篇幕次期P]", name, re.IGNORECASE)
+    # 模式1: 第\d+集 / 第X集（支持 集/话/篇/幕/次/期/回/P）
+    m = re.search(r"第\s*(\d+)\s*[集话篇幕次期回P]", name, re.IGNORECASE)
     if m:
         return int(m.group(1))
 
-    m = re.search(r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期]", name)
+    m = re.search(r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期回]", name)
     if m:
         return _parse_chinese_number(m.group(1))
 
@@ -147,7 +147,7 @@ def normalize_episode_name(video_filename: str) -> str:
         # 从原始名称中移除集数信息后作为前缀
         # 移除已知的集数模式，保留有意义的前缀
         clean = re.sub(
-            r"第\s*\d+\s*[集话篇幕次期P]|第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期]"
+            r"第\s*\d+\s*[集话篇幕次期回P]|第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期回]"
             r"|(?:EP|Ep|ep|Part|part|P|p)\s*\d+|(?<![a-zA-Z])E\s*\d+"
             r"|#\s*\d+|[\(\[【]\s*\d+\s*[\)\]】]|^[\s._-]*\d+[\s._-]+"
             r"|[-_\s]+\d{2,}$",
