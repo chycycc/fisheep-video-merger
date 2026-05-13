@@ -1,94 +1,74 @@
-# B站 m4s 视频合并工具
+# 🐑 Fisheep Video Merger
 
-一个 Windows 桌面工具，用于合并 B站（Bilibili）下载的 m4s 格式视频和音频文件。
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-v0.2.0-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Platform-Windows_10%2B-blue?style=for-the-badge&logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="License">
+</p>
 
-## 功能特点
+`Fisheep Video Merger` 是一款专为 Windows 用户打造的高颜值、工业级桌面合并工具。它能帮助您以优雅、极智的姿态，秒级批量合并 B站（Bilibili）缓存的 m4s 分离式音视频文件！
 
-- 🔍 **自动扫描** — 递归扫描文件夹，自动识别 m4s 文件的流类型（视频/音频/混合）
-- 🤖 **智能配对** — 基于文件夹结构自动配对视频和音频文件，支持单对和多对场景
-- 🏷️ **智能集数识别** — 自动从文件名提取集数信息（如 `第3集`、`EP03`、`#05`），输出文件自动添加 `_03` 后缀
-- ✅ **选择性合并** — 通过复选框勾选需要合并的任务，支持批量操作
-- 📝 **批量重命名** — 支持前缀 + 起始序号批量重命名输出文件
-- 🎬 **多格式输出** — 支持 mp4 / mkv / mov / flv 格式
-- 🗑️ **安全删除** — 合并完成后可选择将源文件移至回收站
-- 🖱️ **拖拽支持** — 支持拖拽文件夹到窗口添加
-- 📊 **进度显示** — 实时显示合并进度和任务状态
+---
 
-## 系统要求
+## 🚀 核心交互革命 (v0.2.0 新增)
 
-- Windows 10+
-- Python 3.9+
-- [FFmpeg](https://ffmpeg.org/)（需添加到系统 PATH）
-- 依赖库：PySide6, send2trash
+*   **📐 极智黄金皮筋自适应**：废除传统表格的空间霸权。主界面表格的「输出文件名」与「关联源文件」列以 **50:50 完美比例**等宽呼吸拉伸，带来极致平衡的视觉观感。
+*   **📂 右侧看板物理收纳**：表格拒绝臃肿！全面砍掉冗余路径列，首创右侧高内聚设置面板。当您点击任何任务，右侧会自动升起一个**代码风格微圆角浅灰（自适应深色主题）的绝对路径详情盒**，支持快捷复制。
+*   **↔️ 一键物理侧栏折叠**：点击折叠按钮瞬间让侧栏物理隐形，将界面 100% 的舞台空间让位给数据表格，视界最大化。
+*   **🧹 颗粒度清理选择柜**：不再有“一刀切”的粗野操作。清空时自动升起复选台，支持按需分离清理合并队列、待整理、已完整缓存或导入源文件夹痕迹。
 
-## 快速开始
+---
 
-### 1. 安装依赖
+## 💎 核心基本功
 
+*   🔍 **递归深度扫描**：一键导入文件夹，多线程级智能递归，自动剥离音频（Audio）、视频（Video）与封装完毕的（Muxed）文件。
+*   🤖 **孪生对除噪配对**：强悍的中文/英文双引擎防务正则。不仅能按字典序丝滑配对多集文件，更能智能防范过度去噪，完美保留 `_bilibili` 等核心命名语义。
+*   🧠 **文件名嗅探博弈**：手动配对时智能探测！纯数字垃圾命名自动退回捕获父级目录名；语义中文名则智能裁剪，给您最完美的推荐默认名。
+*   ⚡ **流式极速转封装**：对于已被合并的 muxed 文件，支持一键无损剥离重封为 mp4 / mkv 格式。
+*   🗑️ **物理级防误删锁**：支持将源文件安全投递至系统回收站（send2trash），绝不暴力直接抹除。
+
+---
+
+## 📥 快速享用（两分钟开箱）
+
+### 🌟 方案 A：绿色免安装一键启动（🔥 极力推荐！）
+无需安装 Python，无需任何复杂配置。
+1. 点击项目右侧的 👉 [**Releases**](https://github.com/chycycc/fisheep-video-merger/releases) 页面。
+2. 下载最新版正式编译产物 `FisheepVideoMerger.exe` (约 50MB)。
+3. 双击即可瞬间启动！*(注：系统需安装 FFmpeg 并加入环境变量)*。
+
+### 🐍 方案 B：从源码运行（开发者模式）
+若您希望基于源码进行二次开发或深度调测：
 ```bash
+# 1. 克隆仓库并进入目录
+git clone https://github.com/chycycc/fisheep-video-merger.git
+cd fisheep-video-merger
+
+# 2. 安装依赖
 pip install -r requirements.txt
+
+# 3. 运行主程序
+$env:PYTHONPATH="src"; python src/fisheep_video_merger/main.py
 ```
 
-### 2. 安装 FFmpeg
+---
 
-从 [FFmpeg 官网](https://ffmpeg.org/download.html) 下载，将 `bin` 目录添加到系统 PATH 中。
+## 📦 项目架构图
 
-验证安装：
-
-```bash
-ffmpeg -version
-ffprobe -version
-```
-
-### 3. 运行程序
-
-```bash
-set PYTHONPATH=%CD%\src
-python src/fisheep_video_merger/main.py
-```
-
-或者在 VS Code 中按 `F5` 使用已配置的调试启动项运行。
-
-## 使用说明
-
-1. **添加文件夹** — 点击"添加文件夹"按钮或拖拽文件夹到窗口
-2. **自动扫描** — 程序自动扫描 m4s 文件并分析流类型，自动配对后填入合并队列
-3. **勾选任务** — 在合并队列中勾选需要合并的任务（默认全部勾选）
-4. **设置参数** — 选择输出格式和输出目录
-5. **开始合并** — 点击"开始合并"按钮，等待处理完成
-
-### 集数命名规则
-
-如果源文件名包含集数信息，输出文件会自动添加编号后缀：
-
-| 源文件中的集数格式 | 输出文件名示例 |
-|---|---|
-| `第3集` | `番名_03.mp4` |
-| `第四集` | `番名_04.mp4` |
-| `EP03` / `E10` | `番名_03.mp4` |
-| `#05` | `番名_05.mp4` |
-
-## 项目结构
-
-```
+```text
 src/fisheep_video_merger/
-├── main.py              # 程序入口
 ├── core/
-│   ├── scanner.py       # 文件扫描器
-│   ├── matcher.py       # 自动配对逻辑
-│   ├── merger.py        # FFmpeg 合并引擎
-│   └── path_utils.py    # 路径工具
+│   ├── scanner.py       # 多线程文件扫描引擎
+│   ├── matcher.py       # 中文除噪配对博弈算法
+│   ├── merger.py        # FFmpeg 流式执行管线
 ├── ui/
-│   ├── main_window.py   # 主窗口
-│   ├── settings_panel.py # 设置面板
-│   ├── merge_queue_tab.py # 合并队列标签页
-│   ├── pending_tab.py   # 待处理标签页
-│   └── dialogs.py       # 对话框
+│   ├── main_window.py   # 黄金布局核心主窗体
+│   ├── settings_panel.py # 侧栏与路径看板盒
+│   └── dialogs.py       # 颗粒度清理确认台
 └── utils/
-    ├── ffprobe.py       # ffprobe 封装
-    └── logger.py        # 日志工具
+    ├── ffprobe.py       # 流分析原子层
+    └── logger.py        # 终端适配双轨日志
 ```
 
-## 许可证
-
-MIT
+---
+MIT License © 2026 Fisheep Team.
