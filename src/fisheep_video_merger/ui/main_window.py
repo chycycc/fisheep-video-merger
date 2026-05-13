@@ -265,6 +265,15 @@ class MainWindow(QMainWindow):
         self.muxed_tab.remux_requested.connect(self._on_remux_requested)
         self.muxed_tab.tasks_changed.connect(self._update_status)
 
+        # 联动装置：连通表格选中行与右侧详情看板 (U-3)
+        self.merge_queue_tab.selection_path_changed.connect(
+            self.settings_panel.update_task_detail
+        )
+        self.muxed_tab.selection_path_changed.connect(
+            self.settings_panel.update_task_detail
+        )
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
     def _update_status(self):
         """更新界面状态"""
         task_count = self.merge_queue_tab.get_task_count()
@@ -330,6 +339,17 @@ class MainWindow(QMainWindow):
         # 自动保存当前工作状态 (E-2)，排斥加载过程中的冗余触发
         if not getattr(self, "_is_loading", False):
             self._save_workspace_state()
+
+    def _on_tab_changed(self, index: int):
+        """切换标签页时驱动右侧栏详情的动态重置与刷新 (U-3)"""
+        widget = self.tab_widget.widget(index)
+        if widget == self.merge_queue_tab:
+            self.merge_queue_tab._on_selection_changed()
+        elif widget == self.muxed_tab:
+            self.muxed_tab._on_selection_changed()
+        else:
+            # 切换到非输出页签时折叠侧栏详情
+            self.settings_panel.update_task_detail("")
 
     def _on_add_folder(self):
         """添加文件夹按钮点击 (U-1: 还原为系统原生单选，保障颜值与一致性)"""

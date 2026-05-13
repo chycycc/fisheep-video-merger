@@ -105,6 +105,33 @@ class SettingsPanel(QWidget):
 
         layout.addWidget(source_group)
 
+        # === 组3.5：选中项目输出详情 (U-3 & 联动: 动态展示，无选中时折叠) ===
+        self.detail_group = QGroupBox("📌 选中项目输出详情")
+        detail_layout = QVBoxLayout(self.detail_group)
+        
+        self.detail_path_label = QLabel("请在左侧表格中选中一行查看完整路径")
+        self.detail_path_label.setWordWrap(True)
+        self.detail_path_label.setStyleSheet("color: #2196F3; font-size: 11px; font-family: Consolas, 'Courier New';")
+        detail_layout.addWidget(self.detail_path_label)
+        
+        detail_btn_row = QHBoxLayout()
+        self.copy_path_btn = QPushButton("📋 复制全路径")
+        self.copy_path_btn.setStyleSheet("font-size: 11px; height: 22px;")
+        self.copy_path_btn.clicked.connect(self._on_copy_path)
+        detail_btn_row.addWidget(self.copy_path_btn)
+        
+        self.open_dir_btn = QPushButton("📂 浏览所在文件夹")
+        self.open_dir_btn.setStyleSheet("font-size: 11px; height: 22px;")
+        self.open_dir_btn.clicked.connect(self._on_open_dir)
+        detail_btn_row.addWidget(self.open_dir_btn)
+        
+        detail_layout.addLayout(detail_btn_row)
+        
+        layout.addWidget(self.detail_group)
+        self.detail_group.setVisible(False) # 缺省不选时隐藏
+        
+        self._current_detail_path = ""
+
         # === 组4：操作按钮 ===
         action_group = QGroupBox()
         action_layout = QVBoxLayout(action_group)
@@ -198,3 +225,28 @@ class SettingsPanel(QWidget):
             self.theme_combo.setCurrentIndex(theme_mapping.get(saved_theme, 0))
         finally:
             self.blockSignals(False)
+
+    def _on_copy_path(self):
+        """复制当前选中的绝对路径到剪贴板"""
+        if self._current_detail_path:
+            from PySide6.QtWidgets import QApplication
+            QApplication.clipboard().setText(self._current_detail_path)
+
+    def _on_open_dir(self):
+        """在文件资源管理器中浏览并打开该路径所在文件夹"""
+        if self._current_detail_path:
+            folder = os.path.dirname(self._current_detail_path)
+            if os.path.exists(folder):
+                os.startfile(folder)
+
+    def update_task_detail(self, full_path: str):
+        """更新右侧栏的任务详情卡片显示内容 (联动响应)"""
+        if full_path:
+            self._current_detail_path = os.path.abspath(full_path)
+            self.detail_path_label.setText(
+                f"📍 预计输出绝对路径：\n{self._current_detail_path}"
+            )
+            self.detail_group.setVisible(True)
+        else:
+            self._current_detail_path = ""
+            self.detail_group.setVisible(False)

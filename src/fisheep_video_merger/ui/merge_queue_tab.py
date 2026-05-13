@@ -32,17 +32,20 @@ class MergeQueueTab(QWidget):
     batch_rename_requested = Signal(list)
     checked_state_changed = Signal()
 
+    # 信号：选中项改变时发射该项所对应的输出全路径，供侧栏详情展示 (U-3 联动)
+    selection_path_changed = Signal(str)
+
     COL_CHECK = 0        # 选择框
     COL_STATUS = 1       # 状态图标
     COL_OUTPUT_NAME = 2  # 输出文件名
     COL_SOURCE = 3       # 关联源文件 (U-7 合二为一)
-    COL_OUTPUT_PATH = 4  # 预计输出路径
 
-    HEADERS = ["", "状态", "输出文件名", "关联源文件", "预计输出路径"]
+    HEADERS = ["", "状态", "输出文件名", "关联源文件"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.tasks: list[MergeTask] = []
+        self.calculated_output_paths: list[str] = []
         self._setup_ui()
 
     def _setup_ui(self):
@@ -73,12 +76,10 @@ class MergeQueueTab(QWidget):
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.COL_OUTPUT_NAME, QHeaderView.Interactive)
         header.setSectionResizeMode(self.COL_SOURCE, QHeaderView.Interactive)
-        header.setSectionResizeMode(self.COL_OUTPUT_PATH, QHeaderView.Interactive)
 
         # 设置默认列宽
-        self.table.setColumnWidth(self.COL_OUTPUT_NAME, 150)
-        self.table.setColumnWidth(self.COL_SOURCE, 250)
-        self.table.setColumnWidth(self.COL_OUTPUT_PATH, 200)
+        self.table.setColumnWidth(self.COL_OUTPUT_NAME, 200)
+        self.table.setColumnWidth(self.COL_SOURCE, 300)
 
         header.setStretchLastSection(True)
 
@@ -94,6 +95,9 @@ class MergeQueueTab(QWidget):
         # 右键菜单
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
+
+        # 选择事件联动 (U-3)
+        self.table.itemSelectionChanged.connect(self._on_selection_changed)
 
         layout.addWidget(self.table)
 
@@ -209,37 +213,32 @@ class MergeQueueTab(QWidget):
                 name_item.setToolTip("疑似多集，请确认名称")
             self.table.setItem(i, self.COL_OUTPUT_NAME, name_item)
 
-            # 关联源文件 (U-7 强化: 智能推算匹配主文件名，不一致时并列展示)
+            # 关联源文件 (U-7 & 强化: 智能提取去噪，提升视觉密度)
             import re
             v_name = os.path.basename(task.video_file)
             a_name = os.path.basename(task.audio_file)
             
-            # 提取并清理 B站 专属下载后缀，嗅探其真正的孪生基因
             v_stem = os.path.splitext(v_name)[0]
             a_stem = os.path.splitext(a_name)[0]
             
             def clean_stem(s: str):
-                return re.sub(r'(_[0-9]+|_[a-zA-Z]+)$', '', s)
+                # 💡 只修剪如 _2, _30280 等无用纯数字尾缀，不得切断大名核心 (如 _bilibili)
+                return re.sub(r'(_[0-9]+|_[vaVA])$', '', s)
                 
             v_clean = clean_stem(v_stem)
             a_clean = clean_stem(a_stem)
             
             if v_clean.lower() == a_clean.lower():
-                # 共享核心名称的孪生对，只提取共有干文件名，极致视界清透
-                display_text = v_clean
+                # 孪生对匹配：用高密度整合呈现模式，字数减少 50%
+                display_text = f"🎬🔊 {v_clean}"
             else:
-                # 人工乱点鸳鸯谱或名字确实异化，则高清晰显式并列展示
+                # 差异对匹配：平铺展示
                 display_text = f"🎬 {v_name} | 🔊 {a_name}"
 
             source_item = QTableWidgetItem(display_text)
             source_item.setFlags(source_item.flags() & ~Qt.ItemIsEditable)
             source_item.setToolTip(f"🎬 视频: {task.video_file}\n🔊 音频: {task.audio_file}")
             self.table.setItem(i, self.COL_SOURCE, source_item)
-
-            # 预计输出路径
-            path_item = QTableWidgetItem("")
-            path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
-            self.table.setItem(i, self.COL_OUTPUT_PATH, path_item)
 
         # 重新应用当前搜索过滤
         if hasattr(self, "search_edit") and self.search_edit.text():
@@ -248,15 +247,24 @@ class MergeQueueTab(QWidget):
         self.table.blockSignals(False)
 
     def update_output_paths(self, paths_with_display: list[tuple[str, str]]):
-        """更新预计输出路径列 (U-4)"""
-        self.table.blockSignals(True)
-        for i, (full_path, display_path) in enumerate(paths_with_display):
-            if i < self.table.rowCount():
-                item = self.table.item(i, self.COL_OUTPUT_PATH)
-                if item:
-                    item.setText(display_path)
-                    item.setToolTip(full_path)
-        self.table.blockSignals(False)
+        """缓存预计输出全路径并驱动联动展示 (U-3)"""
+        self.calculated_output_paths = [x[0] for x in paths_with_display]
+        # 刷新一下当前的选中详情
+        self._on_selection_changed()
+
+    def _on_selection_changed(self):
+        """行选中事件联动回调：提取该行的计算全路径发射给主窗口"""
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            self.selection_path_changed.emit("")
+            return
+
+        # 仅以第一个选中的行为准进行详情投送
+        idx = rows[0].row()
+        if 0 <= idx < len(self.calculated_output_paths):
+            self.selection_path_changed.emit(self.calculated_output_paths[idx])
+        else:
+            self.selection_path_changed.emit("")
 
     def _on_item_changed(self, item: QTableWidgetItem):
         """单元格内容变更处理"""

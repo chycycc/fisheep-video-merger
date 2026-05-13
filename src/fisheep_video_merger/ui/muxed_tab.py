@@ -30,18 +30,21 @@ class MuxedTab(QWidget):
     remux_requested = Signal(list)   # 请求转封装选中文件
     tasks_changed = Signal()
 
+    # 信号：选中项改变时发射当前对应的绝对全路径 (U-3 联动)
+    selection_path_changed = Signal(str)
+
     COL_CHECK = 0      # 选择框
     COL_STATUS = 1     # 状态
     COL_FILENAME = 2   # 文件名
     COL_CODECS = 3     # 编码格式
-    COL_OUTPUT = 4     # 预计输出路径
 
-    HEADERS = ["", "状态", "文件名", "编码", "预计输出路径"]
+    HEADERS = ["", "状态", "文件名", "编码"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.infos: list[StreamInfo] = []
         self.statuses: dict[str, str] = {}  # filepath -> "pending"/"success"/"error"
+        self.calculated_output_paths: list[str] = []
         self._setup_ui()
 
     def _setup_ui(self):
@@ -69,17 +72,18 @@ class MuxedTab(QWidget):
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.COL_FILENAME, QHeaderView.Interactive)
         header.setSectionResizeMode(self.COL_CODECS, QHeaderView.Interactive)
-        header.setSectionResizeMode(self.COL_OUTPUT, QHeaderView.Interactive)
 
-        # 设置合理的初始缺省列宽，允许用户之后自由拉伸
-        self.table.setColumnWidth(self.COL_FILENAME, 250)
-        self.table.setColumnWidth(self.COL_CODECS, 120)
-        self.table.setColumnWidth(self.COL_OUTPUT, 250)
+        # 设置合理的初始缺省列宽
+        self.table.setColumnWidth(self.COL_FILENAME, 300)
+        self.table.setColumnWidth(self.COL_CODECS, 150)
 
         header.setStretchLastSection(True)
 
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        
+        # 选中联动 (U-3)
+        self.table.itemSelectionChanged.connect(self._on_selection_changed)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
@@ -138,9 +142,9 @@ class MuxedTab(QWidget):
             check_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(i, self.COL_CHECK, check_item)
 
-            # 状态
-            status_text = {"pending": "⬜", "success": "✅", "error": "❌"}.get(
-                status, "⬜"
+            # 状态 (U-1: 改用 📄 文档图标消除和复选框的撞脸歧义)
+            status_text = {"pending": "📄", "success": "✅", "error": "❌"}.get(
+                status, "📄"
             )
             status_item = QTableWidgetItem(status_text)
             status_item.setTextAlignment(Qt.AlignCenter)
@@ -165,11 +169,6 @@ class MuxedTab(QWidget):
             codec_item.setFlags(codec_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(i, self.COL_CODECS, codec_item)
 
-            # 输出路径（先留空，由外部更新）
-            path_item = QTableWidgetItem("")
-            path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
-            self.table.setItem(i, self.COL_OUTPUT, path_item)
-
         # 重新应用当前搜索过滤
         if hasattr(self, "search_edit") and self.search_edit.text():
             self._on_search(self.search_edit.text())
@@ -177,15 +176,22 @@ class MuxedTab(QWidget):
         self.table.blockSignals(False)
 
     def update_output_paths(self, paths_with_display: list[tuple[str, str]]):
-        """更新预计输出路径列 (U-6)"""
-        self.table.blockSignals(True)
-        for i, (full_path, display_path) in enumerate(paths_with_display):
-            if i < self.table.rowCount():
-                item = self.table.item(i, self.COL_OUTPUT)
-                if item:
-                    item.setText(display_path)
-                    item.setToolTip(full_path)
-        self.table.blockSignals(False)
+        """缓存预计输出绝对全路径并激活侧栏联动 (U-3)"""
+        self.calculated_output_paths = [x[0] for x in paths_with_display]
+        self._on_selection_changed()
+
+    def _on_selection_changed(self):
+        """选中项联动响应：提取第一行文件路径供侧栏"""
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            self.selection_path_changed.emit("")
+            return
+            
+        idx = rows[0].row()
+        if 0 <= idx < len(self.calculated_output_paths):
+            self.selection_path_changed.emit(self.calculated_output_paths[idx])
+        else:
+            self.selection_path_changed.emit("")
 
     def _show_context_menu(self, pos):
         """显示右键菜单"""
