@@ -1238,9 +1238,23 @@ class MainWindow(QMainWindow):
             
             self.pending_tab._refresh_table()
 
-            # 5. 填充已完整合并文件
+            # 5. 填充已完整合并文件 (U-6 强化: 对本地恢复的旧版本存盘空编码进行就地静默修复扫描)
+            from fisheep_video_merger.utils.ffprobe import analyze_file
             raw_mf = state.get("muxed_files", [])
-            self.muxed_files = [x for x in (deserialize_info(d) for d in raw_mf) if x is not None]
+            restored_muxed = []
+            for d in raw_mf:
+                info = deserialize_info(d)
+                if info:
+                    # 若是历史存盘数据导致具体音视频编码缺失，静默在后台进行毫秒级就地补全修复
+                    if info.filepath and os.path.exists(info.filepath) and not info.video_codec and not info.audio_codec:
+                        try:
+                            fresh_info = analyze_file(info.filepath)
+                            info.video_codec = fresh_info.video_codec
+                            info.audio_codec = fresh_info.audio_codec
+                        except Exception:
+                            pass
+                    restored_muxed.append(info)
+            self.muxed_files = restored_muxed
             self.muxed_tab.set_files(self.muxed_files)
 
             # 6. 同步组装主进程流缓存

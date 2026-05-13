@@ -80,7 +80,7 @@ class MergeQueueTab(QWidget):
         self.table.setColumnWidth(self.COL_SOURCE, 250)
         self.table.setColumnWidth(self.COL_OUTPUT_PATH, 200)
 
-        header.setStretchLastSection(False)
+        header.setStretchLastSection(True)
 
         # 行高与选择
         self.table.verticalHeader().setDefaultSectionSize(24)
@@ -209,9 +209,29 @@ class MergeQueueTab(QWidget):
                 name_item.setToolTip("疑似多集，请确认名称")
             self.table.setItem(i, self.COL_OUTPUT_NAME, name_item)
 
-            # 关联源文件 (U-7: 两列合一极致降噪)
-            shared_stem = os.path.basename(task.video_file)
-            source_item = QTableWidgetItem(shared_stem)
+            # 关联源文件 (U-7 强化: 智能推算匹配主文件名，不一致时并列展示)
+            import re
+            v_name = os.path.basename(task.video_file)
+            a_name = os.path.basename(task.audio_file)
+            
+            # 提取并清理 B站 专属下载后缀，嗅探其真正的孪生基因
+            v_stem = os.path.splitext(v_name)[0]
+            a_stem = os.path.splitext(a_name)[0]
+            
+            def clean_stem(s: str):
+                return re.sub(r'(_[0-9]+|_[a-zA-Z]+)$', '', s)
+                
+            v_clean = clean_stem(v_stem)
+            a_clean = clean_stem(a_stem)
+            
+            if v_clean.lower() == a_clean.lower():
+                # 共享核心名称的孪生对，只提取共有干文件名，极致视界清透
+                display_text = v_clean
+            else:
+                # 人工乱点鸳鸯谱或名字确实异化，则高清晰显式并列展示
+                display_text = f"🎬 {v_name} | 🔊 {a_name}"
+
+            source_item = QTableWidgetItem(display_text)
             source_item.setFlags(source_item.flags() & ~Qt.ItemIsEditable)
             source_item.setToolTip(f"🎬 视频: {task.video_file}\n🔊 音频: {task.audio_file}")
             self.table.setItem(i, self.COL_SOURCE, source_item)
