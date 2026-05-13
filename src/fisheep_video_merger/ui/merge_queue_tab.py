@@ -72,16 +72,12 @@ class MergeQueueTab(QWidget):
         header.setSectionResizeMode(self.COL_CHECK, QHeaderView.Fixed)
         self.table.setColumnWidth(self.COL_CHECK, 30)
 
-        # 其他列拉伸模式
+        # 其他列拉伸模式 (S-6: 采用方案A 黄金比例 50:50 等比自适应伸缩，保证长字平摊)
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(self.COL_OUTPUT_NAME, QHeaderView.Interactive)
-        header.setSectionResizeMode(self.COL_SOURCE, QHeaderView.Interactive)
+        header.setSectionResizeMode(self.COL_OUTPUT_NAME, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_SOURCE, QHeaderView.Stretch)
 
-        # 设置默认列宽
-        self.table.setColumnWidth(self.COL_OUTPUT_NAME, 200)
-        self.table.setColumnWidth(self.COL_SOURCE, 300)
-
-        header.setStretchLastSection(True)
+        header.setStretchLastSection(False)
 
         # 行高与选择
         self.table.verticalHeader().setDefaultSectionSize(24)

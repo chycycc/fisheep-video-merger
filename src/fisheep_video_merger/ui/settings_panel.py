@@ -109,9 +109,23 @@ class SettingsPanel(QWidget):
         self.detail_group = QGroupBox("📌 选中项目输出详情")
         detail_layout = QVBoxLayout(self.detail_group)
         
-        self.detail_path_label = QLabel("请在左侧表格中选中一行查看完整路径")
+        self.detail_title = QLabel("📍 预计输出绝对路径：")
+        self.detail_title.setStyleSheet("font-size: 11px; color: gray;")
+        detail_layout.addWidget(self.detail_title)
+
+        self.detail_path_label = QLabel("")
         self.detail_path_label.setWordWrap(True)
-        self.detail_path_label.setStyleSheet("color: #2196F3; font-size: 11px; font-family: Consolas, 'Courier New';")
+        self.detail_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.detail_path_label.setStyleSheet(
+            "QLabel {"
+            "   background-color: palette(base);"  # 智能适配深/浅主题输入框基底色
+            "   border: 1px solid palette(mid);"
+            "   border-radius: 4px;"
+            "   padding: 8px;"
+            "   font-size: 11px;"
+            "   font-family: Consolas, 'Courier New';"
+            "}"
+        )
         detail_layout.addWidget(self.detail_path_label)
         
         detail_btn_row = QHBoxLayout()
@@ -243,9 +257,7 @@ class SettingsPanel(QWidget):
         """更新右侧栏的任务详情卡片显示内容 (联动响应)"""
         if full_path:
             self._current_detail_path = os.path.abspath(full_path)
-            self.detail_path_label.setText(
-                f"📍 预计输出绝对路径：\n{self._current_detail_path}"
-            )
+            self.detail_path_label.setText(self._current_detail_path)
             self.detail_group.setVisible(True)
         else:
             self._current_detail_path = ""
