@@ -35,11 +35,10 @@ class MergeQueueTab(QWidget):
     COL_CHECK = 0        # 选择框
     COL_STATUS = 1       # 状态图标
     COL_OUTPUT_NAME = 2  # 输出文件名
-    COL_VIDEO = 3        # 源视频文件
-    COL_AUDIO = 4        # 源音频文件
-    COL_OUTPUT_PATH = 5  # 预计输出路径
+    COL_SOURCE = 3       # 关联源文件 (U-7 合二为一)
+    COL_OUTPUT_PATH = 4  # 预计输出路径
 
-    HEADERS = ["", "状态", "输出文件名", "源视频文件", "源音频文件", "预计输出路径"]
+    HEADERS = ["", "状态", "输出文件名", "关联源文件", "预计输出路径"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -73,14 +72,12 @@ class MergeQueueTab(QWidget):
         # 其他列拉伸模式
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.COL_OUTPUT_NAME, QHeaderView.Interactive)
-        header.setSectionResizeMode(self.COL_VIDEO, QHeaderView.Interactive)
-        header.setSectionResizeMode(self.COL_AUDIO, QHeaderView.Interactive)
+        header.setSectionResizeMode(self.COL_SOURCE, QHeaderView.Interactive)
         header.setSectionResizeMode(self.COL_OUTPUT_PATH, QHeaderView.Interactive)
 
         # 设置默认列宽
-        self.table.setColumnWidth(self.COL_OUTPUT_NAME, 120)
-        self.table.setColumnWidth(self.COL_VIDEO, 200)
-        self.table.setColumnWidth(self.COL_AUDIO, 200)
+        self.table.setColumnWidth(self.COL_OUTPUT_NAME, 150)
+        self.table.setColumnWidth(self.COL_SOURCE, 250)
         self.table.setColumnWidth(self.COL_OUTPUT_PATH, 200)
 
         header.setStretchLastSection(False)
@@ -212,19 +209,12 @@ class MergeQueueTab(QWidget):
                 name_item.setToolTip("疑似多集，请确认名称")
             self.table.setItem(i, self.COL_OUTPUT_NAME, name_item)
 
-            # 源视频文件 (U-4: 仅显纯文件名防霸屏)
-            video_name = os.path.basename(task.video_file)
-            video_item = QTableWidgetItem(video_name)
-            video_item.setFlags(video_item.flags() & ~Qt.ItemIsEditable)
-            video_item.setToolTip(task.video_file)
-            self.table.setItem(i, self.COL_VIDEO, video_item)
-
-            # 源音频文件 (U-4: 仅显纯文件名防霸屏)
-            audio_name = os.path.basename(task.audio_file)
-            audio_item = QTableWidgetItem(audio_name)
-            audio_item.setFlags(audio_item.flags() & ~Qt.ItemIsEditable)
-            audio_item.setToolTip(task.audio_file)
-            self.table.setItem(i, self.COL_AUDIO, audio_item)
+            # 关联源文件 (U-7: 两列合一极致降噪)
+            shared_stem = os.path.basename(task.video_file)
+            source_item = QTableWidgetItem(shared_stem)
+            source_item.setFlags(source_item.flags() & ~Qt.ItemIsEditable)
+            source_item.setToolTip(f"🎬 视频: {task.video_file}\n🔊 音频: {task.audio_file}")
+            self.table.setItem(i, self.COL_SOURCE, source_item)
 
             # 预计输出路径
             path_item = QTableWidgetItem("")
@@ -378,8 +368,7 @@ class MergeQueueTab(QWidget):
         text = text.strip().lower()
         for row in range(self.table.rowCount()):
             output_item = self.table.item(row, self.COL_OUTPUT_NAME)
-            video_item = self.table.item(row, self.COL_VIDEO)
-            audio_item = self.table.item(row, self.COL_AUDIO)
+            source_item = self.table.item(row, self.COL_SOURCE)
 
             match = False
             if not text:
@@ -387,9 +376,10 @@ class MergeQueueTab(QWidget):
             else:
                 if output_item and text in output_item.text().lower():
                     match = True
-                elif video_item and text in video_item.text().lower():
-                    match = True
-                elif audio_item and text in audio_item.text().lower():
+                elif source_item and (
+                    text in source_item.text().lower() or 
+                    text in (source_item.toolTip() or "").lower()
+                ):
                     match = True
 
             self.table.setRowHidden(row, not match)

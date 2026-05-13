@@ -145,6 +145,13 @@ class MainWindow(QMainWindow):
         self.clear_btn.clicked.connect(self._on_clear)
         toolbar_layout.addWidget(self.clear_btn)
 
+        # U-8: 右侧侧栏收纳开关
+        self.toggle_sidebar_btn = QPushButton("🎛️ 设置侧栏")
+        self.toggle_sidebar_btn.setCheckable(True)
+        self.toggle_sidebar_btn.setChecked(True)
+        self.toggle_sidebar_btn.clicked.connect(self._on_toggle_sidebar)
+        toolbar_layout.addWidget(self.toggle_sidebar_btn)
+ 
         toolbar_layout.addStretch()
 
         self.status_text = QLabel("就绪")
@@ -763,6 +770,44 @@ class MainWindow(QMainWindow):
 
         self.merge_queue_tab.update_output_paths(paths_with_display)
 
+        # == U-6: 同步更新已完整标签页的预计输出路径 ==
+        muxed_paths = []
+        for info in self.muxed_files:
+            src_path = info.filepath
+            
+            # 检查该文件是否位于当前输出目录中 (判别其是否为刚输出的成品)
+            is_in_output = False
+            try:
+                is_in_output = os.path.abspath(src_path).startswith(os.path.abspath(output_dir))
+            except Exception:
+                pass
+
+            if is_in_output:
+                # 已经完成了，直接打上高亮标语
+                muxed_paths.append((src_path, "✅ 已是最终成品"))
+            else:
+                # 仍是外来原始素材，计算转封装预估输出路径
+                stem = os.path.splitext(os.path.basename(src_path))[0]
+                full_path = generate_output_path(
+                    output_dir,
+                    os.path.dirname(src_path),
+                    os.path.dirname(src_path), # 默认同层结构
+                    stem,
+                    fmt,
+                )
+                try:
+                    display = os.path.relpath(full_path, output_dir)
+                except Exception:
+                    display = os.path.basename(full_path)
+                muxed_paths.append((full_path, display))
+        
+        self.muxed_tab.update_output_paths(muxed_paths)
+
+    def _on_toggle_sidebar(self, checked: bool):
+        """一键折叠/展开右侧侧栏 (U-8)"""
+        self.settings_panel.setVisible(checked)
+        self.toggle_sidebar_btn.setText("🎛️ 设置侧栏" if checked else "⚙️ 展开设置")
+
     def _on_start_merge(self):
         """开始合并按钮点击"""
         if self.is_merging:
@@ -978,18 +1023,22 @@ class MainWindow(QMainWindow):
         success_count = sum(1 for r in results if r.success)
         fail_count = sum(1 for r in results if not r.success)
 
-        # U-3: 将所有合并成功的成品视频即时追加收录到“已完整”标签页列表中
-        from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
+        # U-3 & U-6: 将所有合并成功的成品视频即时追加收录，并后台秒级嗅探其真编码格式
+        from fisheep_video_merger.utils.ffprobe import analyze_file, StreamInfo, StreamType
         newly_muxed = []
         for r in results:
             if r.success and os.path.exists(r.output_path):
-                # 构造 MUXED 流描述（因合并成功，必定同时包含音视频流），免去 ffprobe 开销
-                info = StreamInfo(
-                    filepath=os.path.abspath(r.output_path),
-                    stream_type=StreamType.MUXED,
-                    has_video=True,
-                    has_audio=True,
-                )
+                # 用 ffprobe 进行一次极速嗅探，提取视频的真正编码，毫秒级完成
+                try:
+                    info = analyze_file(r.output_path)
+                except Exception:
+                    # 若因文件访问争抢等失败，则兜底回退构建虚拟 StreamInfo
+                    info = StreamInfo(
+                        filepath=os.path.abspath(r.output_path),
+                        stream_type=StreamType.MUXED,
+                        has_video=True,
+                        has_audio=True,
+                    )
                 # 查重避免重复收录
                 if not any(m.filepath == info.filepath for m in self.muxed_files):
                     newly_muxed.append(info)

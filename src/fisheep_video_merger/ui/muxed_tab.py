@@ -169,15 +169,15 @@ class MuxedTab(QWidget):
 
         self.table.blockSignals(False)
 
-    def update_output_paths(self, paths: list[str]):
-        """更新预计输出路径列"""
+    def update_output_paths(self, paths_with_display: list[tuple[str, str]]):
+        """更新预计输出路径列 (U-6)"""
         self.table.blockSignals(True)
-        for i, path in enumerate(paths):
+        for i, (full_path, display_path) in enumerate(paths_with_display):
             if i < self.table.rowCount():
                 item = self.table.item(i, self.COL_OUTPUT)
                 if item:
-                    item.setText(path)
-                    item.setToolTip(path)
+                    item.setText(display_path)
+                    item.setToolTip(full_path)
         self.table.blockSignals(False)
 
     def _show_context_menu(self, pos):

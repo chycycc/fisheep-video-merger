@@ -62,6 +62,8 @@ class BatchRenameDialog(QDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
+        buttons.button(QDialogButtonBox.Ok).setText("确定")
+        buttons.button(QDialogButtonBox.Cancel).setText("取消")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
@@ -146,6 +148,8 @@ class DeleteConfirmDialog(QDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.Yes | QDialogButtonBox.No
         )
+        buttons.button(QDialogButtonBox.Yes).setText("是")
+        buttons.button(QDialogButtonBox.No).setText("否")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -172,6 +176,7 @@ class ResultSummaryDialog(QDialog):
         layout.addWidget(msg)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.button(QDialogButtonBox.Ok).setText("确定")
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)
 
@@ -224,6 +229,8 @@ class NameInputDialog(QDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
+        buttons.button(QDialogButtonBox.Ok).setText("确定")
+        buttons.button(QDialogButtonBox.Cancel).setText("取消")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

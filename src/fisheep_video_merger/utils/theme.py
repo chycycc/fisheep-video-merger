@@ -97,10 +97,20 @@ def apply_theme(theme_mode: str):
             QComboBox::drop-down { border: none; }
             QGroupBox { border: 1px solid #3a3a3a; margin-top: 12px; border-radius: 4px; font-weight: bold; }
             QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 3px; color: #aaaaaa; }
+
+            /* U-9: 美化分割条，指引自由拖拽 */
+            QSplitter::handle { background-color: #2a2a2a; }
+            QSplitter::handle:hover { background-color: #426eb4; }
+            QSplitter::handle:horizontal { width: 4px; }
         """)
     else:
         # 恢复系统原生默认明亮调色板与清除注入式 QSS 样式
         app.setPalette(QPalette())
-        app.setStyleSheet("")
+        # U-9: 明亮模式下同样为分割条应用可视化样式
+        app.setStyleSheet("""
+            QSplitter::handle { background-color: #e5e5e5; }
+            QSplitter::handle:hover { background-color: #0078d4; }
+            QSplitter::handle:horizontal { width: 4px; }
+        """)
         # 清空显式设置的 style 以退回到操作系统默认的风格（如 windowsvista/macos）
         app.setStyle("")
