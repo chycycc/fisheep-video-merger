@@ -257,3 +257,77 @@ class NameInputDialog(QDialog):
     def get_name(self) -> str:
         """获取输入的文件名"""
         return self.name_edit.text().strip()
+
+
+class ClearSelectionDialog(QDialog):
+    """自定义选择性清空确认框 (U-10 & 联动: 细粒度数据整理)"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("🧹 选择性清空确认")
+        self.setMinimumWidth(380)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        # 顶部提示语
+        hint = QLabel("<b>请勾选您希望从软件中清理的项目：</b>")
+        hint.setStyleSheet("font-size: 12px; margin-bottom: 5px;")
+        layout.addWidget(hint)
+
+        # 选项复选框
+        self.cb_queue = QCheckBox("🧹 清空「合并队列」中的所有任务")
+        self.cb_queue.setChecked(True)
+        self.cb_queue.setStyleSheet("font-size: 11px;")
+        layout.addWidget(self.cb_queue)
+
+        self.cb_pending = QCheckBox("📂 清空「待整理」列表中的游散视频")
+        self.cb_pending.setChecked(True)
+        self.cb_pending.setStyleSheet("font-size: 11px;")
+        layout.addWidget(self.cb_pending)
+
+        self.cb_muxed = QCheckBox("📄 清空「已完整」列表中的成品记录")
+        self.cb_muxed.setChecked(True)
+        self.cb_muxed.setStyleSheet("font-size: 11px;")
+        layout.addWidget(self.cb_muxed)
+
+        # 添加个细分割线
+        line = QLabel()
+        line.setFrameStyle(QLabel.HLine | QLabel.Sunken)
+        layout.addWidget(line)
+
+        self.cb_roots = QCheckBox("🔗 连带注销已导入的源文件夹监控记录")
+        self.cb_roots.setChecked(True)
+        self.cb_roots.setStyleSheet("color: #666666; font-size: 11px;")
+        layout.addWidget(self.cb_roots)
+
+        # 底部操作按钮
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Yes | QDialogButtonBox.Cancel
+        )
+        buttons.button(QDialogButtonBox.Yes).setText("确定清理所选")
+        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        
+        layout.addWidget(buttons)
+
+    def _on_accept(self):
+        # 至少要选一个，否则直接按取消处理
+        if not (self.cb_queue.isChecked() or 
+                self.cb_pending.isChecked() or 
+                self.cb_muxed.isChecked() or 
+                self.cb_roots.isChecked()):
+            QMessageBox.warning(self, "提示", "请至少选择一项进行清理，或者点击取消。")
+            return
+        self.accept()
+
+    def get_selection(self) -> dict:
+        """获取清空选中地图"""
+        return {
+            "queue": self.cb_queue.isChecked(),
+            "pending": self.cb_pending.isChecked(),
+            "muxed": self.cb_muxed.isChecked(),
+            "roots": self.cb_roots.isChecked(),
+        }

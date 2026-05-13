@@ -581,26 +581,37 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "扫描错误", f"扫描过程中发生错误:\n{error_msg}")
 
     def _on_clear(self):
-        """清空列表"""
+        """触发选择性清空对话框 (U-10 & 联动: 支持用户细粒度清理)"""
         if self.is_merging:
             QMessageBox.warning(self, "提示", "合并进行中，无法清空列表")
             return
 
-        reply = QMessageBox.question(
-            self, "确认清空",
-            "确定要清空所有扫描结果吗？",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply == QMessageBox.Yes:
-            self.root_paths.clear()
-            self.all_stream_infos.clear()
-            self.muxed_files.clear()
-            self.merge_queue_tab.clear_tasks()
-            self.pending_tab.clear()
-            self.muxed_tab.clear()
-            self.progress_bar.setValue(0)
-            self.progress_bar.setFormat("")
-            self.task_status_label.setText("")
+        from .dialogs import ClearSelectionDialog
+        dialog = ClearSelectionDialog(self)
+        if dialog.exec() == ClearSelectionDialog.Accepted:
+            sel = dialog.get_selection()
+            
+            # 1. 连带注销导入的文件夹记录
+            if sel["roots"]:
+                self.root_paths.clear()
+                self.all_stream_infos.clear()
+            
+            # 2. 清空合并队列
+            if sel["queue"]:
+                self.merge_queue_tab.clear_tasks()
+                self.progress_bar.setValue(0)
+                self.progress_bar.setFormat("")
+                self.task_status_label.setText("")
+
+            # 3. 清空待整理列表
+            if sel["pending"]:
+                self.pending_tab.clear()
+
+            # 4. 清空已完整列表
+            if sel["muxed"]:
+                self.muxed_files.clear()
+                self.muxed_tab.clear()
+
             self._update_status()
 
     def _on_pair_requested(self, video_info: StreamInfo, audio_info: StreamInfo):
