@@ -98,9 +98,71 @@ class MergeQueueTab(QWidget):
         layout.addWidget(self.table)
 
     def set_tasks(self, tasks: list[MergeTask]):
-        """设置任务列表"""
+        """设置任务列表，并针对新导入的任务行应用高品质高亮淡入动画"""
+        # 跟踪已知任务，发现新任务并收集其行索引以触发动画
+        if not hasattr(self, "_known_task_ids"):
+            self._known_task_ids = set()
+            
+        new_row_indices = []
+        for i, task in enumerate(tasks):
+            task_id = (task.video_file, task.audio_file)
+            if task_id not in self._known_task_ids:
+                new_row_indices.append(i)
+                self._known_task_ids.add(task_id)
+                
         self.tasks = tasks
         self._refresh_table()
+        
+        if new_row_indices:
+            self._animate_new_rows(new_row_indices)
+
+    def _animate_new_rows(self, row_indices: list[int]):
+        """使用 PySide6 动画库对新行触发绿光高亮渐变淡入动画"""
+        from PySide6.QtCore import QVariantAnimation
+        from PySide6.QtGui import QColor, QBrush
+        
+        bg_color = self.table.palette().color(self.table.backgroundRole())
+        is_dark = bg_color.value() < 128
+        
+        start_color = QColor(76, 175, 80, 50) if not is_dark else QColor(76, 175, 80, 75)
+        end_color = QColor(0, 0, 0, 0)
+        
+        if not hasattr(self, "_row_anims"):
+            self._row_anims = []
+            
+        anim = QVariantAnimation(self)
+        anim.setDuration(1200)
+        anim.setStartValue(start_color)
+        anim.setEndValue(end_color)
+        
+        def update_colors(color):
+            self.table.blockSignals(True)
+            brush = QBrush(color)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(brush)
+            self.table.blockSignals(False)
+            
+        anim.valueChanged.connect(update_colors)
+        
+        def on_finished():
+            self.table.blockSignals(True)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(QBrush())
+            self.table.blockSignals(False)
+            if anim in self._row_anims:
+                self._row_anims.remove(anim)
+                
+        anim.finished.connect(on_finished)
+        self._row_anims.append(anim)
+        anim.start()
 
     def get_tasks(self) -> list[MergeTask]:
         """获取任务列表"""
@@ -133,6 +195,8 @@ class MergeQueueTab(QWidget):
     def clear_tasks(self):
         """清空所有任务"""
         self.tasks.clear()
+        if hasattr(self, "_known_task_ids"):
+            self._known_task_ids.clear()
         self._refresh_table()
         self.tasks_changed.emit()
 

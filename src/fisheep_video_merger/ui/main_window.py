@@ -67,6 +67,7 @@ class ScanSignals(QObject):
     progress = Signal(int, int)  # 已完成数, 总数
     finished = Signal(object)    # StreamInfo 列表
     error = Signal(str)
+    incremental = Signal(str, list)  # 增量完成：root_path, list[StreamInfo]
 
 
 class MergeSignals(QObject):
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         self.all_stream_infos: list[StreamInfo] = []
         self.muxed_files: list[StreamInfo] = []
         self.is_merging = False
+        self._is_drag_drop_scan = False
 
         # 检查 ffmpeg
         self.ffmpeg_available = check_ffmpeg_available()
@@ -479,9 +481,10 @@ class MainWindow(QMainWindow):
         )
 
     def _add_folders(self, directories: list[str]):
-        """批量添加文件夹并开始扫描"""
+        """批量添加文件夹并开始增量扫描"""
         added_count = 0
         duplicate_folders = []
+        new_directories = []
 
         for directory in directories:
             directory = os.path.abspath(directory)
@@ -493,35 +496,43 @@ class MainWindow(QMainWindow):
                 continue
 
             self.root_paths.append(directory)
+            new_directories.append(directory)
             added_count += 1
 
         if added_count == 0:
             if duplicate_folders:
-                QMessageBox.information(
-                    self, "提示", 
-                    f"文件夹已在列表中:\n{', '.join(duplicate_folders)}"
-                )
+                if not getattr(self, "_is_drag_drop_scan", False):
+                    QMessageBox.information(
+                        self, "提示", 
+                        f"文件夹已在列表中:\n{', '.join(duplicate_folders)}"
+                    )
+                else:
+                    self.status_text.setText(f"提示：文件夹已在列表中: {', '.join(duplicate_folders)}")
+                    self._is_drag_drop_scan = False
             return
 
         self.status_text.setText("正在扫描...")
         self.add_folder_btn.setEnabled(False)
         self.clear_btn.setEnabled(False)
 
-        # 启动扫描线程
-        self._start_scan()
+        # 启动扫描线程，仅扫描新添加目录
+        self._start_scan(new_directories)
 
-    def _start_scan(self):
-        """启动扫描线程"""
+    def _start_scan(self, new_directories: list[str]):
+        """启动扫描线程，支持并行扫描且增量回调"""
         signals = ScanSignals()
         signals.progress.connect(self._on_scan_progress)
+        signals.incremental.connect(self._on_scan_incremental)
         signals.finished.connect(self._on_scan_finished)
         signals.error.connect(self._on_scan_error)
 
         def scan_worker():
             try:
+                # 仅对新增文件夹进行并行扫描
                 results = scan_multiple_directories(
-                    self.root_paths,
+                    new_directories,
                     progress_callback=lambda c, t: signals.progress.emit(c, t),
+                    dir_finished_callback=lambda path, res: signals.incremental.emit(path, res),
                 )
                 signals.finished.emit(results)
             except Exception as e:
@@ -535,15 +546,28 @@ class MainWindow(QMainWindow):
         """扫描进度更新"""
         self.status_text.setText(f"正在扫描... ({completed}/{total})")
 
-    @Slot(object)
-    def _on_scan_finished(self, results: list[StreamInfo]):
-        """扫描完成"""
-        self.all_stream_infos = results
+    @Slot(str, list)
+    def _on_scan_incremental(self, root_path: str, results: list[StreamInfo]):
+        """单目录扫描增量完成回调"""
+        if not results:
+            return
+            
+        # 增量合并新扫描的结果并排重
+        existing_paths = {x.filepath for x in self.all_stream_infos}
+        added_any = False
+        for info in results:
+            if info.filepath not in existing_paths:
+                self.all_stream_infos.append(info)
+                existing_paths.add(info.filepath)
+                added_any = True
+                
+        if not added_any:
+            return
 
-        # 执行自动配对
-        match_result = auto_match(results, self.root_paths)
+        # 重新计算自动配对
+        match_result = auto_match(self.all_stream_infos, self.root_paths)
 
-        # 更新界面
+        # 刷新所有标签页的表格，应用高档增量淡入高亮过渡动画
         self.merge_queue_tab.set_tasks(match_result.auto_tasks)
         self.pending_tab.set_files(
             match_result.pending_videos,
@@ -555,12 +579,19 @@ class MainWindow(QMainWindow):
         # 自动填充输出目录
         self._auto_set_output_dir()
 
-        # 更新输出路径
+        # 更新输出全路径
         self._update_all_output_paths()
+        self._update_status()
 
+    @Slot(object)
+    def _on_scan_finished(self, results: list[StreamInfo]):
+        """扫描完成"""
         self.add_folder_btn.setEnabled(True)
         self.clear_btn.setEnabled(True)
         self._update_status()
+
+        # 重新运行一次完整的匹配确认最终状态
+        match_result = auto_match(self.all_stream_infos, self.root_paths)
 
         # 提示信息
         total = len(results)
@@ -570,12 +601,21 @@ class MainWindow(QMainWindow):
         muxed_count = len(match_result.muxed_files)
 
         msg = (
-            f"扫描完成！共 {total} 个文件\n"
-            f"自动配对: {auto_count} 个任务\n"
+            f"扫描完成！本次新增 {total} 个文件\n"
+            f"全局配对: {auto_count} 个任务\n"
             f"待整理: {pending_v} 视频 + {pending_a} 音频\n"
             f"已完整(跳过): {muxed_count} 个"
         )
-        QMessageBox.information(self, "扫描完成", msg)
+        
+        if not getattr(self, "_is_drag_drop_scan", False):
+            QMessageBox.information(self, "扫描完成", msg)
+        else:
+            # 拖拽的静默扫描：直接在状态栏提示，无弹窗打扰
+            self.status_text.setText(
+                f"扫描完成！本次新增 {total} 个文件 | 全局配对: {auto_count} | 待整理: {pending_v} + {pending_a} | 已完整: {muxed_count}"
+            )
+            # 重置拖拽标志
+            self._is_drag_drop_scan = False
 
     @Slot(str)
     def _on_scan_error(self, error_msg: str):
