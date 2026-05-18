@@ -1,0 +1,895 @@
+/* ====================================================================
+   🐑 B站 m4s 视频合并工具 v0.4.0 全局极客设计系统 (CSS)
+   基于 CSS 变量的暗黑科技绿与流沙灰双主题自适应，支持玻璃拟态与流光微动效
+   ==================================================================== */
+
+/* === 1. 核心主题变量定义 === */
+:root[data-theme="dark"] {
+    --window-bg: #0D0E15;                /* 极深宇宙黑 */
+    --base-bg: rgba(21, 22, 33, 0.75);    /* 半透明磨砂玻璃卡片 */
+    --alt-base-bg: rgba(28, 29, 41, 0.8); /* 交替背景 */
+    --border-color: #23273D;              /* 极细暗调边框 */
+    
+    --primary-color: #10B981;             /* 科技高亮绿 (羊驼绿) */
+    --primary-hover: #34D399;
+    --primary-pressed: #059669;
+    --primary-glow: rgba(16, 185, 129, 0.25);
+    
+    --accent-blue: #3B82F6;               /* 极客科技蓝 */
+    --accent-blue-glow: rgba(59, 130, 246, 0.25);
+    
+    --text-color: #E2E8F0;                /* 柔和护眼白 */
+    --text-muted: #64748B;                /* 灰蓝弱文案 */
+    --disabled-bg: #20212F;
+    --disabled-text: #4A4D6B;
+    
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --hover-shadow: 0 8px 24px 0 rgba(16, 185, 129, 0.15);
+    
+    --table-header-bg: rgba(27, 28, 40, 0.9);
+    --table-selected-bg: rgba(16, 185, 129, 0.12);
+}
+
+:root[data-theme="light"] {
+    --window-bg: #F8FAFC;                /* 极净流沙浅灰 */
+    --base-bg: rgba(255, 255, 255, 0.85); /* 半透明磨砂纯白卡片 */
+    --alt-base-bg: rgba(241, 245, 249, 0.9);
+    --border-color: #E2E8F0;              /* 柔和浅灰边框 */
+    
+    --primary-color: #059669;             /* 森林深翡翠绿 */
+    --primary-hover: #10B981;
+    --primary-pressed: #047857;
+    --primary-glow: rgba(5, 150, 105, 0.2);
+    
+    --accent-blue: #2563EB;               /* 经典深科技蓝 */
+    --accent-blue-glow: rgba(37, 99, 235, 0.2);
+    
+    --text-color: #1E293B;                /* 深石墨灰 */
+    --text-muted: #64748B;                /* 中灰 */
+    --disabled-bg: #F1F5F9;
+    --disabled-text: #94A3B8;
+    
+    --card-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.12);
+    --hover-shadow: 0 8px 24px 0 rgba(5, 150, 105, 0.12);
+    
+    --table-header-bg: rgba(248, 250, 252, 0.95);
+    --table-selected-bg: rgba(5, 150, 105, 0.08);
+}
+
+/* === 2. 全局重置与排版 === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none; /* 禁止原生桌面拖拽文本选择 */
+}
+
+body {
+    font-family: 'Inter', 'Microsoft YaHei', -apple-system, sans-serif;
+    background-color: var(--window-bg);
+    color: var(--text-color);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === 3. 主页面布局体系 (App Layout) === */
+.app-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 340px; /* 侧栏 | 主界面 | 配置栏 */
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+}
+
+/* === 4. 左侧科技导航栏 (Sidebar) === */
+.sidebar {
+    background-color: var(--base-bg);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+    padding: 0 8px;
+}
+
+.logo-emoji {
+    font-size: 32px;
+    filter: drop-shadow(0 2px 8px var(--primary-glow));
+}
+
+.logo-text h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-color);
+}
+
+.version-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-btn:hover {
+    color: var(--text-color);
+    background-color: var(--alt-base-bg);
+}
+
+.nav-btn.active {
+    color: var(--primary-color);
+    background-color: var(--alt-base-bg);
+    box-shadow: inset 3px 0 0 0 var(--primary-color);
+}
+
+.sidebar-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+
+.theme-toggle-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+}
+
+.theme-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.icon-toggle {
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.25s ease;
+}
+
+.icon-toggle:hover {
+    border-color: var(--primary-color);
+    transform: rotate(15deg);
+}
+
+/* === 5. 右侧主工作区 (Main Content) === */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    overflow: hidden;
+    height: 100vh;
+}
+
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.header-title-section h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+/* === 6. 通用按钮组件 (Buttons) === */
+.btn {
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    outline: none;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px var(--primary-glow);
+}
+
+.btn-primary:active {
+    background-color: var(--primary-pressed);
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background-color: var(--base-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+    background-color: var(--alt-base-bg);
+}
+
+.btn-danger {
+    background-color: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #EF4444;
+}
+
+.btn-danger:hover {
+    background-color: #EF4444;
+    border-color: #EF4444;
+    color: #FFFFFF;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+/* === 7. 选项卡面板结构 (Tab Panels) === */
+.tab-panels {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.tab-panel {
+    display: none;
+    height: 100%;
+    width: 100%;
+}
+
+.tab-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* === 8. 现代无边框隔行变色表格 (Data Table) === */
+.table-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background-color: var(--base-bg);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--card-shadow);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+}
+
+.data-table th {
+    background-color: var(--table-header-bg);
+    color: var(--text-color);
+    font-weight: 700;
+    padding: 14px 16px;
+    border-bottom: 2px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.data-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.data-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.015);
+}
+
+/* 隔行变色在高对比度暗黑下的微调 */
+[data-theme="dark"] .data-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.005);
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--alt-base-bg);
+}
+
+.data-table tbody tr.selected {
+    background-color: var(--table-selected-bg);
+}
+
+/* 表格空状态 (Empty State) */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    filter: grayscale(0.2) drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+}
+
+.empty-state h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 320px;
+    line-height: 1.6;
+}
+
+/* === 9. 右侧配置侧栏 (Config Panel) === */
+.config-panel {
+    background-color: var(--base-bg);
+    border-left: 1px solid var(--border-color);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--card-shadow);
+    z-index: 10;
+}
+
+.config-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.config-header h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.config-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* 精致参数盒子 (Config Cards) */
+.config-card {
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.config-card h4 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 6px;
+}
+
+/* === 10. 表单控件 (Forms) === */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+input[type="text"], input[type="number"], select {
+    background-color: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-color);
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px var(--accent-blue-glow);
+}
+
+/* 预计输出目录专用组合输入框 */
+.input-with-action {
+    display: flex;
+    gap: 8px;
+}
+
+.mini-action-btn {
+    background-color: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.mini-action-btn:hover {
+    border-color: var(--primary-color);
+    background-color: var(--alt-base-bg);
+}
+
+/* 自研超美观 Checkbox (No Images) */
+.checkbox-group {
+    margin-top: 4px;
+}
+
+.checkbox-container {
+    display: block;
+    position: relative;
+    padding-left: 26px;
+    margin-bottom: 0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500 !important;
+    color: var(--text-color) !important;
+    line-height: 18px;
+}
+
+.checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 18px;
+    width: 18px;
+    background-color: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.checkbox-container:hover input ~ .checkmark {
+    border-color: var(--primary-color);
+}
+
+.checkbox-container input:checked ~ .checkmark {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* 运用 3px 同心收缩原理，无需图片，手绘高质感方块选中点 */
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.checkbox-container .checkmark:after {
+    left: 4px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background-color: var(--base-bg);
+}
+
+/* 路径预览黑客风展示框 */
+.path-preview-box {
+    background-color: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.control-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 18px;
+    margin-top: 16px;
+}
+
+/* === 11. 底部高并发卡片监视看板 (Bottom Dashboard) === */
+#active-tasks-dashboard {
+    position: absolute;
+    bottom: 0;
+    left: 240px;
+    right: 340px;
+    background-color: var(--base-bg);
+    border-top: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 15;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 默认收纳（折叠）态 */
+.dashboard-collapsed {
+    transform: translateY(calc(100% - 40px));
+}
+
+/* 展开态 */
+.dashboard-expanded {
+    transform: translateY(0);
+}
+
+.dashboard-header {
+    height: 40px;
+    padding: 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: border-bottom-color 0.2s ease;
+}
+
+.dashboard-expanded .dashboard-header {
+    border-bottom-color: var(--border-color);
+}
+
+.dashboard-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.dashboard-arrow {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+}
+
+.dashboard-expanded .dashboard-arrow {
+    transform: rotate(180deg);
+}
+
+.dashboard-content {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+/* 并发监控线程卡片 (Task Card) */
+.task-card {
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.25s ease;
+}
+
+.task-card:hover {
+    border-color: var(--primary-color);
+}
+
+.task-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.task-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.task-card-status {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-transform: uppercase;
+}
+
+/* 卡片流式进度条 */
+.task-card-progress {
+    height: 4px;
+    background-color: rgba(128, 128, 128, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.task-card-progress-chunk {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.15s linear;
+}
+
+.task-card-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* === 12. 全窗口拖拽磨砂玻璃遮罩 (Drag Overlay) === */
+#drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(13, 14, 21, 0.85);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+[data-theme="light"] #drop-overlay {
+    background-color: rgba(248, 250, 252, 0.88);
+}
+
+#drop-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.drop-border-frame {
+    border: 2.5px dashed var(--primary-color);
+    border-radius: 16px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background-color: rgba(255, 255, 255, 0.015);
+    animation: pulseBorder 2s infinite ease-in-out;
+}
+
+[data-theme="light"] .drop-border-frame {
+    background-color: rgba(0, 0, 0, 0.01);
+}
+
+.drop-icon {
+    font-size: 80px;
+    filter: drop-shadow(0 4px 16px var(--primary-glow));
+    animation: floatIcon 3s infinite ease-in-out;
+}
+
+.drop-text {
+    color: var(--primary-color);
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 8px var(--primary-glow);
+}
+
+@keyframes pulseBorder {
+    0%, 100% { border-color: var(--primary-color); box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.05); }
+    50% { border-color: var(--primary-hover); box-shadow: inset 0 0 40px rgba(16, 185, 129, 0.15); }
+}
+
+@keyframes floatIcon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* === 13. 表格内嵌入式微型进度条 === */
+.table-progress-bar {
+    width: 100%;
+    height: 16px;
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    position: relative;
+    background-color: transparent;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-progress-chunk {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(16, 185, 129, 0.18);
+    width: 0%;
+    transition: width 0.15s linear;
+    z-index: 0;
+}
+
+[data-theme="light"] .table-progress-chunk {
+    background-color: rgba(5, 150, 105, 0.15);
+}
+
+.table-progress-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary-color);
+    position: relative;
+    z-index: 1;
+}
+
+/* === 14. 轻量级轻巧 Scrollbar === */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(128, 128, 128, 0.2);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--primary-color);
+}
+
+/* === 15. Toast 全局消息浮层 === */
+#toast-container {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.toast {
+    background-color: var(--base-bg);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+    box-shadow: var(--card-shadow);
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(12px);
+    transform: translateX(120%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 320px;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-error {
+    border-left-color: #EF4444;
+}
+
+.toast-warning {
+    border-left-color: #F59E0B;
+}

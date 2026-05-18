@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐑 B站 m4s 视频合并工具 v0.4.0</title>
+    <!-- 引入高阶现代字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- App 主容器 -->
+    <div id="app-container" class="app-layout">
+        
+        <!-- 1. 左侧扁平科技感导航栏 (Sidebar) -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <span class="logo-emoji">🐑</span>
+                <div class="logo-text">
+                    <h1>Fisheep</h1>
+                    <span class="version-tag">v0.4.0 WebUI</span>
+                </div>
+            </div>
+            
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="merge-queue">
+                    <span class="nav-icon">📊</span> 合并队列
+                </button>
+                <button class="nav-btn" data-tab="pending">
+                    <span class="nav-icon">⏳</span> 待整理
+                </button>
+                <button class="nav-btn" data-tab="muxed">
+                    <span class="nav-icon">✅</span> 已完整
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="theme-toggle-area">
+                    <span class="theme-label">🌓 主题模式</span>
+                    <button id="theme-switch-btn" class="icon-toggle">🌙</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 2. 右侧主工作区 (Main Work Area) -->
+        <main class="main-content">
+            <!-- 头部操作条 -->
+            <header class="main-header">
+                <div class="header-title-section">
+                    <h2 id="current-tab-title">合并队列</h2>
+                    <p class="subtitle" id="current-tab-desc">拖入B站缓存文件夹或导入 .m4s 音视频即可开始并行合并</p>
+                </div>
+                <div class="header-actions">
+                    <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
+                    <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
+                    <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
+                </div>
+            </header>
+
+            <!-- 三标签页的面板槽 -->
+            <section class="tab-panels">
+                
+                <!-- 2.1 合并队列面板 -->
+                <div class="tab-panel active" id="panel-merge-queue">
+                    <div class="table-container">
+                        <table class="data-table" id="queue-table">
+                            <thead>
+                                <tr>
+                                    <th width="40"><input type="checkbox" id="select-all-checkbox"></th>
+                                    <th>视频名称</th>
+                                    <th>格式</th>
+                                    <th>分辨率</th>
+                                    <th>大小</th>
+                                    <th>进度/状态</th>
+                                    <th width="100">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="queue-tbody">
+                                <!-- 动态插入扫描后的合并任务行 -->
+                                <tr class="empty-state-row">
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">🐑</div>
+                                            <h3>目前队列空空如也</h3>
+                                            <p>直接拖入B站手机/电脑版缓存目录，或点击上方导入文件夹</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2.2 待整理面板 -->
+                <div class="tab-panel" id="panel-pending">
+                    <div class="table-container">
+                        <table class="data-table" id="pending-table">
+                            <thead>
+                                <tr>
+                                    <th width="40"><input type="checkbox" id="select-all-pending"></th>
+                                    <th>源名称</th>
+                                    <th>大小</th>
+                                    <th>修改日期</th>
+                                    <th width="120">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-tbody">
+                                <tr class="empty-state-row">
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">📁</div>
+                                            <h3>没有需要整理的零散片段</h3>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2.3 已完整面板 -->
+                <div class="tab-panel" id="panel-muxed">
+                    <div class="table-container">
+                        <table class="data-table" id="muxed-table">
+                            <thead>
+                                <tr>
+                                    <th width="40"><input type="checkbox" id="select-all-muxed"></th>
+                                    <th>已合并文件</th>
+                                    <th>分辨率</th>
+                                    <th>大小</th>
+                                    <th>合并时间</th>
+                                    <th width="180">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="muxed-tbody">
+                                <tr class="empty-state-row">
+                                    <td colspan="6">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">🎬</div>
+                                            <h3>尚未完成任何视频合并</h3>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 3. 右侧极客配置侧边面板 (Right Config Sidebar) -->
+        <aside class="config-panel">
+            <div class="config-header">
+                <h3>🎛️ 任务配置</h3>
+            </div>
+            
+            <div class="config-sections">
+                <!-- 预设参数卡片 -->
+                <div class="config-card">
+                    <h4>📂 输出设置</h4>
+                    <div class="form-group">
+                        <label>预计输出目录</label>
+                        <div class="input-with-action">
+                            <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly>
+                            <button id="select-output-btn" class="mini-action-btn">📂</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>默认合并格式</label>
+                        <select id="output-format-select">
+                            <option value="mp4">MP4 (.mp4)</option>
+                            <option value="mkv">MKV (.mkv)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 并发与流控配置 -->
+                <div class="config-card">
+                    <h4>⚡ 并发与流控</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>并发任务限制</label>
+                            <input type="number" id="concurrency-input" min="1" max="8" value="2">
+                        </div>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="overwrite-checkbox" checked>
+                            <span class="checkmark"></span>
+                            自动覆盖同名文件
+                        </label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="delete-source-checkbox">
+                            <span class="checkmark"></span>
+                            合并成功后删除源文件
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 预计输出路径指示框 -->
+                <div class="config-card">
+                    <h4>🔗 路径预览</h4>
+                    <div id="detail-path-label" class="path-preview-box">
+                        尚未选择任何任务，请双击列表行进行高级分析...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制底盘按钮 -->
+            <div class="control-footer">
+                <button id="start-btn" class="btn btn-primary btn-block">🚀 开始合并队列</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 4. 底部高并发卡片监视看板 (Bottom Status area) -->
+    <div id="active-tasks-dashboard" class="dashboard-collapsed">
+        <div class="dashboard-header" id="dashboard-toggle-bar">
+            <span class="dashboard-title">⚡ 正在运行的后台合并通道 (<span id="active-count">0</span>)</span>
+            <span class="dashboard-arrow">▲</span>
+        </div>
+        <div class="dashboard-content" id="dashboard-cards-container">
+            <!-- 动态注入并发卡片 -->
+        </div>
+    </div>
+
+    <!-- 5. 全窗口拖拽半透明毛玻璃蒙层 (Drag and Drop Overlay) -->
+    <div id="drop-overlay" class="hidden">
+        <div class="drop-border-frame">
+            <div class="drop-icon">🐑</div>
+            <div class="drop-text">释放鼠标，立即导入视频合并任务</div>
+        </div>
+    </div>
+
+    <!-- 6. 全局通知 Toast 容器 -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
