@@ -1,2 +1,3 @@
 PySide6==6.9.3
 send2trash
+pywebview==6.2.1
