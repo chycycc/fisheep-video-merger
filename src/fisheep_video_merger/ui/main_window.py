@@ -274,6 +274,7 @@ class MainWindow(QMainWindow):
         # 合并队列标签页
         self.merge_queue_tab.preview_requested.connect(self._on_preview)
         self.merge_queue_tab.tasks_changed.connect(self._update_status)
+        self.merge_queue_tab.tasks_changed.connect(self._update_all_output_paths)
         self.merge_queue_tab.batch_rename_requested.connect(self._on_batch_rename)
         self.merge_queue_tab.checked_state_changed.connect(self._update_status)
 
@@ -1133,6 +1134,11 @@ class MainWindow(QMainWindow):
         self.settings_panel.set_start_enabled(True)
         self.add_folder_btn.setEnabled(True)
         self.clear_btn.setEnabled(True)
+
+        # 完美解决完成后的状态更新与残留信息清除 (Issue #1)
+        self.progress_bar.setValue(self.total_merge_tasks)
+        self.progress_bar.setFormat("合并完成")
+        self.task_status_label.setText("🎉 所有任务合并完成！")
 
         self._on_merge_finished(self.merge_results)
 

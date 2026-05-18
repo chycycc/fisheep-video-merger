@@ -85,8 +85,9 @@ class MergeQueueTab(QWidget):
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setAlternatingRowColors(True)
 
-        # 编辑事件
+        # 编辑事件与双击强力唤醒行内编辑
         self.table.itemChanged.connect(self._on_item_changed)
+        self.table.doubleClicked.connect(self._on_cell_double_clicked)
 
         # 右键菜单
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -390,6 +391,25 @@ class MergeQueueTab(QWidget):
         elif col == self.COL_CHECK:
             self.checked_state_changed.emit()
 
+    def _on_cell_double_clicked(self, index):
+        """双击单元格时，如果双击的是输出文件名列，强制唤醒并进入编辑状态"""
+        if index.column() == self.COL_OUTPUT_NAME:
+            self.table.edit(index)
+
+    def _rename_task_inline(self, row: int):
+        """弹出输入框修改单个任务的输出文件名"""
+        if row >= len(self.tasks):
+            return
+        task = self.tasks[row]
+        from PySide6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(
+            self, "修改输出文件名", "请输入新的输出文件名:", text=task.output_name
+        )
+        if ok and new_name.strip():
+            task.output_name = new_name.strip()
+            self._refresh_table()
+            self.tasks_changed.emit()
+
     def _show_context_menu(self, pos):
         """显示右键菜单"""
         selected_rows = set(
@@ -424,6 +444,15 @@ class MergeQueueTab(QWidget):
                 lambda: self.batch_rename_requested.emit(list(selected_rows))
             )
             menu.addAction(batch_action)
+
+        # 修改输出文件名 (单任务)
+        if len(selected_rows) == 1:
+            row = list(selected_rows)[0]
+            rename_action = QAction("修改输出文件名...", self)
+            rename_action.triggered.connect(
+                lambda: self._rename_task_inline(row)
+            )
+            menu.addAction(rename_action)
 
         # 移除任务
         remove_action = QAction("移除任务", self)
