@@ -218,14 +218,14 @@ class PendingTab(QWidget):
         anim.setStartValue(start_color)
         anim.setEndValue(end_color)
         
-        # 记录初始背景
+        # 记录初始背景 (使用坐标元组，避免 QTableWidgetItem 作 key 的 unhashable 报错)
         original_brushes = {}
         for row in row_indices:
             if row < self.table.rowCount():
                 for col in range(self.table.columnCount()):
                     item = self.table.item(row, col)
                     if item:
-                        original_brushes[item] = item.background()
+                        original_brushes[(row, col)] = item.background()
         
         def update_colors(color):
             self.table.blockSignals(True)
@@ -242,8 +242,11 @@ class PendingTab(QWidget):
         
         def on_finished():
             self.table.blockSignals(True)
-            for item, orig_brush in original_brushes.items():
-                item.setBackground(orig_brush)
+            for (row, col), orig_brush in original_brushes.items():
+                if row < self.table.rowCount():
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setBackground(orig_brush)
             self.table.blockSignals(False)
             if anim in self._row_anims:
                 self._row_anims.remove(anim)
