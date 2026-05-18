@@ -44,6 +44,7 @@ from fisheep_video_merger.core.merger import (
     remux_single,
     ConflictStrategy,
     MergeResult,
+    MergeWorker,
 )
 from fisheep_video_merger.ui.merge_queue_tab import MergeQueueTab
 from fisheep_video_merger.ui.pending_tab import PendingTab
@@ -92,6 +93,10 @@ class MainWindow(QMainWindow):
         self.muxed_files: list[StreamInfo] = []
         self.is_merging = False
         self._is_drag_drop_scan = False
+
+        # 初始化全局线程池 (C-1)
+        from PySide6.QtCore import QThreadPool
+        self.thread_pool = QThreadPool(self)
 
         # 检查 ffmpeg
         self.ffmpeg_available = check_ffmpeg_available()
@@ -192,6 +197,11 @@ class MainWindow(QMainWindow):
         splitter.setSizes([715, 385])
 
         main_layout.addWidget(splitter, 1)
+
+        # === 底部并发卡片监视面板 (C-3) ===
+        from fisheep_video_merger.ui.widgets.active_tasks_dashboard import ActiveTasksDashboard
+        self.active_tasks_dashboard = ActiveTasksDashboard()
+        main_layout.addWidget(self.active_tasks_dashboard)
 
         # === 底部进度条 ===
         bottom_widget = QWidget()
@@ -965,135 +975,246 @@ class MainWindow(QMainWindow):
                 "output_name": task.output_name,
             })
 
-        # 启动合并线程
-        self._start_merge_thread(merge_tasks)
+        # 启动并发合并调度 (C-1)
+        self._start_concurrent_merge(merge_tasks)
 
-    def _start_merge_thread(self, tasks: list[dict]):
-        """启动合并线程"""
-        signals = MergeSignals()
-        signals.progress.connect(self._on_merge_progress)
-        signals.task_status.connect(self._on_task_status)
-        signals.finished.connect(self._on_merge_finished)
-        # 冲突对话框通过 Signal 安全地跨线程传递
-        signals.conflict_requested.connect(self._show_conflict_dialog_sync)
+    def _start_concurrent_merge(self, tasks: list[dict]):
+        """并发合并调度器 (C-1)"""
+        # 配置并发通道通道数
+        max_concurrency = self.settings_panel.get_concurrency()
+        self.thread_pool.setMaxThreadCount(max_concurrency)
 
-        # 使用事件循环和信号来同步处理冲突对话框
-        self._conflict_event = threading.Event()
-        self._conflict_result = [ConflictStrategy.OVERWRITE, False]  # [strategy, apply_all]
+        # 重置冲突决策全局缓存 (C-2)
+        self.global_conflict_applied_all = False
+        self.global_conflict_strategy = None
+        self.conflict_queue = []
+        self.is_showing_conflict_dialog = False
+        self.active_workers = {}
 
-        def merge_worker():
-            results: list[MergeResult] = []
-            total = len(tasks)
-            conflict_strategy = ConflictStrategy.OVERWRITE
-            applied_all = False
+        # 清空底部面板
+        self.active_tasks_dashboard.clear_all()
 
-            for i, task in enumerate(tasks):
-                original_idx = task.get("original_index", i)
-                video_file = task["video_file"]
-                audio_file = task["audio_file"]
-                output_path = task["output_path"]
-                output_name = task.get("output_name", os.path.basename(output_path))
+        # 进度与状态计数器
+        self.total_merge_tasks = len(tasks)
+        self.completed_merge_tasks = 0
+        self.merge_results = []
 
-                signals.progress.emit(i + 1, total, f"正在合并: {output_name}")
+        # 更新大进度条的初始状态
+        self.progress_bar.setMaximum(self.total_merge_tasks)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFormat(f"0/{self.total_merge_tasks}")
+        self.task_status_label.setText("正在初始化并发合并线程...")
 
-                # 处理重名冲突
-                actual_path = output_path
-                if os.path.exists(output_path) and not applied_all:
-                    # 通过 Signal 安全地通知主线程显示对话框，等待用户选择
-                    self._conflict_event.clear()
-                    signals.progress.emit(i + 1, total, f"文件已存在: {output_name}")
-                    signals.conflict_requested.emit(output_path)
-                    self._conflict_event.wait()  # 等待用户选择
+        for task_info in tasks:
+            original_idx = task_info["original_index"]
+            video_file = task_info["video_file"]
+            audio_file = task_info["audio_file"]
+            output_path = task_info["output_path"]
 
-                    strategy = self._conflict_result[0]
-                    apply_all = self._conflict_result[1]
+            # 将合并队列标签页中对应的行状态标记为 "running" (U-9)
+            self.merge_queue_tab.update_task_status_str(original_idx, "running")
 
-                    if strategy == ConflictStrategy.SKIP:
-                        results.append(MergeResult(
-                            task_index=original_idx,
-                            output_name=output_name,
-                            output_path=output_path,
-                            success=False,
-                            error_message="已跳过（文件已存在）",
-                        ))
-                        signals.task_status.emit(i, False, "已跳过（文件已存在）")
-                        continue
-                    elif strategy == ConflictStrategy.RENAME:
-                        base, ext = os.path.splitext(output_path)
-                        counter = 1
-                        while True:
-                            new_path = f"{base}_{counter}{ext}"
-                            if not os.path.exists(new_path):
-                                actual_path = new_path
-                                break
-                            counter += 1
-                    conflict_strategy = strategy
-                    applied_all = apply_all
+            # 计算源文件总字节数
+            total_bytes = 0
+            if video_file and os.path.exists(video_file):
+                total_bytes += os.path.getsize(video_file)
+            if audio_file and os.path.exists(audio_file):
+                total_bytes += os.path.getsize(audio_file)
 
-                elif os.path.exists(output_path) and applied_all:
-                    if conflict_strategy == ConflictStrategy.SKIP:
-                        results.append(MergeResult(
-                            task_index=original_idx,
-                            output_name=output_name,
-                            output_path=output_path,
-                            success=False,
-                            error_message="已跳过（文件已存在）",
-                        ))
-                        signals.task_status.emit(i, False, "已跳过（文件已存在）")
-                        continue
-                    elif conflict_strategy == ConflictStrategy.RENAME:
-                        base, ext = os.path.splitext(output_path)
-                        counter = 1
-                        while True:
-                            new_path = f"{base}_{counter}{ext}"
-                            if not os.path.exists(new_path):
-                                actual_path = new_path
-                                break
-                            counter += 1
+            # 平滑添加监控卡片 (C-3)
+            self.active_tasks_dashboard.add_task(original_idx, task_info["output_name"], total_bytes)
 
-                success, error = merge_single(
-                    video_file, audio_file, actual_path,
-                )
+            # 实例化 QRunnable 并发单元 (C-1)
+            worker = MergeWorker(
+                task_index=original_idx,
+                video_file=video_file,
+                audio_file=audio_file,
+                output_path=output_path,
+                is_muxed=False
+            )
 
-                # 记录合并流水历史
-                self._record_merge_history(
-                    video_path=video_file,
-                    audio_path=audio_file,
-                    output_path=actual_path,
-                    success=success,
-                    error=error,
-                    op_type="merge",
-                )
+            # 连接信号
+            worker.signals.progress.connect(self._on_worker_progress)
+            worker.signals.finished.connect(self._on_worker_finished)
+            worker.signals.error.connect(self._on_worker_error)
+            worker.signals.conflict_requested.connect(self._on_worker_conflict_requested)
 
-                result = MergeResult(
-                    task_index=original_idx,
-                    output_name=output_name,
-                    output_path=actual_path,
-                    success=success,
-                    error_message=error,
-                )
-                results.append(result)
-                signals.task_status.emit(original_idx, success, error)
+            self.active_workers[original_idx] = worker
 
-            signals.finished.emit(results)
+            # 投递至线程池排队调度并发执行
+            self.thread_pool.start(worker)
 
-        thread = threading.Thread(target=merge_worker, daemon=True)
-        thread.start()
+    @Slot(int, str)
+    def _on_worker_progress(self, task_index: int, progress_text: str):
+        """接收子线程发出的流式合并进度报告"""
+        self.task_status_label.setText(f"任务 #{task_index + 1}: {progress_text}")
+        self.merge_queue_tab.update_task_progress_text(task_index, progress_text)
+        self.active_tasks_dashboard.update_task(task_index, progress_text)
 
-    def _show_conflict_dialog_sync(self, output_path: str):
-        """在主线程显示冲突对话框（由 QTimer.callOnMainThread 调用）"""
+    @Slot(int, object)
+    def _on_worker_finished(self, task_index: int, result: MergeResult):
+        """某个合并任务成功完成"""
+        # 1. 记录合并历史流
+        self._record_merge_history(
+            video_path=self.active_workers[task_index].video_file if task_index in self.active_workers else "",
+            audio_path=self.active_workers[task_index].audio_file if task_index in self.active_workers else "",
+            output_path=result.actual_path,
+            success=result.success,
+            error=result.error_message,
+            op_type="merge",
+        )
+
+        # 2. 移除卡片 (C-3)
+        self.active_tasks_dashboard.remove_task(task_index)
+
+        # 3. 从 active_workers 中移除该任务
+        if task_index in self.active_workers:
+            del self.active_workers[task_index]
+
+        # 4. 更新任务列表中对应的状态行
+        self.merge_queue_tab.update_task_status_str(task_index, "success", result.error_message)
+
+        # 5. 更新总体大进度条
+        self.completed_merge_tasks += 1
+        self.progress_bar.setValue(self.completed_merge_tasks)
+        self.progress_bar.setFormat(f"{self.completed_merge_tasks}/{self.total_merge_tasks}")
+
+        self.merge_results.append(result)
+
+        # 6. 检查是否全部任务已调度完成
+        if self.completed_merge_tasks >= self.total_merge_tasks:
+            self._finalize_merge_session()
+
+    @Slot(int, str)
+    def _on_worker_error(self, task_index: int, error_msg: str):
+        """某个合并任务发生错误"""
+        # 1. 记录合并历史流
+        self._record_merge_history(
+            video_path=self.active_workers[task_index].video_file if task_index in self.active_workers else "",
+            audio_path=self.active_workers[task_index].audio_file if task_index in self.active_workers else "",
+            output_path=self.active_workers[task_index].output_path if task_index in self.active_workers else "",
+            success=False,
+            error=error_msg,
+            op_type="merge",
+        )
+
+        # 2. 移除卡片 (C-3)
+        self.active_tasks_dashboard.remove_task(task_index)
+
+        # 3. 从 active_workers 中移除该任务
+        if task_index in self.active_workers:
+            del self.active_workers[task_index]
+
+        # 4. 更新任务列表中对应的状态行
+        self.merge_queue_tab.update_task_status_str(task_index, "error", error_msg)
+
+        # 5. 更新总体大进度条
+        self.completed_merge_tasks += 1
+        self.progress_bar.setValue(self.completed_merge_tasks)
+        self.progress_bar.setFormat(f"{self.completed_merge_tasks}/{self.total_merge_tasks}")
+
+        result = MergeResult(
+            task_index=task_index,
+            output_name="output",
+            output_path="",
+            success=False,
+            error_message=error_msg,
+        )
+        self.merge_results.append(result)
+
+        # 6. 检查是否全部任务已调度完成
+        if self.completed_merge_tasks >= self.total_merge_tasks:
+            self._finalize_merge_session()
+
+    def _finalize_merge_session(self):
+        """全部任务合并流程终结处理"""
+        # 恢复界面操作
+        self.is_merging = False
+        self.settings_panel.set_start_enabled(True)
+        self.add_folder_btn.setEnabled(True)
+        self.clear_btn.setEnabled(True)
+
+        self._on_merge_finished(self.merge_results)
+
+    @Slot(int, str)
+    def _on_worker_conflict_requested(self, task_index: int, output_path: str):
+        """当某个子线程检测到文件冲突时入队缓冲处理 (C-2)"""
+        # 如果已经选择了“应用到所有”，直接自动处理
+        if self.global_conflict_applied_all:
+            self._resolve_conflict_instantly(task_index, output_path, self.global_conflict_strategy)
+            return
+
+        # 否则，入队
+        self.conflict_queue.append((task_index, output_path))
+        # 触发队列处理
+        self._process_conflict_queue()
+
+    def _process_conflict_queue(self):
+        """依次（互斥）处理冲突队列中的请求 (C-2)"""
+        if self.is_showing_conflict_dialog or not self.conflict_queue:
+            return
+
+        # 再次检查是否在等待期间已经勾选了“应用到所有”
+        if self.global_conflict_applied_all:
+            while self.conflict_queue:
+                task_index, output_path = self.conflict_queue.pop(0)
+                self._resolve_conflict_instantly(task_index, output_path, self.global_conflict_strategy)
+            return
+
+        self.is_showing_conflict_dialog = True
+        task_index, output_path = self.conflict_queue.pop(0)
+
+        # 汉化/定制版 ConflictDialog 弹窗询问
         dialog = ConflictDialog(output_path, self)
         ret = dialog.exec()
 
-        if ret == 1:  # 覆盖
-            self._conflict_result[0] = ConflictStrategy.OVERWRITE
+        strategy = ConflictStrategy.OVERWRITE
+        if ret == 1:    # 覆盖
+            strategy = ConflictStrategy.OVERWRITE
         elif ret == 2:  # 重命名
-            self._conflict_result[0] = ConflictStrategy.RENAME
+            strategy = ConflictStrategy.RENAME
         elif ret == 3:  # 跳过
-            self._conflict_result[0] = ConflictStrategy.SKIP
+            strategy = ConflictStrategy.SKIP
 
-        self._conflict_result[1] = dialog.is_apply_all()
-        self._conflict_event.set()
+        apply_all = dialog.is_apply_all()
+        if apply_all:
+            self.global_conflict_applied_all = True
+            self.global_conflict_strategy = strategy
+
+        # 处理当前冲突
+        self._resolve_conflict_instantly(task_index, output_path, strategy)
+
+        self.is_showing_conflict_dialog = False
+        # 延迟一下，处理队列中的下一个冲突（保证对话框不会重叠）
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self._process_conflict_queue)
+
+    def _resolve_conflict_instantly(self, task_index: int, output_path: str, strategy: ConflictStrategy):
+        """写入决策结果并唤醒子线程"""
+        worker = self.active_workers.get(task_index)
+        if not worker:
+            return
+
+        worker.resolved_strategy = strategy
+        worker.resolved_applied_all = self.global_conflict_applied_all
+
+        if strategy == ConflictStrategy.RENAME:
+            # 计算重命名后的路径
+            base, ext = os.path.splitext(output_path)
+            counter = 1
+            while True:
+                new_path = f"{base}_{counter}{ext}"
+                if not os.path.exists(new_path):
+                    worker.resolved_path = new_path
+                    break
+                counter += 1
+        elif strategy == ConflictStrategy.SKIP:
+            worker.resolved_path = None
+        else: # OVERWRITE
+            worker.resolved_path = output_path
+
+        # 唤醒子进程
+        worker.conflict_resolved_event.set()
 
     @Slot(int, int, str)
     def _on_merge_progress(self, current: int, total: int, text: str):

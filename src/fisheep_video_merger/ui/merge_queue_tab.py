@@ -208,6 +208,27 @@ class MergeQueueTab(QWidget):
             task.error_message = error_msg
             self._update_row(index)
 
+    def update_task_status_str(self, index: int, status: str, error_msg: Optional[str] = None):
+        """更新单个任务状态为指定字符串"""
+        if 0 <= index < len(self.tasks):
+            task = self.tasks[index]
+            task.status = status
+            task.error_message = error_msg
+            self._update_row(index)
+
+    def update_task_progress_text(self, index: int, progress_text: str):
+        """解析并更新单个任务的微型进度条"""
+        if 0 <= index < len(self.tasks):
+            import re
+            pct_match = re.search(r"(\d+(?:\.\d+)?)%", progress_text)
+            if pct_match:
+                pct = int(float(pct_match.group(1)))
+                row = index
+                from PySide6.QtWidgets import QProgressBar
+                progress_bar = self.table.cellWidget(row, self.COL_STATUS)
+                if isinstance(progress_bar, QProgressBar):
+                    progress_bar.setValue(pct)
+
     def _update_row(self, row: int):
         """增量更新指定行的显示"""
         if row >= len(self.tasks) or row >= self.table.rowCount():
@@ -224,14 +245,44 @@ class MergeQueueTab(QWidget):
                 check_item.setCheckState(Qt.Unchecked)
 
         # 状态
-        status_text = "✅" if task.status == "success" else (
-            "❌" if task.status == "error" else "⏳"
-        )
-        status_item = self.table.item(row, self.COL_STATUS)
-        if status_item:
-            status_item.setText(status_text)
-            if task.status == "error":
-                status_item.setToolTip(task.error_message or "未知错误")
+        if task.status == "running":
+            # 检查是否已经有 Widget 存在，如果没有就创建
+            progress_bar = self.table.cellWidget(row, self.COL_STATUS)
+            from PySide6.QtWidgets import QProgressBar
+            if not isinstance(progress_bar, QProgressBar):
+                progress_bar = QProgressBar()
+                progress_bar.setRange(0, 100)
+                progress_bar.setValue(0)
+                progress_bar.setAlignment(Qt.AlignCenter)
+                progress_bar.setTextVisible(True)
+                progress_bar.setFormat("%p%")
+                # 扁平化极简美学进度条
+                progress_bar.setStyleSheet(
+                    "QProgressBar {"
+                    "   border: 1px solid #4CAF50;"
+                    "   border-radius: 3px;"
+                    "   background-color: transparent;"
+                    "   text-align: center;"
+                    "   font-size: 10px;"
+                    "   font-weight: bold;"
+                    "   color: #4CAF50;"
+                    "}"
+                    "QProgressBar::chunk {"
+                    "   background-color: rgba(76, 175, 80, 180);"
+                    "}"
+                )
+                self.table.setCellWidget(row, self.COL_STATUS, progress_bar)
+        else:
+            # 恢复普通的文字 item
+            self.table.removeCellWidget(row, self.COL_STATUS)
+            status_text = "✅" if task.status == "success" else (
+                "❌" if task.status == "error" else "⏳"
+            )
+            status_item = self.table.item(row, self.COL_STATUS)
+            if status_item:
+                status_item.setText(status_text)
+                if task.status == "error":
+                    status_item.setToolTip(task.error_message or "未知错误")
 
         self.table.blockSignals(False)
 
