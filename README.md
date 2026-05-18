@@ -1,7 +1,7 @@
 # 🐑 Fisheep Video Merger
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-v0.2.0-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-v0.3.0-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows_10%2B-blue?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="License">
 </p>
@@ -10,7 +10,16 @@
 
 ---
 
-## 🚀 核心交互革命 (v0.2.0 新增)
+## ⚡ v0.3.0 革命性体验升级 (全新发布)
+
+*   **🚀 并行加速：多线程并发合并引擎**：右侧设置面板引入「并发任务数」微调（1-4 并发），配合 `QThreadPool` 线程池与**线程安全冲突弹窗缓冲排队机制**，多任务齐头并进，彻底告别单线程苦等！
+*   **📊 流式视界：秒级进度与 ETA 看板**：列表内状态列在运行态下秒级化身**微型进度条**；底部升起**高精度并发运行卡片**，显示当前速率、百分比与预计剩余时间 (ETA)；首创 150ms 解析防抖，告别高频刷新卡顿。
+*   **✨ 毛玻璃美学：全域多目录拖入蒙层**：支持同时拖入 10+ 缓存目录！拖入瞬间整个窗体应用**毛玻璃虚化模糊效果**，浮现优雅发光的 🐑 释放导入提示虚线框，释放后平滑淡出，增量并行扫描完全不卡死。
+*   **✏️ 随心命名：全向重命名机制**：对排队任务支持**双击单元格直接进入行内编辑**，或**右键选择「修改输出文件名...」**，任何改名均自动动态响应刷新右侧绝对路径看板！
+
+---
+
+## 🚀 核心交互革命 (v0.2.0)
 
 *   **📐 极智黄金皮筋自适应**：废除传统表格的空间霸权。主界面表格的「输出文件名」与「关联源文件」列以 **50:50 完美比例**等宽呼吸拉伸，带来极致平衡的视觉观感。
 *   **📂 右侧看板物理收纳**：表格拒绝臃肿！全面砍掉冗余路径列，首创右侧高内聚设置面板。当您点击任何任务，右侧会自动升起一个**代码风格微圆角浅灰（自适应深色主题）的绝对路径详情盒**，支持快捷复制。
@@ -62,6 +71,9 @@ src/fisheep_video_merger/
 │   ├── matcher.py       # 中文除噪配对博弈算法
 │   ├── merger.py        # FFmpeg 流式执行管线
 ├── ui/
+│   ├── widgets/
+│   │   ├── active_tasks_dashboard.py # 并发与 ETA 监听面板
+│   │   └── drop_overlay.py           # 毛玻璃拖拽全域蒙层
 │   ├── main_window.py   # 黄金布局核心主窗体
 │   ├── settings_panel.py # 侧栏与路径看板盒
 │   └── dialogs.py       # 颗粒度清理确认台
