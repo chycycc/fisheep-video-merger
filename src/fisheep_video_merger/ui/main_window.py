@@ -222,6 +222,11 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(bottom_widget)
 
+        # === 拖拽毛玻璃蒙层 ===
+        from fisheep_video_merger.ui.widgets.drop_overlay import DropOverlay
+        self.drop_overlay = DropOverlay(self)
+        self.drop_overlay.resize(self.size())
+
         # === 连接信号 ===
         self._connect_signals()
 
@@ -1146,14 +1151,33 @@ class MainWindow(QMainWindow):
                 f"已删除 {deleted_count} 个源文件",
             )
 
-    # === 拖拽支持 ===
+    # === 拖拽支持与蒙层联动 ===
     def dragEnterEvent(self, event: QDragEnterEvent):
-        """拖拽进入事件"""
+        """拖拽进入事件：显示毛玻璃遮罩"""
+        if event.mimeData().hasUrls():
+            # 只有当拖入的文件包含本地文件/文件夹时，才激活蒙层
+            has_local = any(url.isLocalFile() for url in event.mimeData().urls())
+            if has_local:
+                event.acceptProposedAction()
+                if hasattr(self, "drop_overlay"):
+                    self.drop_overlay.show()
+                    self.drop_overlay.raise_()
+
+    def dragMoveEvent(self, event):
+        """拖拽移动事件：保持接受动作"""
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def dragLeaveEvent(self, event):
+        """拖拽离开事件：隐藏遮罩"""
+        if hasattr(self, "drop_overlay"):
+            self.drop_overlay.hide()
+
     def dropEvent(self, event: QDropEvent):
-        """拖拽放下事件"""
+        """拖拽放下事件：隐藏遮罩并开始后台静默扫描"""
+        if hasattr(self, "drop_overlay"):
+            self.drop_overlay.hide()
+            
         urls = event.mimeData().urls()
         m4s_files = []
         folders = []
@@ -1169,6 +1193,12 @@ class MainWindow(QMainWindow):
             self._add_folders(folders)
         if m4s_files:
             self._add_files(m4s_files)
+
+    def resizeEvent(self, event):
+        """主窗口缩放事件：确保蒙层动态覆盖全窗口"""
+        super().resizeEvent(event)
+        if hasattr(self, "drop_overlay"):
+            self.drop_overlay.resize(self.size())
 
     def closeEvent(self, event: QCloseEvent):
         """窗口关闭事件：持久化最后的工作区状态"""
@@ -1351,7 +1381,20 @@ class MainWindow(QMainWindow):
 
     def _on_theme_changed(self):
         """当用户修改外观配置或操作系统夜间模式开启时，重绘全局界面外观"""
-        apply_theme(self.settings_panel.get_theme())
+        theme_name = self.settings_panel.get_theme()
+        apply_theme(theme_name)
+        
+        # 同步更新拖拽遮罩的主题样式
+        if hasattr(self, "drop_overlay"):
+            is_dark = False
+            if theme_name == "dark":
+                is_dark = True
+            elif theme_name == "system":
+                # 检查系统主题是否为暗色
+                from PySide6.QtGui import QGuiApplication, QPalette
+                palette = QGuiApplication.palette()
+                is_dark = palette.color(QPalette.Window).value() < 128
+            self.drop_overlay.set_theme(is_dark)
 
     def _record_merge_history(self, video_path: str, audio_path: str, output_path: str, success: bool, error: str = None, op_type: str = "merge"):
         """追加一条合并/转封装流水历史记录到本地文件中 (D-1)"""
