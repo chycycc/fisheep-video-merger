@@ -85,8 +85,9 @@ class MergeQueueTab(QWidget):
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setAlternatingRowColors(True)
 
-        # 编辑事件
+        # 编辑事件与双击强力唤醒行内编辑
         self.table.itemChanged.connect(self._on_item_changed)
+        self.table.doubleClicked.connect(self._on_cell_double_clicked)
 
         # 右键菜单
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -98,9 +99,71 @@ class MergeQueueTab(QWidget):
         layout.addWidget(self.table)
 
     def set_tasks(self, tasks: list[MergeTask]):
-        """设置任务列表"""
+        """设置任务列表，并针对新导入的任务行应用高品质高亮淡入动画"""
+        # 跟踪已知任务，发现新任务并收集其行索引以触发动画
+        if not hasattr(self, "_known_task_ids"):
+            self._known_task_ids = set()
+            
+        new_row_indices = []
+        for i, task in enumerate(tasks):
+            task_id = (task.video_file, task.audio_file)
+            if task_id not in self._known_task_ids:
+                new_row_indices.append(i)
+                self._known_task_ids.add(task_id)
+                
         self.tasks = tasks
         self._refresh_table()
+        
+        if new_row_indices:
+            self._animate_new_rows(new_row_indices)
+
+    def _animate_new_rows(self, row_indices: list[int]):
+        """使用 PySide6 动画库对新行触发绿光高亮渐变淡入动画"""
+        from PySide6.QtCore import QVariantAnimation
+        from PySide6.QtGui import QColor, QBrush
+        
+        bg_color = self.table.palette().color(self.table.backgroundRole())
+        is_dark = bg_color.value() < 128
+        
+        start_color = QColor(76, 175, 80, 50) if not is_dark else QColor(76, 175, 80, 75)
+        end_color = QColor(0, 0, 0, 0)
+        
+        if not hasattr(self, "_row_anims"):
+            self._row_anims = []
+            
+        anim = QVariantAnimation(self)
+        anim.setDuration(1200)
+        anim.setStartValue(start_color)
+        anim.setEndValue(end_color)
+        
+        def update_colors(color):
+            self.table.blockSignals(True)
+            brush = QBrush(color)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(brush)
+            self.table.blockSignals(False)
+            
+        anim.valueChanged.connect(update_colors)
+        
+        def on_finished():
+            self.table.blockSignals(True)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(QBrush())
+            self.table.blockSignals(False)
+            if anim in self._row_anims:
+                self._row_anims.remove(anim)
+                
+        anim.finished.connect(on_finished)
+        self._row_anims.append(anim)
+        anim.start()
 
     def get_tasks(self) -> list[MergeTask]:
         """获取任务列表"""
@@ -133,6 +196,8 @@ class MergeQueueTab(QWidget):
     def clear_tasks(self):
         """清空所有任务"""
         self.tasks.clear()
+        if hasattr(self, "_known_task_ids"):
+            self._known_task_ids.clear()
         self._refresh_table()
         self.tasks_changed.emit()
 
@@ -143,6 +208,27 @@ class MergeQueueTab(QWidget):
             task.status = "success" if success else "error"
             task.error_message = error_msg
             self._update_row(index)
+
+    def update_task_status_str(self, index: int, status: str, error_msg: Optional[str] = None):
+        """更新单个任务状态为指定字符串"""
+        if 0 <= index < len(self.tasks):
+            task = self.tasks[index]
+            task.status = status
+            task.error_message = error_msg
+            self._update_row(index)
+
+    def update_task_progress_text(self, index: int, progress_text: str):
+        """解析并更新单个任务的微型进度条"""
+        if 0 <= index < len(self.tasks):
+            import re
+            pct_match = re.search(r"(\d+(?:\.\d+)?)%", progress_text)
+            if pct_match:
+                pct = int(float(pct_match.group(1)))
+                row = index
+                from PySide6.QtWidgets import QProgressBar
+                progress_bar = self.table.cellWidget(row, self.COL_STATUS)
+                if isinstance(progress_bar, QProgressBar):
+                    progress_bar.setValue(pct)
 
     def _update_row(self, row: int):
         """增量更新指定行的显示"""
@@ -160,14 +246,44 @@ class MergeQueueTab(QWidget):
                 check_item.setCheckState(Qt.Unchecked)
 
         # 状态
-        status_text = "✅" if task.status == "success" else (
-            "❌" if task.status == "error" else "⏳"
-        )
-        status_item = self.table.item(row, self.COL_STATUS)
-        if status_item:
-            status_item.setText(status_text)
-            if task.status == "error":
-                status_item.setToolTip(task.error_message or "未知错误")
+        if task.status == "running":
+            # 检查是否已经有 Widget 存在，如果没有就创建
+            progress_bar = self.table.cellWidget(row, self.COL_STATUS)
+            from PySide6.QtWidgets import QProgressBar
+            if not isinstance(progress_bar, QProgressBar):
+                progress_bar = QProgressBar()
+                progress_bar.setRange(0, 100)
+                progress_bar.setValue(0)
+                progress_bar.setAlignment(Qt.AlignCenter)
+                progress_bar.setTextVisible(True)
+                progress_bar.setFormat("%p%")
+                # 扁平化极简美学进度条
+                progress_bar.setStyleSheet(
+                    "QProgressBar {"
+                    "   border: 1px solid #4CAF50;"
+                    "   border-radius: 3px;"
+                    "   background-color: transparent;"
+                    "   text-align: center;"
+                    "   font-size: 10px;"
+                    "   font-weight: bold;"
+                    "   color: #4CAF50;"
+                    "}"
+                    "QProgressBar::chunk {"
+                    "   background-color: rgba(76, 175, 80, 180);"
+                    "}"
+                )
+                self.table.setCellWidget(row, self.COL_STATUS, progress_bar)
+        else:
+            # 恢复普通的文字 item
+            self.table.removeCellWidget(row, self.COL_STATUS)
+            status_text = "✅" if task.status == "success" else (
+                "❌" if task.status == "error" else "⏳"
+            )
+            status_item = self.table.item(row, self.COL_STATUS)
+            if status_item:
+                status_item.setText(status_text)
+                if task.status == "error":
+                    status_item.setToolTip(task.error_message or "未知错误")
 
         self.table.blockSignals(False)
 
@@ -275,6 +391,25 @@ class MergeQueueTab(QWidget):
         elif col == self.COL_CHECK:
             self.checked_state_changed.emit()
 
+    def _on_cell_double_clicked(self, index):
+        """双击单元格时，如果双击的是输出文件名列，强制唤醒并进入编辑状态"""
+        if index.column() == self.COL_OUTPUT_NAME:
+            self.table.edit(index)
+
+    def _rename_task_inline(self, row: int):
+        """弹出输入框修改单个任务的输出文件名"""
+        if row >= len(self.tasks):
+            return
+        task = self.tasks[row]
+        from PySide6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(
+            self, "修改输出文件名", "请输入新的输出文件名:", text=task.output_name
+        )
+        if ok and new_name.strip():
+            task.output_name = new_name.strip()
+            self._refresh_table()
+            self.tasks_changed.emit()
+
     def _show_context_menu(self, pos):
         """显示右键菜单"""
         selected_rows = set(
@@ -309,6 +444,15 @@ class MergeQueueTab(QWidget):
                 lambda: self.batch_rename_requested.emit(list(selected_rows))
             )
             menu.addAction(batch_action)
+
+        # 修改输出文件名 (单任务)
+        if len(selected_rows) == 1:
+            row = list(selected_rows)[0]
+            rename_action = QAction("修改输出文件名...", self)
+            rename_action.triggered.connect(
+                lambda: self._rename_task_inline(row)
+            )
+            menu.addAction(rename_action)
 
         # 移除任务
         remove_action = QAction("移除任务", self)

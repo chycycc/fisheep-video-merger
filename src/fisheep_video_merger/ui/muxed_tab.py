@@ -103,6 +103,8 @@ class MuxedTab(QWidget):
         """清空列表"""
         self.infos.clear()
         self.statuses.clear()
+        if hasattr(self, "_known_file_paths"):
+            self._known_file_paths.clear()
         self._refresh_table()
 
     def set_status(self, filepath: str, status: str):
@@ -127,6 +129,15 @@ class MuxedTab(QWidget):
         """刷新表格显示"""
         self.table.blockSignals(True)
         self.table.setRowCount(len(self.infos))
+
+        # 跟踪已知文件路径以执行高亮淡入动画
+        if not hasattr(self, "_known_file_paths"):
+            self._known_file_paths = set()
+        self._new_row_indices = []
+        for row, info in enumerate(self.infos):
+            if info.filepath not in self._known_file_paths:
+                self._new_row_indices.append(row)
+                self._known_file_paths.add(info.filepath)
 
         for i, info in enumerate(self.infos):
             # 选择框
@@ -173,6 +184,62 @@ class MuxedTab(QWidget):
             self._on_search(self.search_edit.text())
 
         self.table.blockSignals(False)
+
+        if hasattr(self, "_new_row_indices") and self._new_row_indices:
+            self._animate_new_rows(self._new_row_indices)
+
+    def _animate_new_rows(self, row_indices: list[int]):
+        """使用 PySide6 动画库对新行触发绿光高亮渐变淡入动画，并安全还原初始默认背景"""
+        from PySide6.QtCore import QVariantAnimation
+        from PySide6.QtGui import QColor, QBrush
+        
+        bg_color = self.table.palette().color(self.table.backgroundRole())
+        is_dark = bg_color.value() < 128
+        
+        start_color = QColor(76, 175, 80, 50) if not is_dark else QColor(76, 175, 80, 75)
+        end_color = QColor(0, 0, 0, 0)
+        
+        if not hasattr(self, "_row_anims"):
+            self._row_anims = []
+            
+        anim = QVariantAnimation(self)
+        anim.setDuration(1200)
+        anim.setStartValue(start_color)
+        anim.setEndValue(end_color)
+        
+        # 记录初始背景
+        original_brushes = {}
+        for row in row_indices:
+            if row < self.table.rowCount():
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        original_brushes[item] = item.background()
+        
+        def update_colors(color):
+            self.table.blockSignals(True)
+            brush = QBrush(color)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(brush)
+            self.table.blockSignals(False)
+            
+        anim.valueChanged.connect(update_colors)
+        
+        def on_finished():
+            self.table.blockSignals(True)
+            for item, orig_brush in original_brushes.items():
+                item.setBackground(orig_brush)
+            self.table.blockSignals(False)
+            if anim in self._row_anims:
+                self._row_anims.remove(anim)
+                
+        anim.finished.connect(on_finished)
+        self._row_anims.append(anim)
+        anim.start()
 
     def update_output_paths(self, paths_with_display: list[tuple[str, str]]):
         """缓存预计输出绝对全路径并激活侧栏联动 (U-3)"""

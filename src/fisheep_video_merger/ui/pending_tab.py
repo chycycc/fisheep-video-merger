@@ -100,6 +100,8 @@ class PendingTab(QWidget):
         """清空列表"""
         self.video_files.clear()
         self.audio_files.clear()
+        if hasattr(self, "_known_file_paths"):
+            self._known_file_paths.clear()
         self._refresh_table()
 
     def _refresh_table(self):
@@ -116,6 +118,15 @@ class PendingTab(QWidget):
         all_files.sort(key=lambda x: (os.path.dirname(x[1].filepath), x[0].value))
 
         self.table.setRowCount(len(all_files))
+
+        # 跟踪已知文件路径以执行高亮淡入动画
+        if not hasattr(self, "_known_file_paths"):
+            self._known_file_paths = set()
+        self._new_row_indices = []
+        for row, (stype, info) in enumerate(all_files):
+            if info.filepath not in self._known_file_paths:
+                self._new_row_indices.append(row)
+                self._known_file_paths.add(info.filepath)
 
         # 统计目录文件配对状况以便推荐
         from collections import defaultdict
@@ -184,6 +195,65 @@ class PendingTab(QWidget):
         # 重新应用当前搜索过滤
         if hasattr(self, "search_edit") and self.search_edit.text():
             self._on_search(self.search_edit.text())
+
+        if hasattr(self, "_new_row_indices") and self._new_row_indices:
+            self._animate_new_rows(self._new_row_indices)
+
+    def _animate_new_rows(self, row_indices: list[int]):
+        """使用 PySide6 动画库对新行触发绿光高亮渐变淡入动画，并安全还原初始推荐/默认背景"""
+        from PySide6.QtCore import QVariantAnimation
+        from PySide6.QtGui import QColor, QBrush
+        
+        bg_color = self.table.palette().color(self.table.backgroundRole())
+        is_dark = bg_color.value() < 128
+        
+        start_color = QColor(76, 175, 80, 50) if not is_dark else QColor(76, 175, 80, 75)
+        end_color = QColor(0, 0, 0, 0)
+        
+        if not hasattr(self, "_row_anims"):
+            self._row_anims = []
+            
+        anim = QVariantAnimation(self)
+        anim.setDuration(1200)
+        anim.setStartValue(start_color)
+        anim.setEndValue(end_color)
+        
+        # 记录初始背景 (使用坐标元组，避免 QTableWidgetItem 作 key 的 unhashable 报错)
+        original_brushes = {}
+        for row in row_indices:
+            if row < self.table.rowCount():
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        original_brushes[(row, col)] = item.background()
+        
+        def update_colors(color):
+            self.table.blockSignals(True)
+            brush = QBrush(color)
+            for row in row_indices:
+                if row < self.table.rowCount():
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(brush)
+            self.table.blockSignals(False)
+            
+        anim.valueChanged.connect(update_colors)
+        
+        def on_finished():
+            self.table.blockSignals(True)
+            for (row, col), orig_brush in original_brushes.items():
+                if row < self.table.rowCount():
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setBackground(orig_brush)
+            self.table.blockSignals(False)
+            if anim in self._row_anims:
+                self._row_anims.remove(anim)
+                
+        anim.finished.connect(on_finished)
+        self._row_anims.append(anim)
+        anim.start()
 
     def get_selected_infos(self) -> list[StreamInfo]:
         """获取选中的文件信息列表"""

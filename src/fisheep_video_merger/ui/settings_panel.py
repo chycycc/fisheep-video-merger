@@ -105,6 +105,30 @@ class SettingsPanel(QWidget):
 
         layout.addWidget(source_group)
 
+        # === 组3.2：并发与性能 ===
+        perf_group = QGroupBox("合并与性能")
+        perf_layout = QVBoxLayout(perf_group)
+        
+        concurrency_layout = QHBoxLayout()
+        concurrency_label = QLabel("最大并发合并数：")
+        concurrency_layout.addWidget(concurrency_label)
+        
+        from PySide6.QtWidgets import QSpinBox
+        self.concurrency_spin = QSpinBox()
+        self.concurrency_spin.setRange(1, 4)
+        self.concurrency_spin.setValue(2) # 默认最大并发数为 2
+        self.concurrency_spin.valueChanged.connect(lambda: self.settings_changed.emit())
+        concurrency_layout.addWidget(self.concurrency_spin)
+        
+        perf_layout.addLayout(concurrency_layout)
+        
+        perf_hint = QLabel("设置同时合并的任务数 (1-4)，默认最大限制为 2")
+        perf_hint.setWordWrap(True)
+        perf_hint.setStyleSheet("color: gray; font-size: 11px;")
+        perf_layout.addWidget(perf_hint)
+        
+        layout.addWidget(perf_group)
+
         # === 组3.5：选中项目输出详情 (U-3 & 联动: 动态展示，无选中时折叠) ===
         self.detail_group = QGroupBox("📌 选中项目输出详情")
         detail_layout = QVBoxLayout(self.detail_group)
@@ -210,6 +234,10 @@ class SettingsPanel(QWidget):
         """设置开始合并按钮是否可用"""
         self.start_btn.setEnabled(enabled)
 
+    def get_concurrency(self) -> int:
+        """获取选中的并发数"""
+        return self.concurrency_spin.value()
+
     def get_settings_dict(self) -> dict:
         """获取所有设置项"""
         return {
@@ -217,6 +245,7 @@ class SettingsPanel(QWidget):
             "output_dir": self.get_output_dir(),
             "delete_allowed": self.is_delete_allowed(),
             "theme": self.get_theme(),
+            "concurrency": self.get_concurrency(),
         }
 
     def load_settings_dict(self, data: dict):
@@ -237,6 +266,9 @@ class SettingsPanel(QWidget):
             saved_theme = data.get("theme", "system")
             theme_mapping = {"system": 0, "light": 1, "dark": 2}
             self.theme_combo.setCurrentIndex(theme_mapping.get(saved_theme, 0))
+
+            # 载入并发数
+            self.concurrency_spin.setValue(int(data.get("concurrency", 2)))
         finally:
             self.blockSignals(False)
 
