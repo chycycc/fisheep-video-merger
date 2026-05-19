@@ -37,7 +37,7 @@ class UIBridge:
     """
 
     def __init__(self):
-        self.window: Optional[webview.Window] = None
+        self._window: Optional[webview.Window] = None
         self.root_paths: List[str] = []
         self.all_stream_infos: List[StreamInfo] = []
         self.muxed_files: List[StreamInfo] = []
@@ -64,7 +64,7 @@ class UIBridge:
 
     def set_window(self, window: webview.Window):
         """挂载 pywebview Window 句柄，用于 evaluate_js 反向广播"""
-        self.window = window
+        self._window = window
 
     # ====================================================================
     # 💾 1. 本地状态持久化存盘与无缝还原 (State Persistence)
@@ -220,10 +220,10 @@ class UIBridge:
 
     def select_folder_dialog(self) -> Dict:
         """弹出系统文件夹选择框，并在后台异步启动扫描任务"""
-        if not self.window:
+        if not self._window:
             return {"status": "error", "message": "Window context not ready"}
         
-        result = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         if result and len(result) > 0:
             folder = result[0]
             self._add_folders([folder])
@@ -232,10 +232,10 @@ class UIBridge:
 
     def select_files_dialog(self) -> Dict:
         """弹出系统 m4s 文件选择框"""
-        if not self.window:
+        if not self._window:
             return {"status": "error", "message": "Window context not ready"}
         
-        result = self.window.create_file_dialog(
+        result = self._window.create_file_dialog(
             webview.OPEN_DIALOG,
             allow_multiple=True,
             file_types=('m4s files (*.m4s)', 'All files (*.*)')
@@ -247,10 +247,10 @@ class UIBridge:
 
     def select_output_dir_dialog(self) -> Dict:
         """弹出输出文件夹选择框"""
-        if not self.window:
+        if not self._window:
             return {"status": "error", "message": "Window context not ready"}
         
-        result = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         if result and len(result) > 0:
             self.settings["output_dir"] = result[0]
             self._save_workspace_state()
@@ -627,9 +627,9 @@ class UIBridge:
 
     def _evaluate_js_safe(self, code: str):
         """线程安全地在 Webview window 中执行 JS"""
-        if self.window:
+        if self._window:
             try:
                 # pywebview 的 evaluate_js 是非阻塞的，可直接从子线程安全调用
-                self.window.evaluate_js(code)
+                self._window.evaluate_js(code)
             except Exception as e:
                 logger.debug(f"Evaluate JS failed (probably window closed): {e}")

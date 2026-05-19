@@ -202,10 +202,13 @@ function initMockOrBridge() {
     // 监听 Python Bridge 初始化就绪事件
     window.addEventListener('pywebviewready', () => {
         showToast('🚀 客户端通信总线连接成功！', 'success');
-        syncSettingsFromPython();
-        callPython('get_current_state').then(res => {
-            handleBackendResponse(res);
-        });
+        // 使用 setTimeout 延迟 150ms 调用 Python 接口，防止在 WebView2 初始化完成瞬间同步阻塞导致死锁挂起
+        setTimeout(() => {
+            syncSettingsFromPython();
+            callPython('get_current_state').then(res => {
+                handleBackendResponse(res);
+            });
+        }, 150);
     });
 
     // 绑定常规操作按钮到 Python 端
