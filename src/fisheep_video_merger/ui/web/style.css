@@ -415,6 +415,8 @@ body {
     backdrop-filter: blur(12px);
     box-shadow: var(--card-shadow);
     z-index: 10;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .config-header {
@@ -436,6 +438,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding-right: 4px;
+    min-height: 0;
 }
 
 /* 精致参数盒子 (Config Cards) */
