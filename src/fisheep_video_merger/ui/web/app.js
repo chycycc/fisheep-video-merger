@@ -15,13 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function initTheme() {
     const themeBtn = document.getElementById('theme-switch-btn');
     const themeSelect = document.getElementById('theme-select');
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
     // 默认载入跟随系统主题
     let currentTheme = localStorage.getItem('theme') || 'auto';
     applyTheme(currentTheme);
     
     // 监听系统主题颜色切换
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     mediaQuery.addEventListener('change', (e) => {
         if (currentTheme === 'auto') {
             const systemTheme = e.matches ? 'dark' : 'light';
