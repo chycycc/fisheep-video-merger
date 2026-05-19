@@ -209,6 +209,13 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-title-section {
+    flex: 1;
+    min-width: 280px;
 }
 
 .header-title-section h2 {
@@ -226,6 +233,7 @@ body {
 .header-actions {
     display: flex;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 /* === 6. 通用按钮组件 (Buttons) === */
@@ -241,6 +249,8 @@ body {
     gap: 8px;
     min-height: 36px;
     outline: none;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-primary {

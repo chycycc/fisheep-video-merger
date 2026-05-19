@@ -16,7 +16,7 @@ function initTheme() {
     const themeBtn = document.getElementById('theme-switch-btn');
     const themeSelect = document.getElementById('theme-select');
     
-    // 默认载入暗黑极客主题
+    // 默认载入深色主题
     let currentTheme = localStorage.getItem('theme') || 'dark';
     applyTheme(currentTheme);
     
@@ -55,10 +55,10 @@ function notifyPythonTheme(theme) {
     if (window.pywebview && window.pywebview.api) {
         callPython('update_theme', theme)
             .then(() => {
-                showToast(`已切换至 ${theme === 'dark' ? '暗黑极客模式' : '流沙灰浅色模式'}`, 'info');
+                showToast(`已切换至 ${theme === 'dark' ? '深色模式' : '浅色模式'}`, 'info');
             });
     } else {
-        showToast(`已切换至 ${theme === 'dark' ? '暗黑极客模式' : '流沙灰浅色模式'}`, 'info');
+        showToast(`已切换至 ${theme === 'dark' ? '深色模式' : '浅色模式'}`, 'info');
     }
 }
 
