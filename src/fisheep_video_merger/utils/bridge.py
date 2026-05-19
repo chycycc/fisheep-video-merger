@@ -51,7 +51,7 @@ class UIBridge:
             "output_format": "mp4",
             "output_dir": "",
             "delete_allowed": False,
-            "theme": "dark",
+            "theme": "auto",
             "concurrency": 2,
             "overwrite": True
         }
@@ -524,37 +524,44 @@ class UIBridge:
         threading.Thread(target=scan_worker, daemon=True).start()
 
     def _add_files(self, filepaths: List[str]):
-        """单任务添加 m4s 文件分析"""
-        new_videos, new_audios, new_muxed = [], [], []
+        """单任务添加 m4s 文件分析 (异步后台线程处理，防止卡死 UI)"""
+        def files_worker():
+            try:
+                new_videos, new_audios, new_muxed = [], [], []
+                for fp in filepaths:
+                    if not fp.lower().endswith(".m4s"):
+                        continue
+                    info = analyze_file(fp)
+                    with self._lock:
+                        self.all_stream_infos.append(info)
+                        if info.stream_type == StreamType.VIDEO_ONLY:
+                            new_videos.append(info)
+                        elif info.stream_type == StreamType.AUDIO_ONLY:
+                            new_audios.append(info)
+                        elif info.stream_type == StreamType.MUXED:
+                            new_muxed.append(info)
 
-        for fp in filepaths:
-            if not fp.lower().endswith(".m4s"):
-                continue
-            info = analyze_file(fp)
-            self.all_stream_infos.append(info)
-            if info.stream_type == StreamType.VIDEO_ONLY:
-                new_videos.append(info)
-            elif info.stream_type == StreamType.AUDIO_ONLY:
-                new_audios.append(info)
-            elif info.stream_type == StreamType.MUXED:
-                new_muxed.append(info)
+                with self._lock:
+                    if new_videos or new_audios:
+                        self.pending_videos.extend(new_videos)
+                        self.pending_audios.extend(new_audios)
+                    if new_muxed:
+                        self.muxed_files.extend(new_muxed)
+                    
+                    # 智能重新匹配
+                    match_result = auto_match(self.all_stream_infos, self.root_paths)
+                    self.tasks = match_result.auto_tasks
+                    
+                    self._save_workspace_state()
+                
+                # 刷新前端
+                state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
+                self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+            except Exception as e:
+                logger.error(f"UIBridge 异步添加文件失败: {e}")
+                self._evaluate_js_safe(f"showToast('添加文件失败: {e}', 'error')")
 
-        if new_videos or new_audios:
-            self.pending_videos.extend(new_videos)
-            self.pending_audios.extend(new_audios)
-
-        if new_muxed:
-            self.muxed_files.extend(new_muxed)
-
-        # 智能重新匹配
-        match_result = auto_match(self.all_stream_infos, self.root_paths)
-        self.tasks = match_result.auto_tasks
-
-        self._save_workspace_state()
-        
-        # 刷新前端
-        state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
-        self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+        threading.Thread(target=files_worker, daemon=True).start()
 
     def _get_queue_data(self) -> Dict:
         """生成前端渲染所需的规格数据"""

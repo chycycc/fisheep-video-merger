@@ -227,8 +227,8 @@ def _run_ffmpeg_with_progress(
                         curr = to_seconds(t_match)
                         pct = min(99.9, (curr / total_seconds) * 100.0)
                         now = time.time()
-                        # 节流条件：百分比变动幅度大于 1%，或距离上次发送超过 150ms，或到达临界点
-                        if (now - last_emit_time > 0.15) or (abs(pct - last_pct) >= 1.0) or pct >= 99.9:
+                        # 节流条件：距离上次发送超过 300ms，或到达临界点（防止过多 COM 消息淹没 GUI 线程导致无响应）
+                        if (now - last_emit_time >= 0.3) or pct >= 99.9:
                             if progress_callback:
                                 progress_callback(f"正在{op_name}: {filename} ({pct:.1f}%)")
                             last_emit_time = now

@@ -11,18 +11,28 @@ document.addEventListener('DOMContentLoaded', () => {
     initMockOrBridge();
 });
 
-/* === 1. 主题自适应配置 (Dark/Light) === */
+/* === 1. 主题自适应配置 (Dark/Light/Auto) === */
 function initTheme() {
     const themeBtn = document.getElementById('theme-switch-btn');
     const themeSelect = document.getElementById('theme-select');
     
-    // 默认载入深色主题
-    let currentTheme = localStorage.getItem('theme') || 'dark';
+    // 默认载入跟随系统主题
+    let currentTheme = localStorage.getItem('theme') || 'auto';
     applyTheme(currentTheme);
     
-    // 左侧悬浮按钮点击切换
+    // 监听系统主题颜色切换
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', (e) => {
+        if (currentTheme === 'auto') {
+            const systemTheme = e.matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', systemTheme);
+        }
+    });
+    
+    // 左侧悬浮按钮点击切换 (在深色/浅色之间循环)
     themeBtn.addEventListener('click', () => {
-        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        const resolvedCurrent = document.documentElement.getAttribute('data-theme');
+        const nextTheme = resolvedCurrent === 'dark' ? 'light' : 'dark';
         applyTheme(nextTheme);
         notifyPythonTheme(nextTheme);
     });
@@ -35,17 +45,23 @@ function initTheme() {
     
     function applyTheme(theme) {
         currentTheme = theme;
-        document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
         
-        // 同步修改两个控件的视觉属性
-        themeBtn.textContent = theme === 'dark' ? '🌙' : '☀️';
+        let resolvedTheme = theme;
+        if (theme === 'auto') {
+            resolvedTheme = mediaQuery.matches ? 'dark' : 'light';
+        }
+        
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+        
+        // 同步修改两个控制组件的视觉属性
+        themeBtn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
         themeSelect.value = theme;
     }
     
     // 外部或异步调用入口，便于 Python 主动同步
     window.setAppTheme = function(theme) {
-        if (theme === 'dark' || theme === 'light') {
+        if (theme === 'dark' || theme === 'light' || theme === 'auto') {
             applyTheme(theme);
         }
     };
@@ -55,10 +71,16 @@ function notifyPythonTheme(theme) {
     if (window.pywebview && window.pywebview.api) {
         callPython('update_theme', theme)
             .then(() => {
-                showToast(`已切换至 ${theme === 'dark' ? '深色模式' : '浅色模式'}`, 'info');
+                let text = "已切换至跟随系统模式";
+                if (theme === 'dark') text = "已切换至深色模式";
+                if (theme === 'light') text = "已切换至浅色模式";
+                showToast(text, 'info');
             });
     } else {
-        showToast(`已切换至 ${theme === 'dark' ? '深色模式' : '浅色模式'}`, 'info');
+        let text = "已切换至跟随系统模式";
+        if (theme === 'dark') text = "已切换至深色模式";
+        if (theme === 'light') text = "已切换至浅色模式";
+        showToast(text, 'info');
     }
 }
 
