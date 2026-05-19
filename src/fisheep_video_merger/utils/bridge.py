@@ -212,6 +212,12 @@ class UIBridge:
         """获取当前配置参数字典"""
         return self.settings
 
+    def update_theme(self, theme: str) -> Dict:
+        """更新界面主题配置并保存"""
+        self.settings["theme"] = theme
+        self._save_workspace_state()
+        return {"status": "success", "theme": theme}
+
     def select_folder_dialog(self) -> Dict:
         """弹出系统文件夹选择框，并在后台异步启动扫描任务"""
         if not self.window:

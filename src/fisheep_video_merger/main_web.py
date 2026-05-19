@@ -72,7 +72,7 @@ def main():
     bridge.set_window(window)
 
     # 6. 运行 webview 主循环
-    webview.start(debug=True) # 开启调试模式，运行中可通过右键审查元素调测 Web 视觉
+    webview.start(debug=False) # 正常运行不弹出调试器，如需右键审查元素可设为 True
 
 
 if __name__ == "__main__":

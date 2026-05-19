@@ -14,19 +14,52 @@ document.addEventListener('DOMContentLoaded', () => {
 /* === 1. 主题自适应配置 (Dark/Light) === */
 function initTheme() {
     const themeBtn = document.getElementById('theme-switch-btn');
+    const themeSelect = document.getElementById('theme-select');
     
     // 默认载入暗黑极客主题
     let currentTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    themeBtn.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+    applyTheme(currentTheme);
     
+    // 左侧悬浮按钮点击切换
     themeBtn.addEventListener('click', () => {
-        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        localStorage.setItem('theme', currentTheme);
-        themeBtn.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
-        showToast(`已切换至 ${currentTheme === 'dark' ? '暗黑极客模式' : '流沙灰浅色模式'}`, 'info');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme);
+        notifyPythonTheme(nextTheme);
     });
+
+    // 右侧下拉框选择切换
+    themeSelect.addEventListener('change', (e) => {
+        applyTheme(e.target.value);
+        notifyPythonTheme(e.target.value);
+    });
+    
+    function applyTheme(theme) {
+        currentTheme = theme;
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        
+        // 同步修改两个控件的视觉属性
+        themeBtn.textContent = theme === 'dark' ? '🌙' : '☀️';
+        themeSelect.value = theme;
+    }
+    
+    // 外部或异步调用入口，便于 Python 主动同步
+    window.setAppTheme = function(theme) {
+        if (theme === 'dark' || theme === 'light') {
+            applyTheme(theme);
+        }
+    };
+}
+
+function notifyPythonTheme(theme) {
+    if (window.pywebview && window.pywebview.api) {
+        callPython('update_theme', theme)
+            .then(() => {
+                showToast(`已切换至 ${theme === 'dark' ? '暗黑极客模式' : '流沙灰浅色模式'}`, 'info');
+            });
+    } else {
+        showToast(`已切换至 ${theme === 'dark' ? '暗黑极客模式' : '流沙灰浅色模式'}`, 'info');
+    }
 }
 
 /* === 2. 选项卡无缝切换 (Tab Controller) === */
@@ -282,6 +315,11 @@ function syncSettingsFromPython() {
             document.getElementById('concurrency-input').value = settings.concurrency || 2;
             document.getElementById('overwrite-checkbox').checked = !!settings.overwrite;
             document.getElementById('delete-source-checkbox').checked = !!settings.delete_source;
+            
+            // 同步应用从后端载入的界面主题
+            if (settings.theme && window.setAppTheme) {
+                window.setAppTheme(settings.theme);
+            }
         }
     });
 }
