@@ -181,6 +181,9 @@ function initMockOrBridge() {
     window.addEventListener('pywebviewready', () => {
         showToast('🚀 客户端通信总线连接成功！', 'success');
         syncSettingsFromPython();
+        callPython('get_current_state').then(res => {
+            handleBackendResponse(res);
+        });
     });
 
     // 绑定常规操作按钮到 Python 端
@@ -193,13 +196,18 @@ function initMockOrBridge() {
     });
 
     document.getElementById('select-output-btn').addEventListener('click', () => {
-        callPython('select_output_dir_dialog');
+        callPython('select_output_dir_dialog').then(res => {
+            if (res && res.output_dir) {
+                document.getElementById('output-dir-input').value = res.output_dir;
+                showToast(`输出目录已设置为: ${res.output_dir}`, 'success');
+            }
+        });
     });
 
     document.getElementById('clear-btn').addEventListener('click', () => {
         callPython('clear_queue').then(res => {
             showToast('队列已清空', 'info');
-            renderQueue([]);
+            handleBackendResponse(res);
         });
     });
 
@@ -268,7 +276,7 @@ function renderQueue(tasks) {
                 <td>${task.size || '未知'}</td>
                 <td id="queue-status-td-${index}">${statusBadge}</td>
                 <td>
-                    <button class="mini-action-btn" onclick="callPython('delete_task', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                    <button class="mini-action-btn" onclick="deleteTask(${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
                 </td>
             </tr>`;
     }).join('');
@@ -293,18 +301,85 @@ window.updateTaskProgress = function(index, percent, eta, speed) {
     if (cardSpeed) cardSpeed.textContent = `速率: ${speed}`;
 };
 
-// C. 动态更新单个任务卡片状态
-window.updateTaskStatus = function(index, status, errorMsg) {
+// C. 动态更新单个任务卡片与列表行状态
+window.updateTaskStatus = function(index, status, errorMsg = '') {
     const statusTd = document.getElementById(`queue-status-td-${index}`);
     if (statusTd) {
-        if (status === 'completed') {
+        if (status === 'processing') {
+            statusTd.innerHTML = `
+                <div class="table-progress-bar" id="t-prog-${index}">
+                    <div class="table-progress-chunk" id="t-chunk-${index}" style="width: 0%;"></div>
+                    <span class="table-progress-text" id="t-text-${index}">0%</span>
+                </div>`;
+            const cardStatus = document.getElementById(`card-status-${index}`);
+            if (cardStatus) {
+                cardStatus.textContent = '合并中';
+                cardStatus.style.color = 'var(--primary-color)';
+            }
+        } else if (status === 'completed') {
             statusTd.innerHTML = `<span style="color: var(--primary-color);">✅ 完成</span>`;
             document.getElementById(`queue-row-${index}`)?.classList.add('selected');
+            const cardStatus = document.getElementById(`card-status-${index}`);
+            if (cardStatus) {
+                cardStatus.textContent = '已完成';
+                cardStatus.style.color = 'var(--primary-color)';
+            }
         } else if (status === 'failed') {
             statusTd.innerHTML = `<span style="color: #EF4444;" title="${errorMsg || ''}">❌ 失败</span>`;
+            const cardStatus = document.getElementById(`card-status-${index}`);
+            if (cardStatus) {
+                cardStatus.textContent = '失败';
+                cardStatus.style.color = '#EF4444';
+            }
         }
     }
 };
+
+// C2. 初始化并发任务底盘卡片
+window.initDashboardCards = function(tasks) {
+    const container = document.getElementById('dashboard-cards-container');
+    const activeCount = document.getElementById('active-count');
+    
+    // 过滤出未完成任务作为并发工作任务数显示
+    const activeTasks = tasks.filter(t => t.status !== 'completed');
+    activeCount.textContent = activeTasks.length;
+    
+    if (activeTasks.length > 0) {
+        const dashboard = document.getElementById('active-tasks-dashboard');
+        dashboard.classList.remove('dashboard-collapsed');
+        dashboard.classList.add('dashboard-expanded');
+    }
+    
+    container.innerHTML = tasks.map((task, index) => {
+        if (task.status === 'completed') return '';
+        
+        return `
+            <div class="task-card" id="task-card-${index}">
+                <div class="task-card-header">
+                    <span class="task-card-title" title="${task.name}">${task.name}</span>
+                    <span class="task-card-status" id="card-status-${index}">等待中</span>
+                </div>
+                <div class="task-card-progress">
+                    <div class="task-card-progress-chunk" id="card-chunk-${index}" style="width: 0%;"></div>
+                </div>
+                <div class="task-card-footer">
+                    <span id="card-speed-${index}">速率: 0 B/s</span>
+                    <span id="card-eta-${index}">剩余时间: --:--</span>
+                </div>
+            </div>`;
+    }).join('');
+};
+
+// C3. 全局删除任务函数，回传给后端并重新渲染
+window.deleteTask = function(index) {
+    callPython('delete_task', index).then(res => {
+        if (res && res.tasks) {
+            renderQueue(res.tasks);
+            showToast('任务已从列表中移除', 'info');
+        }
+    });
+};
+
 
 // D. 刷新同步设置参数
 function syncSettingsFromPython() {
@@ -324,13 +399,135 @@ function syncSettingsFromPython() {
     });
 }
 
-// E. 接收拖拽扫描结果，进行列表初次填充
+// E. 接收扫描与工作空间状态结果，同步填充三个数据面板
 function handleBackendResponse(res) {
-    if (res && res.tasks) {
+    if (!res) return;
+    
+    if (res.tasks) {
         renderQueue(res.tasks);
-        showToast(`成功扫描到 ${res.tasks.length} 个视频合并任务！`, 'success');
+    }
+    
+    if (res.pending) {
+        renderPending(res.pending);
+    }
+    
+    if (res.muxed) {
+        renderMuxed(res.muxed);
     }
 }
+
+// E2. 渲染待整理零散音视频表格
+function renderPending(pending) {
+    const tbody = document.getElementById('pending-tbody');
+    if (!tbody) return;
+    
+    if (pending.length === 0) {
+        tbody.innerHTML = `
+            <tr class="empty-state-row">
+                <td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <h3>没有需要整理的零散片段</h3>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = pending.map((item, index) => {
+        const typeBadge = item.stream_type === 'video' 
+            ? `<span style="background-color: rgba(16,185,129,0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 11px;">视频</span>`
+            : `<span style="background-color: rgba(59,130,246,0.15); color: #3B82F6; padding: 2px 6px; border-radius: 4px; font-size: 11px;">音频</span>`;
+            
+        return `
+            <tr>
+                <td><input type="checkbox" class="row-checkbox-pending" data-filepath="${item.filepath}"></td>
+                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.filepath}">
+                    ${item.name} ${typeBadge}
+                </td>
+                <td>${item.size || '未知'}</td>
+                <td>${item.mtime || '未知'}</td>
+                <td>
+                    <button class="mini-action-btn" onclick="deletePendingFile('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+// E3. 渲染已完整视频文件表格
+function renderMuxed(muxed) {
+    const tbody = document.getElementById('muxed-tbody');
+    if (!tbody) return;
+    
+    if (muxed.length === 0) {
+        tbody.innerHTML = `
+            <tr class="empty-state-row">
+                <td colspan="6">
+                    <div class="empty-state">
+                        <div class="empty-icon">🎬</div>
+                        <h3>尚未完成任何视频合并</h3>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = muxed.map((item, index) => {
+        return `
+            <tr>
+                <td><input type="checkbox" class="row-checkbox-muxed" data-filepath="${item.filepath}"></td>
+                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.filepath}">
+                    ${item.name}
+                </td>
+                <td>${item.resolution || '自动'}</td>
+                <td>${item.size || '未知'}</td>
+                <td>${item.mtime || '未知'}</td>
+                <td>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="mini-action-btn" onclick="playVideo('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: var(--primary-color); border-color: rgba(16,185,129,0.2);" title="使用系统播放器播放">▶️</button>
+                        <button class="mini-action-btn" onclick="openFileFolder('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: var(--text-color); border-color: var(--border-color);" title="在资源管理器中定位">📂</button>
+                        <button class="mini-action-btn" onclick="deleteMuxedFile('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="从列表中移除">🗑️</button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+// E4. 跨端系统级操作的全局 JS 包装器
+window.deletePendingFile = function(filepath) {
+    callPython('delete_pending_file', filepath).then(res => {
+        if (res) {
+            handleBackendResponse(res);
+            showToast('零散文件记录已从列表中移除', 'info');
+        }
+    });
+};
+
+window.deleteMuxedFile = function(filepath) {
+    callPython('delete_muxed_file', filepath).then(res => {
+        if (res) {
+            handleBackendResponse(res);
+            showToast('合并文件记录已从列表中移除', 'info');
+        }
+    });
+};
+
+window.playVideo = function(filepath) {
+    callPython('play_video', filepath).then(res => {
+        if (res && res.status === 'error') {
+            showToast(`播放失败: ${res.message}`, 'error');
+        }
+    });
+};
+
+window.openFileFolder = function(filepath) {
+    callPython('open_file_folder', filepath).then(res => {
+        if (res && res.status === 'error') {
+            showToast(`定位失败: ${res.message}`, 'error');
+        }
+    });
+};
+
 
 /* === 8. 现代化轻量级 Toast 弹出式浮层 === */
 function showToast(message, type = 'info') {

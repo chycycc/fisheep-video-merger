@@ -266,7 +266,12 @@ class UIBridge:
         self.pending_videos.clear()
         self.pending_audios.clear()
         self._save_workspace_state()
-        return {"status": "success"}
+        return self._get_queue_data()
+
+    def get_current_state(self) -> Dict:
+        """获取当前完整的工作空间状态（包含任务队列、待整理、已合并列表）"""
+        return self._get_queue_data()
+
 
     def delete_task(self, index: int) -> Dict:
         """删除指定索引的任务"""
@@ -275,6 +280,42 @@ class UIBridge:
             self._save_workspace_state()
             return self._get_queue_data()
         return {"status": "error", "message": "Index out of range"}
+
+    def delete_pending_file(self, filepath: str) -> Dict:
+        """从待整理列表中移除该文件记录"""
+        self.pending_videos = [x for x in self.pending_videos if x.filepath != filepath]
+        self.pending_audios = [x for x in self.pending_audios if x.filepath != filepath]
+        self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
+        self._save_workspace_state()
+        return self._get_queue_data()
+
+    def delete_muxed_file(self, filepath: str) -> Dict:
+        """从已完整列表中移除该文件记录"""
+        self.muxed_files = [x for x in self.muxed_files if x.filepath != filepath]
+        self._save_workspace_state()
+        return self._get_queue_data()
+
+    def play_video(self, filepath: str) -> Dict:
+        """使用系统默认播放器打开视频"""
+        if os.path.exists(filepath):
+            try:
+                os.startfile(filepath)
+                return {"status": "success"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "File not found"}
+
+    def open_file_folder(self, filepath: str) -> Dict:
+        """在系统文件管理器中定位该文件"""
+        if os.path.exists(filepath):
+            try:
+                import subprocess
+                subprocess.Popen(f'explorer /select,"{os.path.abspath(filepath)}"')
+                return {"status": "success"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "File not found"}
+
 
     def on_files_dropped(self, file_paths: List[str]) -> Dict:
         """接收并解析从 OS 拖拽进 Webview 的文件或文件夹"""
@@ -318,6 +359,11 @@ class UIBridge:
         # 更新前端按钮状态为合并中
         self._evaluate_js_safe("document.getElementById('start-btn').disabled = true")
         self._evaluate_js_safe("document.getElementById('start-btn').textContent = '⚡ 正在合并队列...'")
+
+        # 初始化并渲染底部并发监视面板的卡片
+        queue_data = self._get_queue_data()["tasks"]
+        tasks_json = json.dumps(queue_data, ensure_ascii=False)
+        self._evaluate_js_safe(f"window.initDashboardCards({tasks_json})")
 
         # 过滤出未完成的任务
         pending_indexes = [i for i, t in enumerate(self.tasks) if t.status != "completed"]
@@ -468,10 +514,9 @@ class UIBridge:
 
                 self._save_workspace_state()
 
-                # 异步通过 JS 重新刷新前端任务表格
-                tasks_json = json.dumps(self._get_queue_data()["tasks"], ensure_ascii=False)
-                self._evaluate_js_safe(f"renderQueue({tasks_json})")
-                self._evaluate_js_safe(f"showToast('📂 导入扫描成功！共发现 {len(self.tasks)} 个配对任务', 'success')")
+                # 异步通过 JS 重新刷新前端任务与零散文件表格
+                state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
+                self._evaluate_js_safe(f"handleBackendResponse({state_json})")
             except Exception as e:
                 logger.error(f"UIBridge 异步扫描失败: {e}")
                 self._evaluate_js_safe(f"showToast('扫描失败: {e}', 'error')")
@@ -508,8 +553,8 @@ class UIBridge:
         self._save_workspace_state()
         
         # 刷新前端
-        tasks_json = json.dumps(self._get_queue_data()["tasks"], ensure_ascii=False)
-        self._evaluate_js_safe(f"renderQueue({tasks_json})")
+        state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
+        self._evaluate_js_safe(f"handleBackendResponse({state_json})")
 
     def _get_queue_data(self) -> Dict:
         """生成前端渲染所需的规格数据"""
@@ -531,7 +576,47 @@ class UIBridge:
                 "status": t.status,
                 "error": t.error_message
             })
-        return {"status": "success", "tasks": tasks_list}
+
+        # 待整理零散文件 (pending_videos + pending_audios)
+        pending_list = []
+        for info in (self.pending_videos + self.pending_audios):
+            size_str = "未知"
+            mtime_str = "未知"
+            if os.path.exists(info.filepath):
+                stat = os.stat(info.filepath)
+                size_str = f"{stat.st_size / (1024*1024):.1f} MB"
+                mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+            pending_list.append({
+                "filepath": info.filepath,
+                "name": os.path.basename(info.filepath),
+                "size": size_str,
+                "mtime": mtime_str,
+                "stream_type": info.stream_type.value
+            })
+
+        # 已完整文件
+        muxed_list = []
+        for info in self.muxed_files:
+            size_str = "未知"
+            mtime_str = "未知"
+            if os.path.exists(info.filepath):
+                stat = os.stat(info.filepath)
+                size_str = f"{stat.st_size / (1024*1024):.1f} MB"
+                mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+            muxed_list.append({
+                "filepath": info.filepath,
+                "name": os.path.basename(info.filepath),
+                "resolution": "1080P" if "1080" in info.filepath else "自动识别",
+                "size": size_str,
+                "mtime": mtime_str
+            })
+
+        return {
+            "status": "success",
+            "tasks": tasks_list,
+            "pending": pending_list,
+            "muxed": muxed_list
+        }
 
     def _evaluate_js_safe(self, code: str):
         """线程安全地在 Webview window 中执行 JS"""
