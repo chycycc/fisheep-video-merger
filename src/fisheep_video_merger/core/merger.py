@@ -322,104 +322,111 @@ def merge_single(
 
 
 import threading
-from PySide6.QtCore import QRunnable, QObject, Signal
 
-class MergeWorkerSignals(QObject):
-    """合并 Worker 线程信号"""
-    progress = Signal(int, str)           # (task_index, progress_text)
-    finished = Signal(int, object)        # (task_index, MergeResult)
-    error = Signal(int, str)              # (task_index, error_msg)
-    conflict_requested = Signal(int, str)  # (task_index, expected_output_path)
+try:
+    from PySide6.QtCore import QRunnable, QObject, Signal
+    HAS_PYSIDE = True
+except ImportError:
+    HAS_PYSIDE = False
+
+if HAS_PYSIDE:
+    class MergeWorkerSignals(QObject):
+        """合并 Worker 线程信号"""
+        progress = Signal(int, str)           # (task_index, progress_text)
+        finished = Signal(int, object)        # (task_index, MergeResult)
+        error = Signal(int, str)              # (task_index, error_msg)
+        conflict_requested = Signal(int, str)  # (task_index, expected_output_path)
 
 
-class MergeWorker(QRunnable):
-    """并发合并工作项"""
+    class MergeWorker(QRunnable):
+        """并发合并工作项"""
 
-    def __init__(
-        self,
-        task_index: int,
-        video_file: Optional[str],
-        audio_file: Optional[str],
-        output_path: str,
-        is_muxed: bool = False,
-    ):
-        super().__init__()
-        self.task_index = task_index
-        self.video_file = video_file
-        self.audio_file = audio_file
-        self.output_path = output_path
-        self.is_muxed = is_muxed
-        
-        self.signals = MergeWorkerSignals()
-        
-        # 用于挂起线程等待主线程重名决策的 Event (C-2)
-        self.conflict_resolved_event = threading.Event()
-        self.resolved_strategy: Optional[ConflictStrategy] = None
-        self.resolved_applied_all = False
-        self.resolved_path: Optional[str] = None
-
-    def run(self):
-        """执行合并/转封装"""
-        try:
-            actual_output_path = self.output_path
+        def __init__(
+            self,
+            task_index: int,
+            video_file: Optional[str],
+            audio_file: Optional[str],
+            output_path: str,
+            is_muxed: bool = False,
+        ):
+            super().__init__()
+            self.task_index = task_index
+            self.video_file = video_file
+            self.audio_file = audio_file
+            self.output_path = output_path
+            self.is_muxed = is_muxed
             
-            # 1. 检查是否存在目标文件（若存在，触发重名冲突询问）
-            if os.path.exists(self.output_path):
-                # 发射冲突信号给主线程
-                self.signals.conflict_requested.emit(self.task_index, self.output_path)
+            self.signals = MergeWorkerSignals()
+            
+            # 用于挂起线程等待主线程重名决策的 Event (C-2)
+            self.conflict_resolved_event = threading.Event()
+            self.resolved_strategy: Optional[ConflictStrategy] = None
+            self.resolved_applied_all = False
+            self.resolved_path: Optional[str] = None
+
+        def run(self):
+            """执行合并/转封装"""
+            try:
+                actual_output_path = self.output_path
                 
-                # 阻塞挂起子线程，等待主线程做决策 (C-2)
-                self.conflict_resolved_event.wait()
-                
-                # 决策完成，获取结果
-                if self.resolved_strategy == ConflictStrategy.SKIP:
-                    logger.info(f"任务 {self.task_index}：用户选择跳过")
-                    result = MergeResult(
-                        task_index=self.task_index,
-                        output_name=os.path.basename(self.output_path),
-                        output_path=self.output_path,
-                        success=True,
-                        error_message="用户选择跳过",
-                        actual_path=self.output_path,
+                # 1. 检查是否存在目标文件（若存在，触发重名冲突询问）
+                if os.path.exists(self.output_path):
+                    # 发射冲突信号给主线程
+                    self.signals.conflict_requested.emit(self.task_index, self.output_path)
+                    
+                    # 阻塞挂起子线程，等待主线程做决策 (C-2)
+                    self.conflict_resolved_event.wait()
+                    
+                    # 决策完成，获取结果
+                    if self.resolved_strategy == ConflictStrategy.SKIP:
+                        logger.info(f"任务 {self.task_index}：用户选择跳过")
+                        result = MergeResult(
+                            task_index=self.task_index,
+                            output_name=os.path.basename(self.output_path),
+                            output_path=self.output_path,
+                            success=True,
+                            error_message="用户选择跳过",
+                            actual_path=self.output_path,
+                        )
+                        self.signals.finished.emit(self.task_index, result)
+                        return
+                    
+                    if self.resolved_path:
+                        actual_output_path = self.resolved_path
+
+                # 2. 执行合并或转封装
+                if self.is_muxed:
+                    # 转封装操作
+                    success, err = remux_single(
+                        self.video_file,  # 对于 muxed, video_file 就是 input_file
+                        actual_output_path,
+                        progress_callback=lambda txt: self.signals.progress.emit(self.task_index, txt)
                     )
+                else:
+                    # 合并操作
+                    success, err = merge_single(
+                        self.video_file,
+                        self.audio_file,
+                        actual_output_path,
+                        progress_callback=lambda txt: self.signals.progress.emit(self.task_index, txt)
+                    )
+                    
+                result = MergeResult(
+                    task_index=self.task_index,
+                    output_name=os.path.basename(actual_output_path),
+                    output_path=self.output_path,
+                    success=success,
+                    error_message=err,
+                    actual_path=actual_output_path,
+                )
+                
+                if success:
                     self.signals.finished.emit(self.task_index, result)
-                    return
-                
-                if self.resolved_path:
-                    actual_output_path = self.resolved_path
+                else:
+                    self.signals.error.emit(self.task_index, err or "未知合并错误")
+                    
+            except Exception as e:
+                logger.error(f"MergeWorker 发生未捕获异常: {e}")
+                self.signals.error.emit(self.task_index, str(e))
 
-            # 2. 执行合并或转封装
-            if self.is_muxed:
-                # 转封装操作
-                success, err = remux_single(
-                    self.video_file,  # 对于 muxed, video_file 就是 input_file
-                    actual_output_path,
-                    progress_callback=lambda txt: self.signals.progress.emit(self.task_index, txt)
-                )
-            else:
-                # 合并操作
-                success, err = merge_single(
-                    self.video_file,
-                    self.audio_file,
-                    actual_output_path,
-                    progress_callback=lambda txt: self.signals.progress.emit(self.task_index, txt)
-                )
-                
-            result = MergeResult(
-                task_index=self.task_index,
-                output_name=os.path.basename(actual_output_path),
-                output_path=self.output_path,
-                success=success,
-                error_message=err,
-                actual_path=actual_output_path,
-            )
-            
-            if success:
-                self.signals.finished.emit(self.task_index, result)
-            else:
-                self.signals.error.emit(self.task_index, err or "未知合并错误")
-                
-        except Exception as e:
-            logger.error(f"MergeWorker 发生未捕获异常: {e}")
-            self.signals.error.emit(self.task_index, str(e))
 

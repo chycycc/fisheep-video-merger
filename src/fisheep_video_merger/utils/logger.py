@@ -49,34 +49,44 @@ def setup_logger(log_dir: Optional[str] = None) -> logging.Logger:
     """
     global _logger, _memory_handler
 
-    if _logger is not None:
-        return _logger
+    if _logger is None:
+        _logger = logging.getLogger("fisheep_video_merger")
+        _logger.setLevel(logging.DEBUG)
 
-    _logger = logging.getLogger("fisheep_video_merger")
-    _logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            "[%(asctime)s] [%(levelname)s] %(message)s",
+            datefmt="%H:%M:%S",
+        )
 
-    formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S",
-    )
-
-    # 内存日志
-    _memory_handler = MemoryLogHandler()
-    _memory_handler.setLevel(logging.DEBUG)
-    _memory_handler.setFormatter(formatter)
-    _logger.addHandler(_memory_handler)
+        # 内存日志
+        _memory_handler = MemoryLogHandler()
+        _memory_handler.setLevel(logging.DEBUG)
+        _memory_handler.setFormatter(formatter)
+        _logger.addHandler(_memory_handler)
+    else:
+        formatter = logging.Formatter(
+            "[%(asctime)s] [%(levelname)s] %(message)s",
+            datefmt="%H:%M:%S",
+        )
 
     # 文件日志
     if log_dir:
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(
-            log_dir,
-            f"merger_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
-        )
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(formatter)
-        _logger.addHandler(file_handler)
+        # 检查是否已添加过 FileHandler，防止重复写入
+        has_file_handler = any(isinstance(h, logging.FileHandler) for h in _logger.handlers)
+        if not has_file_handler:
+            try:
+                os.makedirs(log_dir, exist_ok=True)
+                log_file = os.path.join(
+                    log_dir,
+                    f"merger_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+                )
+                file_handler = logging.FileHandler(log_file, encoding="utf-8")
+                file_handler.setLevel(logging.DEBUG)
+                file_handler.setFormatter(formatter)
+                _logger.addHandler(file_handler)
+            except Exception as e:
+                # 容错处理
+                pass
 
     return _logger
 
