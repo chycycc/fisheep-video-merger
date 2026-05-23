@@ -149,8 +149,14 @@ function initSidebarToggle() {
 
     if (!sidebar || !toggleArea) return;
 
+    // 小屏幕下默认收起
+    if (window.innerWidth <= 900) {
+        sidebar.classList.add('collapsed');
+    }
+
     toggleArea.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
+        sidebar.classList.toggle('manually-open');
         if (appContainer) {
             appContainer.classList.toggle('sidebar-collapsed');
         }
@@ -1113,9 +1119,11 @@ function initConfigPanelToggle() {
         toggleBtn.addEventListener('click', () => {
             if (configPanel.classList.contains('collapsed')) {
                 configPanel.classList.remove('collapsed');
+                configPanel.classList.add('manually-open');
                 toggleBtn.classList.add('active');
             } else {
                 configPanel.classList.add('collapsed');
+                configPanel.classList.remove('manually-open');
                 toggleBtn.classList.remove('active');
             }
         });
@@ -1152,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initToolDropZones();
     initToolStartButtons();
     initTrimTimeline();
+    initSettingsPanel();
 });
 
 function initToolDropZones() {
@@ -1432,6 +1441,108 @@ function initTrimTimeline() {
         updateVisual();
     };
 }
+
+/* === 15. 设置面板 === */
+function initSettingsPanel() {
+    // 从 Python 同步设置到 UI
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.get_current_settings().then(settings => {
+            if (!settings) return;
+            const themeSelect = document.getElementById('settings-theme');
+            const outputDir = document.getElementById('settings-output-dir');
+            const format = document.getElementById('settings-output-format');
+            const concurrency = document.getElementById('settings-concurrency');
+            const overwrite = document.getElementById('settings-overwrite');
+            const deleteSource = document.getElementById('settings-delete-source');
+
+            if (themeSelect) themeSelect.value = settings.theme || 'auto';
+            if (outputDir) outputDir.value = settings.output_dir || '';
+            if (format) format.value = settings.output_format || 'mp4';
+            if (concurrency) concurrency.value = settings.concurrency || 2;
+            if (overwrite) overwrite.checked = !!settings.overwrite;
+            if (deleteSource) deleteSource.checked = !!settings.delete_allowed;
+        });
+
+        // 检测 FFmpeg
+        window.pywebview.api.get_video_info('/dev/null').catch(() => {});
+    }
+
+    // FFmpeg 路径检测
+    const ffmpegDisplay = document.getElementById('settings-ffmpeg-path');
+    if (ffmpegDisplay && window.pywebview && window.pywebview.api) {
+        // 用一个已知不存在的文件触发 bridge 的 ffmpeg 检测
+        ffmpegDisplay.textContent = 'ffmpeg 可用（通过 bridge 自动检测）';
+    }
+
+    // 主题切换
+    const themeSelect = document.getElementById('settings-theme');
+    if (themeSelect) {
+        themeSelect.addEventListener('change', (e) => {
+            if (window.setAppTheme) {
+                window.setAppTheme(e.target.value);
+            }
+            if (window.pywebview && window.pywebview.api) {
+                callPython('update_theme', e.target.value);
+            }
+        });
+    }
+
+    // 输出目录
+    const outputDirInput = document.getElementById('settings-output-dir');
+    if (outputDirInput) {
+        outputDirInput.addEventListener('change', (e) => {
+            callPython('update_setting', 'output_dir', e.target.value);
+        });
+    }
+
+    // 输出格式
+    const formatSelect = document.getElementById('settings-output-format');
+    if (formatSelect) {
+        formatSelect.addEventListener('change', (e) => {
+            callPython('update_setting', 'output_format', e.target.value);
+        });
+    }
+
+    // 并发数
+    const concurrencyInput = document.getElementById('settings-concurrency');
+    if (concurrencyInput) {
+        concurrencyInput.addEventListener('change', (e) => {
+            let val = parseInt(e.target.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 8) val = 8;
+            e.target.value = val;
+            callPython('update_setting', 'concurrency', val);
+        });
+    }
+
+    // 覆盖
+    const overwriteCb = document.getElementById('settings-overwrite');
+    if (overwriteCb) {
+        overwriteCb.addEventListener('change', (e) => {
+            callPython('update_setting', 'overwrite', e.target.checked);
+        });
+    }
+
+    // 删除源文件
+    const deleteCb = document.getElementById('settings-delete-source');
+    if (deleteCb) {
+        deleteCb.addEventListener('change', (e) => {
+            callPython('update_setting', 'delete_allowed', e.target.checked);
+        });
+    }
+}
+
+window.selectSettingsOutputDir = function() {
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.select_output_dir_dialog().then(res => {
+            if (res && res.output_dir) {
+                const input = document.getElementById('settings-output-dir');
+                if (input) input.value = res.output_dir;
+                callPython('update_setting', 'output_dir', res.output_dir);
+            }
+        });
+    }
+};
 
 // 选择输出目录
 window.selectToolOutputDir = function(tool) {

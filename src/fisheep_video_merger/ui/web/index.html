@@ -46,8 +46,12 @@
             </nav>
 
             <div class="sidebar-footer">
+                <button class="nav-btn" data-tool="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">设置</span>
+                </button>
                 <div class="theme-toggle-area">
-                    <span class="theme-label">🌓 主题模式</span>
+                    <span class="theme-label">🌓 主题</span>
                     <button id="theme-switch-btn" class="icon-toggle">🌙</button>
                 </div>
             </div>
@@ -72,10 +76,10 @@
                 </header>
 
                 <!-- 合并工具子标签切换栏 -->
-                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                    <button class="btn btn-secondary active" data-subtab="merge-queue" data-parent="merge">📊 合并队列</button>
-                    <button class="btn btn-secondary" data-subtab="pending" data-parent="merge">⏳ 待整理</button>
-                    <button class="btn btn-secondary" data-subtab="muxed" data-parent="merge">✅ 已完整</button>
+                <div class="subtab-bar">
+                    <button class="btn active" data-subtab="merge-queue" data-parent="merge">📊 合并队列</button>
+                    <button class="btn" data-subtab="pending" data-parent="merge">⏳ 待整理</button>
+                    <button class="btn" data-subtab="muxed" data-parent="merge">✅ 已完整</button>
                 </div>
 
                 <!-- 合并工具主体：表格 + 配置面板 -->
@@ -539,6 +543,92 @@
 
                 <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
                     <button id="trim-start-btn" class="btn btn-primary" disabled>🚀 开始裁剪</button>
+                </div>
+            </div>
+
+            <!-- ========== 工具面板：设置 ========== -->
+            <div class="tool-panel" id="tool-settings">
+                <header class="tool-header">
+                    <div>
+                        <h2>设置</h2>
+                        <p class="subtitle">全局配置与应用信息</p>
+                    </div>
+                </header>
+
+                <div style="max-width: 600px; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- 外观 -->
+                    <div class="config-card">
+                        <h4>🌓 外观</h4>
+                        <div class="form-group">
+                            <label>主题模式</label>
+                            <select id="settings-theme">
+                                <option value="auto">跟随系统</option>
+                                <option value="dark">深色模式</option>
+                                <option value="light">浅色模式</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 输出设置 -->
+                    <div class="config-card">
+                        <h4>📂 输出设置</h4>
+                        <div class="form-group">
+                            <label>默认输出目录</label>
+                            <div class="input-with-action">
+                                <input type="text" id="settings-output-dir" placeholder="默认与源文件同目录" readonly>
+                                <button class="mini-action-btn" onclick="selectSettingsOutputDir()">📂</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>默认输出格式</label>
+                            <select id="settings-output-format">
+                                <option value="mp4">MP4</option>
+                                <option value="mkv">MKV</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 合并设置 -->
+                    <div class="config-card">
+                        <h4>⚡ 合并设置</h4>
+                        <div class="form-group">
+                            <label>并发任务数</label>
+                            <input type="number" id="settings-concurrency" min="1" max="8" value="2">
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="settings-overwrite" checked>
+                                <span class="checkmark"></span>
+                                自动覆盖同名文件
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="settings-delete-source">
+                                <span class="checkmark"></span>
+                                合并成功后删除源文件
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 环境检测 -->
+                    <div class="config-card">
+                        <h4>🔧 环境检测</h4>
+                        <div class="form-group">
+                            <label>FFmpeg 路径</label>
+                            <div id="settings-ffmpeg-path" class="path-preview-box">检测中...</div>
+                        </div>
+                    </div>
+
+                    <!-- 关于 -->
+                    <div class="config-card">
+                        <h4>ℹ️ 关于</h4>
+                        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.8;">
+                            <div>Fisheep 视频工具箱 v0.5.0</div>
+                            <div>基于 Python + pywebview + FFmpeg</div>
+                            <div>主题: 蓝色系 / 暗色 + 亮色双模式</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

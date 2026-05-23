@@ -1092,7 +1092,103 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     font-family: 'Consolas', 'Courier New', monospace;
 }
 
-/* === 18. 工具页面通用样式 === */
+/* === 18. 子标签栏美化 === */
+.subtab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    background-color: var(--alt-base-bg);
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.subtab-bar .btn {
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+}
+
+.subtab-bar .btn:hover {
+    color: var(--text-color);
+    background-color: var(--base-bg);
+}
+
+.subtab-bar .btn.active {
+    color: var(--primary-color);
+    background-color: var(--base-bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* === 19. 响应式布局 === */
+/* 中等屏幕：配置面板默认收起，但允许用户手动展开 */
+@media (max-width: 1100px) {
+    .config-panel:not(.manually-open) {
+        width: 0;
+        padding: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .merge-workspace:not(.config-open) {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 小屏幕：侧栏默认收起，但允许用户手动展开 */
+@media (max-width: 900px) {
+    .sidebar:not(.manually-open) {
+        width: 64px;
+    }
+
+    .sidebar:not(.manually-open) .logo-text,
+    .sidebar:not(.manually-open) .nav-text,
+    .sidebar:not(.manually-open) .theme-label {
+        opacity: 0;
+        max-width: 0;
+        margin-left: 0;
+        pointer-events: none;
+    }
+
+    .sidebar:not(.manually-open) .logo-area {
+        padding: 0 16px;
+        justify-content: center;
+    }
+
+    .sidebar:not(.manually-open) .nav-btn {
+        padding: 12px 16px;
+        justify-content: center;
+    }
+
+    .sidebar-footer {
+        padding: 8px 0;
+    }
+
+    .sidebar:not(.manually-open) .sidebar-footer .nav-btn {
+        padding: 12px 16px;
+        justify-content: center;
+    }
+
+    .sidebar:not(.manually-open) .sidebar-footer .nav-text {
+        opacity: 0;
+        max-width: 0;
+        margin-left: 0;
+    }
+
+    .tool-options {
+        flex-direction: column;
+    }
+
+    .tool-option-group {
+        min-width: 100%;
+    }
+}
+
+/* === 20. 工具页面通用样式 === */
 .tool-panel {
     display: none;
     height: 100%;
