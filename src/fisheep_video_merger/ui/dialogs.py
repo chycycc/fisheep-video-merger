@@ -3,6 +3,7 @@
 包含批量命名、重名处理、删除确认、结果摘要等对话框
 """
 
+import os
 from typing import Optional
 
 from PySide6.QtWidgets import (

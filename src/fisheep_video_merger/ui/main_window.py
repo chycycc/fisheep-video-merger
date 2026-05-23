@@ -71,13 +71,6 @@ class ScanSignals(QObject):
     incremental = Signal(str, list)  # 增量完成：root_path, list[StreamInfo]
 
 
-class MergeSignals(QObject):
-    """合并线程信号"""
-    progress = Signal(int, int, str)  # 当前序号, 总数, 状态文本
-    task_status = Signal(int, bool, object)  # 索引, 成功标志, 错误信息
-    finished = Signal(list)  # MergeResult 列表
-    conflict_requested = Signal(str)  # 请求显示重名冲突对话框
-
 
 class MainWindow(QMainWindow):
     """主窗口"""
@@ -219,7 +212,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setFixedHeight(18)
         self.progress_bar.setStyleSheet(
             "QProgressBar { border: none; border-radius: 3px; "
-            "background-color: #e0e0e0; text-align: center; font-size: 11px; }"
+            "background-color: #404040; text-align: center; font-size: 11px; }"
             "QProgressBar::chunk { background-color: #4CAF50; border-radius: 3px; }"
         )
         bottom_layout.addWidget(self.progress_bar, 1)
@@ -353,9 +346,14 @@ class MainWindow(QMainWindow):
         # 更新表格输出路径
         self._update_all_output_paths()
 
-        # 自动保存当前工作状态 (E-2)，排斥加载过程中的冗余触发
+        # 自动保存当前工作状态 (E-2)，排斥加载过程中的冗余触发，防抖 500ms
         if not getattr(self, "_is_loading", False):
-            self._save_workspace_state()
+            if not hasattr(self, "_save_debounce_timer"):
+                from PySide6.QtCore import QTimer
+                self._save_debounce_timer = QTimer(self)
+                self._save_debounce_timer.setSingleShot(True)
+                self._save_debounce_timer.timeout.connect(self._save_workspace_state)
+            self._save_debounce_timer.start(500)
 
     def _on_tab_changed(self, index: int):
         """切换标签页时驱动右侧栏详情的动态重置与刷新 (U-3)"""
@@ -991,6 +989,12 @@ class MainWindow(QMainWindow):
         self.is_showing_conflict_dialog = False
         self.active_workers = {}
 
+        # 快照当前任务列表，防止合并期间用户删除任务导致索引错位
+        self._merge_task_snapshot = {
+            task_info["original_index"]: task_info
+            for task_info in tasks
+        }
+
         # 清空底部面板
         self.active_tasks_dashboard.clear_all()
 
@@ -1128,6 +1132,12 @@ class MainWindow(QMainWindow):
 
     def _finalize_merge_session(self):
         """全部任务合并流程终结处理"""
+        # 如果冲突对话框仍在显示，延迟终结
+        if getattr(self, "is_showing_conflict_dialog", False):
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(200, self._finalize_merge_session)
+            return
+
         # 恢复界面操作
         self.is_merging = False
         self.settings_panel.set_start_enabled(True)
@@ -1207,12 +1217,14 @@ class MainWindow(QMainWindow):
             # 计算重命名后的路径
             base, ext = os.path.splitext(output_path)
             counter = 1
-            while True:
+            while counter < 10000:
                 new_path = f"{base}_{counter}{ext}"
                 if not os.path.exists(new_path):
                     worker.resolved_path = new_path
                     break
                 counter += 1
+            else:
+                worker.resolved_path = output_path
         elif strategy == ConflictStrategy.SKIP:
             worker.resolved_path = None
         else: # OVERWRITE
@@ -1288,15 +1300,15 @@ class MainWindow(QMainWindow):
 
     def _delete_source_files(self, results: list[MergeResult]):
         """删除已成功合并的源文件"""
-        tasks = self.merge_queue_tab.get_tasks()
+        snapshot = getattr(self, "_merge_task_snapshot", {})
         deleted_count = 0
 
         for result in results:
             if not result.success:
                 continue
-            if result.task_index < len(tasks):
-                task = tasks[result.task_index]
-                for filepath in [task.video_file, task.audio_file]:
+            task_info = snapshot.get(result.task_index)
+            if task_info:
+                for filepath in [task_info["video_file"], task_info["audio_file"]]:
                     try:
                         if os.path.exists(filepath):
                             # 尝试使用 send2trash
@@ -1368,6 +1380,21 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """窗口关闭事件：持久化最后的工作区状态"""
+        if self.is_merging:
+            reply = QMessageBox.question(
+                self, "确认关闭",
+                "合并任务正在进行中，确定要关闭吗？\n未完成的任务将被中断。",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply == QMessageBox.No:
+                event.ignore()
+                return
+            # 唤醒所有等待冲突决策的 worker 线程，防止死锁
+            for worker in list(getattr(self, "active_workers", {}).values()):
+                if hasattr(worker, "conflict_resolved_event"):
+                    worker.resolved_strategy = ConflictStrategy.SKIP
+                    worker.conflict_resolved_event.set()
+
         self._save_workspace_state()
         event.accept()
 

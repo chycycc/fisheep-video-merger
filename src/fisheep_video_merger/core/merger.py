@@ -42,6 +42,10 @@ class MergeResult:
 
 def get_ffmpeg_path() -> str:
     """获取 ffmpeg 可执行文件路径"""
+    import shutil
+    path = shutil.which("ffmpeg")
+    if path:
+        return path
     return "ffmpeg"
 
 
@@ -113,11 +117,12 @@ def handle_conflict(
     if strategy == ConflictStrategy.RENAME:
         base, ext = os.path.splitext(output_path)
         counter = 1
-        while True:
+        while counter < 10000:
             new_path = f"{base}_{counter}{ext}"
             if not os.path.exists(new_path):
                 return new_path, strategy, applied_all
             counter += 1
+        return output_path, strategy, applied_all
 
     # 需要用户决策
     if conflict_callback:
@@ -125,7 +130,7 @@ def handle_conflict(
         if strategy == ConflictStrategy.RENAME:
             base, ext = os.path.splitext(output_path)
             counter = 1
-            while True:
+            while counter < 10000:
                 new_path = f"{base}_{counter}{ext}"
                 if not os.path.exists(new_path):
                     return new_path, strategy, applied_all
@@ -209,18 +214,36 @@ def _run_ffmpeg_with_progress(
             errors="replace",
         )
 
-        # 逐字符读取以正确捕获 \r 字符（ffmpeg 进度输出）
+        # 缓冲读取 stderr，按 \r 和 \n 分割处理 ffmpeg 进度输出
         buffer = ""
         while True:
-            char = process.stderr.read(1)
-            if not char:
+            chunk = process.stderr.read(4096)
+            if not chunk:
                 break
-            if char in ("\r", "\n"):
-                line = buffer.strip()
-                buffer = ""
+            buffer += chunk
+            # 按 \r 或 \n 分割，保留最后不完整的部分
+            while "\r" in buffer or "\n" in buffer:
+                # 找到第一个分隔符
+                cr_pos = buffer.find("\r")
+                nl_pos = buffer.find("\n")
+                if cr_pos == -1:
+                    sep_pos = nl_pos
+                elif nl_pos == -1:
+                    sep_pos = cr_pos
+                else:
+                    sep_pos = min(cr_pos, nl_pos)
+
+                line = buffer[:sep_pos].strip()
+                # 跳过分隔符
+                sep_end = sep_pos + 1
+                # 处理 \r\n 的情况
+                if sep_pos < len(buffer) - 1 and buffer[sep_pos:sep_pos+2] == "\r\n":
+                    sep_end = sep_pos + 2
+                buffer = buffer[sep_end:]
+
                 if not line:
                     continue
-                
+
                 full_stderr.append(line)
 
                 # 1. 从最初的控制台流信息中匹配视频/音频时长
@@ -236,11 +259,11 @@ def _run_ffmpeg_with_progress(
                         curr = to_seconds(t_match)
                         pct = min(99.9, (curr / total_seconds) * 100.0)
                         now = time.time()
-                        
+
                         elapsed = now - start_time
                         speed_mult = (curr / elapsed) if elapsed > 0 else 1.0
                         eta_sec = max(0.0, total_seconds - curr) / speed_mult if speed_mult > 0 else 0.0
-                        
+
                         # 节流条件：距离上次发送超过 300ms，或到达临界点（防止过多 COM 消息淹没 GUI 线程导致无响应）
                         if (now - last_emit_time >= 0.3) or pct >= 99.9:
                             if progress_callback:
@@ -254,8 +277,10 @@ def _run_ffmpeg_with_progress(
                                         pass
                             last_emit_time = now
                             last_pct = pct
-            else:
-                buffer += char
+
+        # 处理 buffer 中剩余的最后不完整行
+        if buffer.strip():
+            full_stderr.append(buffer.strip())
 
         # 等待进程优雅退出
         process.wait(timeout=30)
@@ -272,11 +297,17 @@ def _run_ffmpeg_with_progress(
     except subprocess.TimeoutExpired:
         try:
             process.kill()
-        except:
+            process.wait(timeout=10)
+        except Exception:
             pass
         return False, "ffmpeg 进程执行超时"
     except Exception as e:
         logger.error(f"{op_name}执行时发生异常: {e}")
+        try:
+            process.kill()
+            process.wait(timeout=10)
+        except Exception:
+            pass
         return False, str(e)
 
 

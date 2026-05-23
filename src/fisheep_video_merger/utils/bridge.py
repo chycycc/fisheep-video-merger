@@ -423,7 +423,7 @@ class UIBridge:
                 # 如果不覆盖，则执行自动重名策略
                 base, ext = os.path.splitext(output_path)
                 counter = 1
-                while True:
+                while counter < 10000:
                     new_path = f"{base}_{counter}{ext}"
                     if not os.path.exists(new_path):
                         output_path = new_path
@@ -469,7 +469,7 @@ class UIBridge:
                 self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'completed')")
                 
                 # 可选：如果勾选合并成功删除源文件，此处标记
-                if self.settings.get("delete_source"):
+                if self.settings.get("delete_allowed"):
                     try:
                         # 用 send2trash 安全丢进回收站，或者直接 os.remove
                         import send2trash
@@ -482,11 +482,11 @@ class UIBridge:
             else:
                 task.status = "failed"
                 task.error_message = err
-                self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'failed', '{err}')")
+                self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'failed', {json.dumps(err)})")
         except Exception as e:
             task.status = "failed"
             task.error_message = str(e)
-            self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'failed', '{e}')")
+            self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'failed', {json.dumps(str(e))})")
 
     # ====================================================================
     # ⚙️ 4. 辅助私有工具函数 (Private Helpers)
@@ -549,7 +549,7 @@ class UIBridge:
                     self._evaluate_js_safe("showToast('选中文件夹内未发现支持的视频缓存', 'warning')")
             except Exception as e:
                 logger.error(f"UIBridge 异步扫描失败: {e}")
-                self._evaluate_js_safe(f"showToast('扫描失败: {e}', 'error')")
+                self._evaluate_js_safe(f"showToast('扫描失败: {json.dumps(str(e))}', 'error')")
 
         threading.Thread(target=scan_worker, daemon=True).start()
 
@@ -605,7 +605,7 @@ class UIBridge:
                     self._evaluate_js_safe("showToast('导入的视频已是完整文件，自动归入【已完整】队列', 'info')")
             except Exception as e:
                 logger.error(f"UIBridge 异步添加文件失败: {e}")
-                self._evaluate_js_safe(f"showToast('添加文件失败: {e}', 'error')")
+                self._evaluate_js_safe(f"showToast('添加文件失败: {json.dumps(str(e))}', 'error')")
 
         threading.Thread(target=files_worker, daemon=True).start()
 

@@ -5,6 +5,7 @@ ffprobe 封装模块
 
 import json
 import subprocess
+import threading
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
@@ -31,6 +32,7 @@ class StreamInfo:
 
 
 _probe_path: Optional[str] = None
+_probe_path_lock = threading.Lock()
 
 
 def _detect_probe_path() -> str:
@@ -39,21 +41,26 @@ def _detect_probe_path() -> str:
     if _probe_path is not None:
         return _probe_path
 
-    for candidate in ["ffprobe", "ffmpeg"]:
-        try:
-            subprocess.run(
-                [candidate, "-version"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
-            )
-            _probe_path = candidate
-            return candidate
-        except (subprocess.SubprocessError, FileNotFoundError):
-            continue
+    with _probe_path_lock:
+        # 双重检查锁定
+        if _probe_path is not None:
+            return _probe_path
 
-    _probe_path = ""
-    return ""
+        for candidate in ["ffprobe", "ffmpeg"]:
+            try:
+                subprocess.run(
+                    [candidate, "-version"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                )
+                _probe_path = candidate
+                return candidate
+            except (subprocess.SubprocessError, FileNotFoundError):
+                continue
+
+        _probe_path = ""
+        return ""
 
 
 def get_ffprobe_path() -> str:

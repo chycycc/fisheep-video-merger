@@ -106,8 +106,9 @@ EPISODE_PATTERNS: List[Tuple[str, Callable[[re.Match], Optional[int]], str, int]
         0
     ),
     # 模式6: 前缀数字模式，常用于 "01. 这是一个视频.m4s"
+    # 限制1-4位数，避免匹配到分辨率等大数字（如 "1080 xxx"）
     (
-        r"^(\d+)[\s._-]+",
+        r"^(\d{1,4})[\s._-]+",
         lambda m: int(m.group(1)),
         r"^[\s._-]*\d+[\s._-]+",
         0

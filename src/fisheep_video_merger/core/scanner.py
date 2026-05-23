@@ -105,29 +105,39 @@ def scan_multiple_directories(
                     error=str(e),
                 )
 
+            ready_dir = None
+            ready_results = None
+            cur_completed = 0
+
             with lock:
                 completed_count += 1
                 all_results.append(info)
-                
+
                 # 更新对应目录的分析记录与计数
                 if dirpath in dir_results:
                     dir_results[dirpath].append(info)
                     dir_pending_count[dirpath] -= 1
-                    
-                    # 当该目录下所有文件都已分析完毕时，触发增量回调
+
+                    # 当该目录下所有文件都已分析完毕时，标记待回调
                     if dir_pending_count[dirpath] == 0:
                         logger.debug(f"目录下所有文件分析完毕: {dirpath}")
-                        if dir_finished_callback:
-                            try:
-                                dir_finished_callback(dirpath, dir_results[dirpath])
-                            except Exception as callback_err:
-                                logger.error(f"执行 dir_finished_callback 回调异常: {callback_err}")
+                        ready_dir = dirpath
+                        ready_results = dir_results[dirpath]
 
-                if progress_callback:
-                    try:
-                        progress_callback(completed_count, total_files)
-                    except Exception as progress_err:
-                        logger.error(f"执行 progress_callback 进度回调异常: {progress_err}")
+                cur_completed = completed_count
+
+            # 在锁外执行回调，避免阻塞其他线程
+            if ready_dir is not None and dir_finished_callback:
+                try:
+                    dir_finished_callback(ready_dir, ready_results)
+                except Exception as callback_err:
+                    logger.error(f"执行 dir_finished_callback 回调异常: {callback_err}")
+
+            if progress_callback:
+                try:
+                    progress_callback(cur_completed, total_files)
+                except Exception as progress_err:
+                    logger.error(f"执行 progress_callback 进度回调异常: {progress_err}")
 
     logger.info(f"并发扫描分析完成: 共处理 {len(all_results)} 个文件")
     return all_results
