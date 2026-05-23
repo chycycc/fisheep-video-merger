@@ -6,7 +6,7 @@
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Tuple, Callable
 
 from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
@@ -61,6 +61,67 @@ def _parse_chinese_number(text: str) -> Optional[int]:
     return total if total > 0 else None
 
 
+# 声明式集数匹配与清理配置
+# 元组格式: (匹配模式正则, 提取处理器函数, 清理模式正则, 正则标志)
+EPISODE_PATTERNS: List[Tuple[str, Callable[[re.Match], Optional[int]], str, int]] = [
+    # 模式1: 第\d+集 / 第X集（支持 集/话/篇/幕/次/期/回/P）
+    (
+        r"第\s*(\d+)\s*[集话篇幕次期回P]",
+        lambda m: int(m.group(1)),
+        r"第\s*\d+\s*[集话篇幕次期回P]",
+        re.IGNORECASE
+    ),
+    (
+        r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期回]",
+        lambda m: _parse_chinese_number(m.group(1)),
+        r"第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期回]",
+        0
+    ),
+    # 模式2: EP\d+ / Part\d+ / P\d+
+    (
+        r"(?:EP|Ep|ep|Part|part|P|p)\s*(\d+)",
+        lambda m: int(m.group(1)),
+        r"(?:EP|Ep|ep|Part|part|P|p)\s*\d+",
+        re.IGNORECASE
+    ),
+    # 模式3: E\d+（单独的 E 后跟数字，但不是单词的一部分）
+    (
+        r"(?<![a-zA-Z])E\s*(\d+)",
+        lambda m: int(m.group(1)),
+        r"(?<![a-zA-Z])E\s*\d+",
+        re.IGNORECASE
+    ),
+    # 模式4: #\d+
+    (
+        r"#\s*(\d+)",
+        lambda m: int(m.group(1)),
+        r"#\s*\d+",
+        0
+    ),
+    # 模式5: 各种括弧包裹的数字，如 (03)、[3]、【03】
+    (
+        r"[\(\[【]\s*(\d+)\s*[\)\]】]",
+        lambda m: int(m.group(1)),
+        r"[\(\[【]\s*\d+\s*[\)\]】]",
+        0
+    ),
+    # 模式6: 前缀数字模式，常用于 "01. 这是一个视频.m4s"
+    (
+        r"^(\d+)[\s._-]+",
+        lambda m: int(m.group(1)),
+        r"^[\s._-]*\d+[\s._-]+",
+        0
+    ),
+    # 模式7: 文件名末尾或倒数第二部分为纯数字（至少2位，避免误判）
+    (
+        r"[-_\s]+(\d{2,})$",
+        lambda m: int(m.group(1)),
+        r"[-_\s]+\d{2,}$",
+        0
+    ),
+]
+
+
 def extract_episode_number(filename: str) -> Optional[int]:
     """
     从文件名中提取集数
@@ -83,46 +144,12 @@ def extract_episode_number(filename: str) -> Optional[int]:
         集数（从 1 开始），如果未找到则返回 None
     """
     name, _ = os.path.splitext(filename)
-
-    # 模式1: 第\d+集 / 第X集（支持 集/话/篇/幕/次/期/回/P）
-    m = re.search(r"第\s*(\d+)\s*[集话篇幕次期回P]", name, re.IGNORECASE)
-    if m:
-        return int(m.group(1))
-
-    m = re.search(r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期回]", name)
-    if m:
-        return _parse_chinese_number(m.group(1))
-
-    # 模式2: EP\d+ / Part\d+ / P\d+
-    m = re.search(r"(?:EP|Ep|ep|Part|part|P|p)\s*(\d+)", name)
-    if m:
-        return int(m.group(1))
-
-    # 模式3: E\d+（单独的 E 后跟数字，但不是单词的一部分）
-    m = re.search(r"(?<![a-zA-Z])E\s*(\d+)", name, re.IGNORECASE)
-    if m:
-        return int(m.group(1))
-
-    # 模式4: #\d+
-    m = re.search(r"#\s*(\d+)", name)
-    if m:
-        return int(m.group(1))
-
-    # 模式5: 各种括弧包裹的数字，如 (03)、[3]、【03】
-    m = re.search(r"[\(\[【]\s*(\d+)\s*[\)\]】]", name)
-    if m:
-        return int(m.group(1))
-
-    # 模式6: 前缀数字模式，常用于 "01. 这是一个视频.m4s"
-    m = re.search(r"^(\d+)[\s._-]+", name)
-    if m:
-        return int(m.group(1))
-
-    # 模式7: 文件名末尾或倒数第二部分为纯数字（至少2位，避免误判）
-    m = re.search(r"[-_\s]+(\d{2,})$", name)
-    if m:
-        return int(m.group(1))
-
+    for pattern, processor, _, flags in EPISODE_PATTERNS:
+        m = re.search(pattern, name, flags)
+        if m:
+            val = processor(m)
+            if val is not None:
+                return val
     return None
 
 
@@ -144,17 +171,11 @@ def normalize_episode_name(video_filename: str) -> str:
 
     ep = extract_episode_number(basename)
     if ep is not None:
-        # 从原始名称中移除集数信息后作为前缀
-        # 移除已知的集数模式，保留有意义的前缀
-        clean = re.sub(
-            r"第\s*\d+\s*[集话篇幕次期回P]|第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期回]"
-            r"|(?:EP|Ep|ep|Part|part|P|p)\s*\d+|(?<![a-zA-Z])E\s*\d+"
-            r"|#\s*\d+|[\(\[【]\s*\d+\s*[\)\]】]|^[\s._-]*\d+[\s._-]+"
-            r"|[-_\s]+\d{2,}$",
-            "",
-            name_without_ext,
-            flags=re.IGNORECASE,
-        ).strip("-_ .")
+        # 顺序执行清理，从原始名称中移除集数信息后作为前缀
+        clean = name_without_ext
+        for _, _, clean_pat, flags in EPISODE_PATTERNS:
+            clean = re.sub(clean_pat, "", clean, flags=flags)
+        clean = clean.strip("-_ .")
 
         # 如果清理后非空，用清理后的前缀 + 集数
         if clean:
@@ -203,6 +224,298 @@ def _get_relative_dir(filepath: str, root_path: str) -> str:
         return ""
 
 
+def _find_root_for_file(filepath: str, root_paths: list[str]) -> str:
+    """找到文件所属的根路径，若找不到则返回空字符串或第一个根路径"""
+    for root in root_paths:
+        try:
+            common = os.path.commonpath([root, filepath])
+            if common == root:
+                return root
+        except ValueError:
+            continue
+    return root_paths[0] if root_paths else ""
+
+
+# ====================================================================
+# 🧩 匹配引擎策略模式重构 (Strategy Pattern for Matching Engine)
+# ====================================================================
+
+class MatchStrategy:
+    """配对策略基类"""
+    def match(
+        self,
+        videos: List[StreamInfo],
+        audios: List[StreamInfo],
+        root_paths: List[str],
+        result: MatchResult,
+    ) -> Tuple[List[StreamInfo], List[StreamInfo]]:
+        """
+        执行配对
+        Args:
+            videos: 候选视频流列表
+            audios: 候选音频流列表
+            root_paths: 拖入的根目录列表
+            result: 配对结果容器（将匹配的任务直接添加到 result.auto_tasks 中）
+        Returns:
+            未被当前策略匹配的 (剩余视频流列表, 剩余音频流列表)
+        """
+        raise NotImplementedError
+
+
+class DirectoryMatchStrategy(MatchStrategy):
+    """
+    目录级配对策略
+    对同一最底层子文件夹内的音视频进行配对：
+    - 1v1: 自动配对
+    - NvN (N > 1): 按文件名排序后配对，标记多集
+    """
+    def match(
+        self,
+        videos: List[StreamInfo],
+        audios: List[StreamInfo],
+        root_paths: List[str],
+        result: MatchResult,
+    ) -> Tuple[List[StreamInfo], List[StreamInfo]]:
+        # 按文件所在目录对文件进行分组
+        def get_dir(info: StreamInfo) -> str:
+            return os.path.dirname(info.filepath)
+
+        dir_videos: dict[str, List[StreamInfo]] = {}
+        for v in videos:
+            dir_videos.setdefault(get_dir(v), []).append(v)
+
+        dir_audios: dict[str, List[StreamInfo]] = {}
+        for a in audios:
+            dir_audios.setdefault(get_dir(a), []).append(a)
+
+        all_dirs = set(dir_videos.keys()) | set(dir_audios.keys())
+        
+        remaining_videos: List[StreamInfo] = []
+        remaining_audios: List[StreamInfo] = []
+
+        for dirpath in all_dirs:
+            v_list = dir_videos.get(dirpath, [])
+            a_list = dir_audios.get(dirpath, [])
+            
+            root_path = _find_root_for_file(dirpath, root_paths)
+
+            if len(v_list) == 1 and len(a_list) == 1:
+                # 单对单：智能提取集数信息作为输出名
+                v = v_list[0]
+                a = a_list[0]
+                output_name = normalize_episode_name(v.filepath)
+                task = MergeTask(
+                    output_name=output_name,
+                    video_file=v.filepath,
+                    audio_file=a.filepath,
+                    source_dir=dirpath,
+                    root_path=root_path,
+                )
+                result.auto_tasks.append(task)
+                logger.info(f"自动配对 (1v1): {output_name} ({v.filepath} + {a.filepath})")
+
+            elif len(v_list) == len(a_list) and len(v_list) > 1:
+                # 多对多等量：按文件名排序后配对
+                v_list.sort(key=lambda x: os.path.basename(x.filepath))
+                a_list.sort(key=lambda x: os.path.basename(x.filepath))
+
+                folder_name = os.path.basename(dirpath)
+
+                for i, (v, a) in enumerate(zip(v_list, a_list)):
+                    # 尝试从当前视频文件名提取集数
+                    current_ep = extract_episode_number(os.path.basename(v.filepath))
+                    if current_ep is not None:
+                        output_name = f"{current_ep:02d}"
+                        # 如果目录名有含义，加上前缀
+                        clean_folder = re.sub(r"[-_\s]+", "_", folder_name).strip("_")
+                        if clean_folder and not re.match(r"^[\d]+$", clean_folder):
+                            output_name = f"{clean_folder}_{current_ep:02d}"
+                    else:
+                        output_name = f"{folder_name}_{i + 1:02d}"
+
+                    task = MergeTask(
+                        output_name=output_name,
+                        video_file=v.filepath,
+                        audio_file=a.filepath,
+                        source_dir=dirpath,
+                        root_path=root_path,
+                        is_multi_episode=True,
+                    )
+                    result.auto_tasks.append(task)
+                    logger.info(f"自动配对(多集): {task.output_name}")
+            else:
+                # 数量不对等，暂不配对，保留到下一阶段的全局智能求解器
+                remaining_videos.extend(v_list)
+                remaining_audios.extend(a_list)
+
+        return remaining_videos, remaining_audios
+
+
+class CleanStemMatchStrategy(MatchStrategy):
+    """
+    纯净骨架名称配对策略 (Clean Stem Matcher)
+    移除如 ".video", ".audio", "30280"(流ID), "_v", "_a" 等常见尾赘后，若文件名骨干一致则强绑定
+    仅在音频也是唯一对应的情况下绑定，防止引发大规模的多对多歧义
+    """
+    def match(
+        self,
+        videos: List[StreamInfo],
+        audios: List[StreamInfo],
+        root_paths: List[str],
+        result: MatchResult,
+    ) -> Tuple[List[StreamInfo], List[StreamInfo]]:
+        if not videos or not audios:
+            return videos, audios
+
+        def get_clean_stem(filename: str) -> str:
+            stem, _ = os.path.splitext(filename)
+            # 1. 移除音视频流方向后缀
+            stem = re.sub(r"[-_.](?:video|audio|v|a)$", "", stem, flags=re.IGNORECASE)
+            # 2. 移除常见 B站/FFmpeg 合并可能产生的数字 ID（如码率ID 30280 / 30216 等）
+            stem = re.sub(r"[-_](?:30280|30216|30232|30080|30120|120|80|64)$", "", stem)
+            return stem.strip().lower()
+
+        # 建立音频骨架哈希库
+        audio_stems: dict[str, List[StreamInfo]] = {}
+        for a in audios:
+            astem = get_clean_stem(os.path.basename(a.filepath))
+            audio_stems.setdefault(astem, []).append(a)
+
+        matched_video_paths = set()
+        matched_audio_paths = set()
+
+        for v in videos:
+            vstem = get_clean_stem(os.path.basename(v.filepath))
+            if vstem in audio_stems:
+                candidates = audio_stems[vstem]
+                # 仅在音频也是唯一对应的情况下绑定，防止歧义
+                if len(candidates) == 1:
+                    a = candidates[0]
+                    if a.filepath not in matched_audio_paths:
+                        out_name = normalize_episode_name(v.filepath)
+                        task = MergeTask(
+                            output_name=out_name,
+                            video_file=v.filepath,
+                            audio_file=a.filepath,
+                            source_dir=os.path.dirname(v.filepath),
+                            root_path=_find_root_for_file(v.filepath, root_paths),
+                        )
+                        result.auto_tasks.append(task)
+                        matched_video_paths.add(v.filepath)
+                        matched_audio_paths.add(a.filepath)
+                        logger.info(f"🔍 [骨架智能配对] 绑定: {out_name}")
+
+        remaining_videos = [x for x in videos if x.filepath not in matched_video_paths]
+        remaining_audios = [x for x in audios if x.filepath not in matched_audio_paths]
+        return remaining_videos, remaining_audios
+
+
+class EpisodeInterlockStrategy(MatchStrategy):
+    """
+    集数互锁解题器策略 (Episode Interlocking Solver)
+    针对散落的流，如果某个集数全局只剩唯一的一个视频和一个音频，即可认定互锁并进行配对
+    """
+    def match(
+        self,
+        videos: List[StreamInfo],
+        audios: List[StreamInfo],
+        root_paths: List[str],
+        result: MatchResult,
+    ) -> Tuple[List[StreamInfo], List[StreamInfo]]:
+        if not videos or not audios:
+            return videos, audios
+
+        # 提取并按集数分组视频
+        v_by_ep: dict[int, List[StreamInfo]] = {}
+        for v in videos:
+            ep = extract_episode_number(os.path.basename(v.filepath))
+            if ep is not None:
+                v_by_ep.setdefault(ep, []).append(v)
+
+        # 提取并按集数分组音频
+        a_by_ep: dict[int, List[StreamInfo]] = {}
+        for a in audios:
+            ep = extract_episode_number(os.path.basename(a.filepath))
+            if ep is not None:
+                a_by_ep.setdefault(ep, []).append(a)
+
+        matched_video_paths = set()
+        matched_audio_paths = set()
+
+        # 对相同集数寻求闭锁点
+        for ep, vs in v_by_ep.items():
+            if ep in a_by_ep:
+                as_ = a_by_ep[ep]
+                # 唯一互锁判定
+                if len(vs) == 1 and len(as_) == 1:
+                    v = vs[0]
+                    a = as_[0]
+                    if a.filepath not in matched_audio_paths:
+                        out_name = normalize_episode_name(v.filepath)
+                        task = MergeTask(
+                            output_name=out_name,
+                            video_file=v.filepath,
+                            audio_file=a.filepath,
+                            source_dir=os.path.dirname(v.filepath),
+                            root_path=_find_root_for_file(v.filepath, root_paths),
+                        )
+                        result.auto_tasks.append(task)
+                        matched_video_paths.add(v.filepath)
+                        matched_audio_paths.add(a.filepath)
+                        logger.info(f"🎯 [集数互锁配对] 绑定: {out_name} (第 {ep} 集)")
+
+        remaining_videos = [x for x in videos if x.filepath not in matched_video_paths]
+        remaining_audios = [x for x in audios if x.filepath not in matched_audio_paths]
+        return remaining_videos, remaining_audios
+
+
+class MatcherPipeline:
+    """
+    匹配执行管道
+    允许注册多个配对策略并按顺序执行，支持极高的扩展性。
+    """
+    def __init__(self, strategies: List[MatchStrategy] = None):
+        self.strategies = strategies or [
+            DirectoryMatchStrategy(),
+            CleanStemMatchStrategy(),
+            EpisodeInterlockStrategy(),
+        ]
+
+    def execute(
+        self,
+        stream_infos: List[StreamInfo],
+        root_paths: List[str],
+    ) -> MatchResult:
+        result = MatchResult()
+
+        # 分类初始流类型
+        videos = [f for f in stream_infos if f.stream_type == StreamType.VIDEO_ONLY]
+        audios = [f for f in stream_infos if f.stream_type == StreamType.AUDIO_ONLY]
+        muxed = [f for f in stream_infos if f.stream_type == StreamType.MUXED]
+
+        result.muxed_files.extend(muxed)
+
+        # 顺序调用配对策略链进行过滤
+        curr_videos, curr_audios = videos, audios
+        for strategy in self.strategies:
+            curr_videos, curr_audios = strategy.match(
+                curr_videos,
+                curr_audios,
+                root_paths,
+                result,
+            )
+
+        # 无法被任何策略配对成功的流，归入待整理队列
+        result.pending_videos.extend(curr_videos)
+        result.pending_audios.extend(curr_audios)
+
+        total_saved = len(videos) - len(curr_videos)
+        if total_saved > 0:
+            logger.info(f"🎯 智能配对管线成功挽救并配对 {total_saved} 对散流文件")
+
+        return result
+
+
 def auto_match(
     stream_infos: list[StreamInfo],
     root_paths: list[str],
@@ -216,6 +529,8 @@ def auto_match(
     - 数量不对等 → 留入待整理
     - muxed → 单独列表
 
+    通过管道式策略模式链式运行（包括骨架分析和集数互锁）
+
     Args:
         stream_infos: 所有文件的流信息列表
         root_paths: 用户拖入的根目录列表
@@ -223,200 +538,8 @@ def auto_match(
     Returns:
         MatchResult 包含自动配对任务和剩余文件
     """
-    result = MatchResult()
-
-    # 按文件所在目录分组
-    dir_groups: dict[str, list[StreamInfo]] = {}
-    for info in stream_infos:
-        file_dir = os.path.dirname(info.filepath)
-        if file_dir not in dir_groups:
-            dir_groups[file_dir] = []
-        dir_groups[file_dir].append(info)
-
-    # 找到每个文件所属的根路径
-    def find_root(filepath: str) -> Optional[str]:
-        for root in root_paths:
-            try:
-                common = os.path.commonpath([root, filepath])
-                if common == root:
-                    return root
-            except ValueError:
-                continue
-        return None
-
-    # 处理每个目录
-    for dirpath, files in dir_groups.items():
-        videos = [f for f in files if f.stream_type == StreamType.VIDEO_ONLY]
-        audios = [f for f in files if f.stream_type == StreamType.AUDIO_ONLY]
-        muxed = [f for f in files if f.stream_type == StreamType.MUXED]
-
-        # 收集 muxed 文件
-        result.muxed_files.extend(muxed)
-
-        # 确定根路径
-        root_path = find_root(dirpath)
-        if root_path is None and root_paths:
-            root_path = root_paths[0]
-
-        # 自动配对逻辑
-        if len(videos) == 1 and len(audios) == 1:
-            # 单对：智能提取集数信息作为输出名
-            output_name = normalize_episode_name(videos[0].filepath)
-            task = MergeTask(
-                output_name=output_name,
-                video_file=videos[0].filepath,
-                audio_file=audios[0].filepath,
-                source_dir=dirpath,
-                root_path=root_path or "",
-            )
-            result.auto_tasks.append(task)
-            logger.info(f"自动配对: {output_name} ({videos[0].filepath} + {audios[0].filepath})")
-
-        elif len(videos) == len(audios) and len(videos) > 1:
-            # 多对，按文件名排序后配对
-            videos.sort(key=lambda x: os.path.basename(x.filepath))
-            audios.sort(key=lambda x: os.path.basename(x.filepath))
-
-            # 尝试从第一个视频文件名提取集数，作为基准
-            first_ep = extract_episode_number(os.path.basename(videos[0].filepath))
-            folder_name = os.path.basename(dirpath)
-
-            for i, (v, a) in enumerate(zip(videos, audios)):
-                # 尝试从当前视频文件名提取集数
-                current_ep = extract_episode_number(os.path.basename(v.filepath))
-                if current_ep is not None:
-                    output_name = f"{current_ep:02d}"
-                    # 如果目录名有含义，加上前缀
-                    clean_folder = re.sub(r"[-_\s]+", "_", folder_name).strip("_")
-                    if clean_folder and not re.match(r"^[\d]+$", clean_folder):
-                        output_name = f"{clean_folder}_{current_ep:02d}"
-                else:
-                    output_name = f"{folder_name}_{i + 1:02d}"
-
-                task = MergeTask(
-                    output_name=output_name,
-                    video_file=v.filepath,
-                    audio_file=a.filepath,
-                    source_dir=dirpath,
-                    root_path=root_path or "",
-                    is_multi_episode=True,
-                )
-                result.auto_tasks.append(task)
-                logger.info(f"自动配对(多集): {task.output_name}")
-
-        else:
-            # 数量不对等，先全部送入待整理，稍后通过全局智能解题器进一步过滤配对
-            result.pending_videos.extend(videos)
-            result.pending_audios.extend(audios)
-
-    # ==========================================
-    # 💡 核心智能算法升级：待整理区异步精准求解器 (Smart Solver)
-    # ==========================================
-    # 当一个文件夹由于丢帧或下载中断等造成音视频数量不对等时，上面的严格配对逻辑会放弃整组。
-    # 这里的求解器会跳过“必须等长”约束，在全部零散流文件中寻找最佳前缀匹配和集数互锁配对。
-    
-    if result.pending_videos and result.pending_audios:
-        matched_video_paths = set()
-        matched_audio_paths = set()
-
-        # --- 辅助：获取文件所属的根目录 ---
-        def _find_root_for_file(fp: str) -> str:
-            root = find_root(fp)
-            if root:
-                return root
-            return root_paths[0] if root_paths else ""
-
-        # --- 策略 A: 纯净骨架名称配对 (Clean Stem Matcher) ---
-        # 移除如 ".video", ".audio", "30280"(流ID), "_v", "_a" 等常见尾赘后，若文件名骨干一致则强绑定
-        def get_clean_stem(filename: str) -> str:
-            stem, _ = os.path.splitext(filename)
-            # 1. 移除音视频流方向后缀
-            stem = re.sub(r"[-_.](?:video|audio|v|a)$", "", stem, flags=re.IGNORECASE)
-            # 2. 移除常见 B站/FFmpeg 合并可能产生的数字 ID（如码率ID 30280 / 30216，或分片标志）
-            stem = re.sub(r"[-_](?:30280|30216|30232|30080|30120|120|80|64)$", "", stem)
-            return stem.strip().lower()
-
-        # 建立音频骨架哈希库
-        audio_stems: dict[str, list[StreamInfo]] = {}
-        for a in result.pending_audios:
-            astem = get_clean_stem(os.path.basename(a.filepath))
-            if astem not in audio_stems:
-                audio_stems[astem] = []
-            audio_stems[astem].append(a)
-
-        # 扫描视频尝试通过骨架名称锁定唯一匹配的音频
-        for v in result.pending_videos:
-            vstem = get_clean_stem(os.path.basename(v.filepath))
-            if vstem in audio_stems:
-                candidates = audio_stems[vstem]
-                # 仅在音频也是唯一对应的情况下绑定，防止引发大规模的多对多歧义
-                if len(candidates) == 1:
-                    a = candidates[0]
-                    if a.filepath not in matched_audio_paths:
-                        out_name = normalize_episode_name(v.filepath)
-                        task = MergeTask(
-                            output_name=out_name,
-                            video_file=v.filepath,
-                            audio_file=a.filepath,
-                            source_dir=os.path.dirname(v.filepath),
-                            root_path=_find_root_for_file(v.filepath),
-                        )
-                        result.auto_tasks.append(task)
-                        matched_video_paths.add(v.filepath)
-                        matched_audio_paths.add(a.filepath)
-                        logger.info(f"🔍 [骨架智能配对] 绑定: {out_name}")
-
-        # --- 策略 B: 集数互锁解题器 (Episode Interlocking Solver) ---
-        # 针对上面未配对成功的极其散落的流，如果在剩余集合中，某个集数全局只剩唯一的一个视频和一个音频，即可认定互锁
-        rem_videos = [x for x in result.pending_videos if x.filepath not in matched_video_paths]
-        rem_audios = [x for x in result.pending_audios if x.filepath not in matched_audio_paths]
-
-        if rem_videos and rem_audios:
-            v_by_ep: dict[int, list[StreamInfo]] = {}
-            for v in rem_videos:
-                ep = extract_episode_number(os.path.basename(v.filepath))
-                if ep is not None:
-                    if ep not in v_by_ep:
-                        v_by_ep[ep] = []
-                    v_by_ep[ep].append(v)
-
-            a_by_ep: dict[int, list[StreamInfo]] = {}
-            for a in rem_audios:
-                ep = extract_episode_number(os.path.basename(a.filepath))
-                if ep is not None:
-                    if ep not in a_by_ep:
-                        a_by_ep[ep] = []
-                    a_by_ep[ep].append(a)
-
-            # 对相同集数寻求闭锁点
-            for ep, vs in v_by_ep.items():
-                if ep in a_by_ep:
-                    as_ = a_by_ep[ep]
-                    # 唯一互锁判定
-                    if len(vs) == 1 and len(as_) == 1:
-                        v = vs[0]
-                        a = as_[0]
-                        if a.filepath not in matched_audio_paths:
-                            out_name = normalize_episode_name(v.filepath)
-                            task = MergeTask(
-                                output_name=out_name,
-                                video_file=v.filepath,
-                                audio_file=a.filepath,
-                                source_dir=os.path.dirname(v.filepath),
-                                root_path=_find_root_for_file(v.filepath),
-                            )
-                            result.auto_tasks.append(task)
-                            matched_video_paths.add(v.filepath)
-                            matched_audio_paths.add(a.filepath)
-                            logger.info(f"🎯 [集数互锁配对] 绑定: {out_name} (第 {ep} 集)")
-
-        # 从待整理列表中剔除已被成功解题匹配的项目
-        if matched_video_paths or matched_audio_paths:
-            result.pending_videos = [x for x in result.pending_videos if x.filepath not in matched_video_paths]
-            result.pending_audios = [x for x in result.pending_audios if x.filepath not in matched_audio_paths]
-            logger.info(f"🎯 智能解题器成功挽救并配对 {len(matched_video_paths)} 对散流文件")
-
-    return result
+    pipeline = MatcherPipeline()
+    return pipeline.execute(stream_infos, root_paths)
 
 
 def create_manual_task(
