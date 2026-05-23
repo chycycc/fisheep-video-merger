@@ -24,6 +24,10 @@ from fisheep_video_merger.core.matcher import (
 from fisheep_video_merger.core.scanner import scan_multiple_directories
 from fisheep_video_merger.core.path_utils import generate_output_path
 from fisheep_video_merger.core.merger import merge_single, remux_single, ConflictStrategy
+from fisheep_video_merger.core.converter import convert_single
+from fisheep_video_merger.core.extractor import extract_audio as extract_audio_fn
+from fisheep_video_merger.core.compressor import compress_video as compress_video_fn
+from fisheep_video_merger.core.trimmer import trim_video as trim_video_fn
 from fisheep_video_merger.utils.ffprobe import analyze_file, StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
 
@@ -671,6 +675,150 @@ class UIBridge:
             "pending": pending_list,
             "muxed": muxed_list
         }
+
+    # ====================================================================
+    # 🔧 5. 通用视频工具 API (Video Tools)
+    # ====================================================================
+
+    def copy_to_clipboard(self, text: str) -> Dict:
+        """复制文字到系统剪贴板"""
+        try:
+            import subprocess
+            subprocess.run(['clip'], input=text.encode('utf-8'), check=True, timeout=5)
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"复制到剪贴板失败: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def select_tool_files(self) -> Dict:
+        """通用文件选择对话框，返回选中的文件路径列表"""
+        if not self._window:
+            return {"status": "error", "message": "Window not ready"}
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=True,
+            file_types=('视频文件 (*.mp4;*.mkv;*.flv;*.mov;*.avi;*.webm;*.m4s;*.ts;*.wmv)', '所有文件 (*.*)')
+        )
+        if result and len(result) > 0:
+            return {"status": "success", "files": list(result)}
+        return {"status": "cancelled"}
+
+    def get_video_info(self, filepath: str) -> Dict:
+        """获取视频文件详细信息（含时长）"""
+        if not os.path.exists(filepath):
+            return {"status": "error", "message": "文件不存在"}
+        try:
+            info = analyze_file(filepath)
+            stat = os.stat(filepath)
+
+            # 获取时长
+            duration = None
+            try:
+                import subprocess
+                ffprobe_path = "ffprobe"
+                result = subprocess.run(
+                    [ffprobe_path, "-v", "quiet", "-show_entries", "format=duration",
+                     "-of", "default=noprint_wrappers=1:nokey=1", filepath],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    duration = float(result.stdout.strip())
+            except Exception:
+                pass
+
+            return {
+                "status": "success",
+                "filepath": filepath,
+                "name": os.path.basename(filepath),
+                "size": f"{stat.st_size / (1024*1024):.1f} MB",
+                "size_bytes": stat.st_size,
+                "video_codec": info.video_codec,
+                "audio_codec": info.audio_codec,
+                "has_video": info.has_video,
+                "has_audio": info.has_audio,
+                "stream_type": info.stream_type.value,
+                "duration": duration,
+                "duration_str": self._format_duration(duration) if duration else None,
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def _format_duration(self, seconds: float) -> str:
+        """将秒数格式化为 HH:MM:SS"""
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = int(seconds % 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
+    def convert_file(self, input_file: str, output_format: str, mode: str, output_dir: str = "") -> Dict:
+        """格式转换 API"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        name = os.path.splitext(os.path.basename(input_file))[0]
+        output_path = os.path.join(output_dir, f"{name}.{output_format}")
+
+        def progress_callback(txt):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)})")
+
+        success, err = convert_single(input_file, output_path, mode, progress_callback)
+        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+
+    def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str, output_dir: str = "") -> Dict:
+        """音频提取 API"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        name = os.path.splitext(os.path.basename(input_file))[0]
+        output_path = os.path.join(output_dir, f"{name}.{audio_format}")
+
+        def progress_callback(txt):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)})")
+
+        try:
+            success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+        except Exception as e:
+            logger.error(f"提取音频异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def compress_video_api(self, input_file: str, preset: str, resolution: str, output_dir: str = "") -> Dict:
+        """视频压缩 API"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        name = os.path.splitext(os.path.basename(input_file))[0]
+        ext = os.path.splitext(input_file)[1]
+        output_path = os.path.join(output_dir, f"{name}_compressed{ext}")
+
+        def progress_callback(txt):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)})")
+
+        success, err = compress_video_fn(input_file, output_path, preset, resolution, progress_callback)
+        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+
+    def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str, output_dir: str = "") -> Dict:
+        """视频裁剪 API"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        name = os.path.splitext(os.path.basename(input_file))[0]
+        ext = os.path.splitext(input_file)[1]
+        output_path = os.path.join(output_dir, f"{name}_trimmed{ext}")
+
+        def progress_callback(txt):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)})")
+
+        success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
+        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
 
     def _evaluate_js_safe(self, code: str):
         """线程安全地在 Webview window 中执行 JS"""

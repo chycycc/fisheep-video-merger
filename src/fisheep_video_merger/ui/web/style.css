@@ -9,25 +9,25 @@
     --base-bg: rgba(21, 22, 33, 0.75);    /* 半透明磨砂玻璃卡片 */
     --alt-base-bg: rgba(28, 29, 41, 0.8); /* 交替背景 */
     --border-color: #23273D;              /* 极细暗调边框 */
-    
-    --primary-color: #10B981;             /* 科技高亮绿 (羊驼绿) */
-    --primary-hover: #34D399;
-    --primary-pressed: #059669;
-    --primary-glow: rgba(16, 185, 129, 0.25);
-    
+
+    --primary-color: #3B82F6;             /* 科技蓝 */
+    --primary-hover: #60A5FA;
+    --primary-pressed: #2563EB;
+    --primary-glow: rgba(59, 130, 246, 0.25);
+
     --accent-blue: #3B82F6;               /* 极客科技蓝 */
     --accent-blue-glow: rgba(59, 130, 246, 0.25);
-    
+
     --text-color: #E2E8F0;                /* 柔和护眼白 */
     --text-muted: #64748B;                /* 灰蓝弱文案 */
     --disabled-bg: #20212F;
     --disabled-text: #4A4D6B;
-    
+
     --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    --hover-shadow: 0 8px 24px 0 rgba(16, 185, 129, 0.15);
-    
+    --hover-shadow: 0 8px 24px 0 rgba(59, 130, 246, 0.15);
+
     --table-header-bg: rgba(27, 28, 40, 0.9);
-    --table-selected-bg: rgba(16, 185, 129, 0.12);
+    --table-selected-bg: rgba(59, 130, 246, 0.12);
 }
 
 :root[data-theme="light"] {
@@ -35,25 +35,25 @@
     --base-bg: rgba(255, 255, 255, 0.85); /* 半透明磨砂纯白卡片 */
     --alt-base-bg: rgba(241, 245, 249, 0.9);
     --border-color: #E2E8F0;              /* 柔和浅灰边框 */
-    
-    --primary-color: #059669;             /* 森林深翡翠绿 */
-    --primary-hover: #10B981;
-    --primary-pressed: #047857;
-    --primary-glow: rgba(5, 150, 105, 0.2);
-    
+
+    --primary-color: #2563EB;             /* 经典深蓝 */
+    --primary-hover: #3B82F6;
+    --primary-pressed: #1D4ED8;
+    --primary-glow: rgba(37, 99, 235, 0.2);
+
     --accent-blue: #2563EB;               /* 经典深科技蓝 */
     --accent-blue-glow: rgba(37, 99, 235, 0.2);
-    
+
     --text-color: #1E293B;                /* 深石墨灰 */
     --text-muted: #64748B;                /* 中灰 */
     --disabled-bg: #F1F5F9;
     --disabled-text: #94A3B8;
-    
+
     --card-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.12);
-    --hover-shadow: 0 8px 24px 0 rgba(5, 150, 105, 0.12);
-    
+    --hover-shadow: 0 8px 24px 0 rgba(37, 99, 235, 0.12);
+
     --table-header-bg: rgba(248, 250, 252, 0.95);
-    --table-selected-bg: rgba(5, 150, 105, 0.08);
+    --table-selected-bg: rgba(37, 99, 235, 0.08);
 }
 
 /* === 2. 全局重置与排版 === */
@@ -494,7 +494,21 @@ body {
     line-height: 1.6;
 }
 
-/* === 9. 右侧配置侧栏 (Config Panel) === */
+/* === 9. 合并工具工作区与配置面板 === */
+.merge-workspace {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    flex: 1;
+    gap: 16px;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.merge-workspace .tab-panels {
+    overflow: hidden;
+    min-width: 0;
+}
+
 .config-panel {
     background-color: var(--base-bg);
     border-left: 1px solid var(--border-color);
@@ -504,9 +518,8 @@ body {
     backdrop-filter: blur(12px);
     box-shadow: var(--card-shadow);
     z-index: 10;
-    height: 100vh;
     overflow: hidden;
-    width: 340px;
+    width: 300px;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, border-left-color 0.3s ease;
 }
 
@@ -520,7 +533,7 @@ body {
 }
 
 .config-panel > * {
-    width: 300px;
+    width: 260px;
     flex-shrink: 0;
 }
 
@@ -715,15 +728,10 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 
 /* === 11. 底部高并发卡片监视看板 (Bottom Dashboard) === */
 #active-tasks-dashboard {
-    position: absolute;
-    bottom: 0;
-    left: 240px;
-    right: 340px;
+    margin-top: auto;
     background-color: var(--base-bg);
     border-top: 1px solid var(--border-color);
-    border-left: 1px solid var(--border-color);
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    border-radius: 12px 12px 0 0;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     z-index: 15;
@@ -731,14 +739,6 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     display: flex;
     flex-direction: column;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#app-container.sidebar-collapsed #active-tasks-dashboard {
-    left: 72px;
-}
-
-#app-container.config-collapsed #active-tasks-dashboard {
-    right: 0;
 }
 
 /* 默认收纳（折叠）态 */
@@ -914,8 +914,8 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 
 @keyframes pulseBorder {
-    0%, 100% { border-color: var(--primary-color); box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.05); }
-    50% { border-color: var(--primary-hover); box-shadow: inset 0 0 40px rgba(16, 185, 129, 0.15); }
+    0%, 100% { border-color: var(--primary-color); box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.05); }
+    50% { border-color: var(--primary-hover); box-shadow: inset 0 0 40px rgba(59, 130, 246, 0.15); }
 }
 
 @keyframes floatIcon {
@@ -942,14 +942,14 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     left: 0;
     top: 0;
     bottom: 0;
-    background-color: rgba(16, 185, 129, 0.18);
+    background-color: rgba(59, 130, 246, 0.18);
     width: 0%;
     transition: width 0.15s linear;
     z-index: 0;
 }
 
 [data-theme="light"] .table-progress-chunk {
-    background-color: rgba(5, 150, 105, 0.15);
+    background-color: rgba(37, 99, 235, 0.15);
 }
 
 .table-progress-text {
@@ -977,6 +977,279 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 
 ::-webkit-scrollbar-thumb:hover {
     background-color: var(--primary-color);
+}
+
+/* === 16. 合并状态条 === */
+.merge-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 12px;
+    transition: all 0.3s ease;
+}
+
+.merge-status-bar.hidden {
+    display: none;
+}
+
+#merge-status-text {
+    color: var(--primary-color);
+    white-space: nowrap;
+}
+
+#merge-status-speed {
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.merge-status-progress {
+    flex: 1;
+    height: 4px;
+    background-color: rgba(128, 128, 128, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.merge-status-progress-chunk {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.15s linear;
+}
+
+/* === 17. 视频裁剪时间轴 === */
+.trim-timeline {
+    padding: 8px 0;
+}
+
+.trim-track {
+    position: relative;
+    height: 32px;
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.trim-selected {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(59, 130, 246, 0.2);
+    border-left: 2px solid var(--primary-color);
+    border-right: 2px solid var(--primary-color);
+    pointer-events: none;
+}
+
+.trim-handle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 12px;
+    background-color: var(--primary-color);
+    border-radius: 3px;
+    cursor: ew-resize;
+    z-index: 2;
+    transition: transform 0.1s ease;
+}
+
+.trim-handle:hover {
+    transform: scaleX(1.3);
+}
+
+.trim-handle-start {
+    left: 0;
+    transform: translateX(-50%);
+}
+
+.trim-handle-end {
+    right: 0;
+    transform: translateX(50%);
+}
+
+.trim-handle-start:hover {
+    transform: translateX(-50%) scaleX(1.3);
+}
+
+.trim-handle-end:hover {
+    transform: translateX(50%) scaleX(1.3);
+}
+
+.trim-time-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-color);
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* === 18. 工具页面通用样式 === */
+.tool-panel {
+    display: none;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+.tool-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 状态列可选中复制 */
+.tool-status {
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+
+/* 拖拽悬浮效果 */
+.tool-panel.drag-over::after {
+    content: '📥 释放鼠标，导入视频文件';
+    position: absolute;
+    inset: 0;
+    background-color: rgba(59, 130, 246, 0.08);
+    border: 2px dashed var(--primary-color);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-color);
+    z-index: 50;
+    pointer-events: none;
+    animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.tool-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.tool-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.tool-header .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* 工具选择卡片网格 */
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tool-card {
+    background-color: var(--alt-base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tool-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--hover-shadow);
+}
+
+.tool-card-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+}
+
+.tool-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.tool-card-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* 工具参数面板 */
+.tool-options {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.tool-option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+}
+
+.tool-option-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* 拖拽导入区 */
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-bottom: 20px;
+}
+
+.drop-zone:hover {
+    border-color: var(--primary-color);
+    background-color: var(--primary-glow);
+}
+
+.drop-zone-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.drop-zone-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.drop-zone-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
 }
 
 /* === 15. Toast 全局消息浮层 === */

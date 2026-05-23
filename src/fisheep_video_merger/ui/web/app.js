@@ -3,14 +3,70 @@
    处理界面渲染、拖拽捕获、选项卡切换、并作为 Bridge 终点对接 Python 后端
    ==================================================================== */
 
+// 右键菜单模式：'custom' = 自定义菜单, 'native' = 系统原生菜单
+let contextMenuMode = localStorage.getItem('contextMenuMode') || 'custom';
+// 复制模式：'pybridge' = Python clip, 'js' = JS clipboard
+let copyMode = localStorage.getItem('copyMode') || 'pybridge';
+
 // 全局工作空间状态缓存
 let currentTasks = [];
 let currentPending = [];
 let currentMuxed = [];
 window.selectedTaskIndex = -1;
 
+// 复制文字到剪贴板（多种方式尝试）
+function copyText(text) {
+    if (copyMode === 'pybridge' && window.pywebview && window.pywebview.api) {
+        window.pywebview.api.copy_to_clipboard(text).then(res => {
+            if (res && res.status === 'success') {
+                showToast('已复制到剪贴板', 'success');
+            } else {
+                jsCopy(text);
+            }
+        }).catch(() => jsCopy(text));
+    } else {
+        jsCopy(text);
+    }
+}
+
+function jsCopy(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('已复制到剪贴板', 'success');
+    }).catch(() => {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('已复制到剪贴板', 'success');
+        } catch (e) {
+            showToast('复制失败，请手动选择文字', 'error');
+        }
+    });
+}
+
+// 切换右键菜单模式
+window.toggleContextMenu = function() {
+    contextMenuMode = contextMenuMode === 'custom' ? 'native' : 'custom';
+    localStorage.setItem('contextMenuMode', contextMenuMode);
+    showToast(`右键菜单: ${contextMenuMode === 'custom' ? '自定义' : '原生'}`, 'info');
+};
+
+// 切换复制模式
+window.toggleCopyMode = function() {
+    copyMode = copyMode === 'pybridge' ? 'js' : 'pybridge';
+    localStorage.setItem('copyMode', copyMode);
+    showToast(`复制模式: ${copyMode === 'pybridge' ? 'Python桥接' : 'JS原生'}`, 'info');
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initSidebarToggle();
     initTabs();
     initDragAndDrop();
     initDashboardToggle();
@@ -85,6 +141,22 @@ function initTheme() {
     };
 }
 
+/* === 1.5 侧栏折叠/展开切换 (Sidebar Toggle) === */
+function initSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleArea = document.getElementById('logo-area-toggle');
+    const appContainer = document.getElementById('app-container');
+
+    if (!sidebar || !toggleArea) return;
+
+    toggleArea.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        if (appContainer) {
+            appContainer.classList.toggle('sidebar-collapsed');
+        }
+    });
+}
+
 function notifyPythonTheme(theme) {
     if (window.pywebview && window.pywebview.api) {
         callPython('update_theme', theme)
@@ -102,56 +174,80 @@ function notifyPythonTheme(theme) {
     }
 }
 
-/* === 2. 选项卡无缝切换 (Tab Controller) === */
+/* === 2. 工具路由切换 (Tool Router) === */
 function initTabs() {
-    const navButtons = document.querySelectorAll('.nav-btn');
-    const tabPanels = document.querySelectorAll('.tab-panel');
-    const headerTitle = document.getElementById('current-tab-title');
-    const headerDesc = document.getElementById('current-tab-desc');
-    
-    const tabMetaData = {
-        'merge-queue': {
-            title: '合并队列',
-            desc: '拖入B站缓存文件夹或导入 .m4s 音视频即可开始并行合并'
-        },
-        'pending': {
-            title: '待整理',
-            desc: '系统检测到的零散音视频片段，支持批量手动合并或清理'
-        },
-        'muxed': {
-            title: '已完整',
-            desc: '已成功合并的高清视频合辑，支持直接播放或打开所在位置'
-        }
-    };
+    const navButtons = document.querySelectorAll('.nav-btn[data-tool]');
+    const toolPanels = document.querySelectorAll('.tool-panel');
 
+    // 工具切换
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            const targetTab = btn.getAttribute('data-tab');
-            
-            // 切换按钮激活态
+            const targetTool = btn.getAttribute('data-tool');
+
+            // 切换侧栏按钮激活态
             navButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
-            // 切换面板显示
-            tabPanels.forEach(p => p.classList.remove('active'));
-            document.getElementById(`panel-${targetTab}`).classList.add('active');
-            
-            // 刷新头部标题与描述
-            if (tabMetaData[targetTab]) {
-                headerTitle.textContent = tabMetaData[targetTab].title;
-                headerDesc.textContent = tabMetaData[targetTab].desc;
+
+            // 切换工具面板
+            toolPanels.forEach(p => p.classList.remove('active'));
+            const panel = document.getElementById(`tool-${targetTool}`);
+            if (panel) {
+                panel.classList.add('active');
+            }
+
+            // 更新 hash
+            window.location.hash = targetTool;
+        });
+    });
+
+    // 合并工具内的子标签切换
+    document.querySelectorAll('[data-subtab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetSubtab = btn.getAttribute('data-subtab');
+            const parent = btn.getAttribute('data-parent');
+
+            // 切换子标签按钮激活态
+            document.querySelectorAll(`[data-subtab][data-parent="${parent}"]`)
+                .forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // 切换子面板
+            const parentPanel = document.getElementById(`tool-${parent}`);
+            if (parentPanel) {
+                parentPanel.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                const subPanel = document.getElementById(`panel-${targetSubtab}`);
+                if (subPanel) {
+                    subPanel.classList.add('active');
+                }
             }
         });
     });
+
+    // Hash 路由：根据 URL hash 切换工具
+    function navigateFromHash() {
+        const hash = window.location.hash.replace('#', '') || 'merge';
+        const targetBtn = document.querySelector(`.nav-btn[data-tool="${hash}"]`);
+        if (targetBtn) {
+            targetBtn.click();
+        }
+    }
+
+    window.addEventListener('hashchange', navigateFromHash);
+    // 首次加载时根据 hash 切换
+    navigateFromHash();
 }
 
 /* === 3. 高性能 Drag & Drop 捕获 (OS 级文件拖拽) === */
 function initDragAndDrop() {
     const dropOverlay = document.getElementById('drop-overlay');
-    let dragCounter = 0; // 解决子元素 hover 导致 dragleave 闪烁的经典 Bug
-    
+    let dragCounter = 0;
+
     window.addEventListener('dragenter', (e) => {
         e.preventDefault();
+        // 只在合并工具激活时显示全局拖拽蒙层
+        const mergePanel = document.getElementById('tool-merge');
+        if (!mergePanel || !mergePanel.classList.contains('active')) return;
+
         dragCounter++;
         if (dragCounter === 1) {
             dropOverlay.classList.remove('hidden');
@@ -159,11 +255,14 @@ function initDragAndDrop() {
     });
 
     window.addEventListener('dragover', (e) => {
-        e.preventDefault(); // 必须 preventDefault，鼠标指针才会变成“复制/移动”样式
+        e.preventDefault();
     });
 
     window.addEventListener('dragleave', (e) => {
         e.preventDefault();
+        const mergePanel = document.getElementById('tool-merge');
+        if (!mergePanel || !mergePanel.classList.contains('active')) return;
+
         dragCounter--;
         if (dragCounter === 0) {
             dropOverlay.classList.add('hidden');
@@ -175,15 +274,17 @@ function initDragAndDrop() {
         dragCounter = 0;
         dropOverlay.classList.add('hidden');
 
-        // 收集拖入的本地文件或文件夹路径
+        // 如果当前不是合并工具，让工具面板自己的 handler 处理
+        const mergePanel = document.getElementById('tool-merge');
+        if (!mergePanel || !mergePanel.classList.contains('active')) return;
+
         const files = e.dataTransfer.files;
         if (files.length === 0) return;
 
         const filePaths = Array.from(files).map(file => file.path || file.name);
-        
+
         showToast(`已捕获 ${files.length} 个项目，正在提交后端进行依赖扫描与匹配...`, 'info');
-        
-        // 核心：若 pywebview 环境已就绪，直接调用 Python 后端
+
         if (window.pywebview && window.pywebview.api) {
             window.pywebview.api.on_files_dropped(filePaths)
                 .then(response => {
@@ -199,20 +300,9 @@ function initDragAndDrop() {
     });
 }
 
-/* === 4. 底部高并发卡片面板折叠切换 (Dashboard Toggle) === */
+/* === 4. 合并状态条控制 === */
 function initDashboardToggle() {
-    const dashboard = document.getElementById('active-tasks-dashboard');
-    const toggleBar = document.getElementById('dashboard-toggle-bar');
-    
-    toggleBar.addEventListener('click', () => {
-        if (dashboard.classList.contains('dashboard-collapsed')) {
-            dashboard.classList.remove('dashboard-collapsed');
-            dashboard.classList.add('dashboard-expanded');
-        } else {
-            dashboard.classList.remove('dashboard-expanded');
-            dashboard.classList.add('dashboard-collapsed');
-        }
-    });
+    // 状态条由合并流程自动控制，无需手动折叠
 }
 
 /* === 5. 双线渲染支持与跨端 Bridge 检测 === */
@@ -429,7 +519,7 @@ window.updatePathPreview = function() {
     }
 };
 
-// B. 动态更新某条任务的合并进度 (在后台线程并发合并时，由 Python 通过 window.evaluate_js 回调此函数)
+// B. 动态更新某条任务的合并进度
 window.updateTaskProgress = function(index, percent, eta, speed) {
     // 1. 刷新主表格中的嵌入式进度条
     const chunk = document.getElementById(`t-chunk-${index}`);
@@ -438,17 +528,15 @@ window.updateTaskProgress = function(index, percent, eta, speed) {
         chunk.style.width = `${percent}%`;
         text.textContent = `${percent}%`;
     }
-    
-    // 2. 刷新底部卡片容器中的相应卡片
-    const cardChunk = document.getElementById(`card-chunk-${index}`);
-    const cardEta = document.getElementById(`card-eta-${index}`);
-    const cardSpeed = document.getElementById(`card-speed-${index}`);
-    if (cardChunk) cardChunk.style.width = `${percent}%`;
-    if (cardEta) cardEta.textContent = `剩余时间: ${eta}`;
-    if (cardSpeed) cardSpeed.textContent = `速率: ${speed}`;
+
+    // 2. 更新顶部状态条
+    const statusSpeed = document.getElementById('merge-status-speed');
+    if (statusSpeed && speed) {
+        statusSpeed.textContent = `${speed} | ETA: ${eta}`;
+    }
 };
 
-// C. 动态更新单个任务卡片与列表行状态
+// C. 动态更新列表行状态
 window.updateTaskStatus = function(index, status, errorMsg = '') {
     const statusTd = document.getElementById(`queue-status-td-${index}`);
     if (statusTd) {
@@ -458,75 +546,54 @@ window.updateTaskStatus = function(index, status, errorMsg = '') {
                     <div class="table-progress-chunk" id="t-chunk-${index}" style="width: 0%;"></div>
                     <span class="table-progress-text" id="t-text-${index}">0%</span>
                 </div>`;
-            const cardStatus = document.getElementById(`card-status-${index}`);
-            if (cardStatus) {
-                cardStatus.textContent = '合并中';
-                cardStatus.style.color = 'var(--primary-color)';
-            }
         } else if (status === 'completed') {
             statusTd.innerHTML = `<span style="color: var(--primary-color);">✅ 完成</span>`;
             document.getElementById(`queue-row-${index}`)?.classList.add('selected');
-            const cardStatus = document.getElementById(`card-status-${index}`);
-            if (cardStatus) {
-                cardStatus.textContent = '已完成';
-                cardStatus.style.color = 'var(--primary-color)';
-            }
-            const cardChunk = document.getElementById(`card-chunk-${index}`);
-            if (cardChunk) {
-                cardChunk.style.width = '100%';
-            }
-            const cardEta = document.getElementById(`card-eta-${index}`);
-            if (cardEta) {
-                cardEta.textContent = '已完成';
-            }
-            const cardSpeed = document.getElementById(`card-speed-${index}`);
-            if (cardSpeed) {
-                cardSpeed.textContent = '已结束';
-            }
+            updateMergeStatusBar();
         } else if (status === 'failed') {
             statusTd.innerHTML = `<span style="color: #EF4444;" title="${errorMsg || ''}">❌ 失败</span>`;
-            const cardStatus = document.getElementById(`card-status-${index}`);
-            if (cardStatus) {
-                cardStatus.textContent = '失败';
-                cardStatus.style.color = '#EF4444';
-            }
+            updateMergeStatusBar();
         }
     }
 };
 
-// C2. 初始化并发任务底盘卡片
-window.initDashboardCards = function(tasks) {
-    const container = document.getElementById('dashboard-cards-container');
-    const activeCount = document.getElementById('active-count');
-    
-    // 过滤出未完成任务作为并发工作任务数显示
-    const activeTasks = tasks.filter(t => t.status !== 'completed');
-    activeCount.textContent = activeTasks.length;
-    
-    if (activeTasks.length > 0) {
-        const dashboard = document.getElementById('active-tasks-dashboard');
-        dashboard.classList.remove('dashboard-collapsed');
-        dashboard.classList.add('dashboard-expanded');
+function updateMergeStatusBar() {
+    const rows = document.querySelectorAll('#queue-tbody tr:not(.empty-state-row)');
+    const total = rows.length;
+    let done = 0;
+    rows.forEach(row => {
+        const statusCell = row.querySelector('td:nth-child(6)');
+        if (statusCell && (statusCell.textContent.includes('完成') || statusCell.textContent.includes('失败'))) {
+            done++;
+        }
+    });
+
+    const statusBar = document.getElementById('merge-status-bar');
+    const statusText = document.getElementById('merge-status-text');
+    const statusChunk = document.getElementById('merge-status-chunk');
+
+    if (total > 0 && done < total) {
+        statusBar.classList.remove('hidden');
+        statusText.textContent = `⚡ 正在合并: ${done}/${total}`;
+        statusChunk.style.width = `${(done / total) * 100}%`;
+    } else if (done >= total && total > 0) {
+        statusBar.classList.add('hidden');
     }
-    
-    container.innerHTML = tasks.map((task, index) => {
-        if (task.status === 'completed') return '';
-        
-        return `
-            <div class="task-card" id="task-card-${index}">
-                <div class="task-card-header">
-                    <span class="task-card-title" title="${task.name}">${task.name}</span>
-                    <span class="task-card-status" id="card-status-${index}">等待中</span>
-                </div>
-                <div class="task-card-progress">
-                    <div class="task-card-progress-chunk" id="card-chunk-${index}" style="width: 0%;"></div>
-                </div>
-                <div class="task-card-footer">
-                    <span id="card-speed-${index}">速率: 0 B/s</span>
-                    <span id="card-eta-${index}">剩余时间: --:--</span>
-                </div>
-            </div>`;
-    }).join('');
+}
+
+// C2. 初始化合并状态条
+window.initDashboardCards = function(tasks) {
+    const statusBar = document.getElementById('merge-status-bar');
+    const activeTasks = tasks.filter(t => t.status !== 'completed');
+    const total = tasks.length;
+    const done = total - activeTasks.length;
+
+    if (activeTasks.length > 0) {
+        statusBar.classList.remove('hidden');
+        document.getElementById('merge-status-text').textContent = `⚡ 正在合并: ${done}/${total}`;
+        document.getElementById('merge-status-speed').textContent = '';
+        document.getElementById('merge-status-chunk').style.width = `${(done / total) * 100}%`;
+    }
 };
 
 // C3. 全局删除任务函数，回传给后端并重新渲染
@@ -809,11 +876,28 @@ function initContextMenu() {
         if (e.target.closest('input:not([type="checkbox"]):not([type="radio"]), textarea')) {
             return;
         }
+        // 原生模式：不拦截，使用系统右键菜单
+        if (contextMenuMode === 'native') {
+            return;
+        }
         
         e.preventDefault();
-        
+
         let menuItems = [];
-        
+
+        // 通用：右键点击有文字的元素时，添加"复制"选项
+        const clickedEl = e.target;
+        const textContent = clickedEl.textContent?.trim();
+        if (textContent && textContent.length > 0 && textContent.length < 500) {
+            menuItems.push({
+                label: '📋 复制文字',
+                action: () => {
+                    copyText(textContent);
+                }
+            });
+            menuItems.push({ separator: true });
+        }
+
         // 判断右击目标
         const trQueue = e.target.closest('#queue-tbody tr');
         const trPending = e.target.closest('#pending-tbody tr');
@@ -1045,4 +1129,471 @@ function initConfigPanelToggle() {
             }
         });
     }
+}
+
+/* === 13. 通用视频工具前端逻辑 (Convert / Extract / Compress / Trim) === */
+
+// 各工具的任务列表缓存
+const toolFiles = { convert: [], extract: [], compress: [], trim: [] };
+
+// 工具进度回调（由 Python 通过 evaluate_js 调用）
+window.updateToolProgress = function(tool, text) {
+    const tbody = document.getElementById(`${tool}-tbody`);
+    if (!tbody) return;
+    const progressRow = tbody.querySelector('.tool-processing');
+    if (progressRow) {
+        const statusCell = progressRow.querySelector('.tool-status');
+        if (statusCell) statusCell.textContent = text;
+    }
+};
+
+// 初始化所有工具面板
+document.addEventListener('DOMContentLoaded', () => {
+    initToolDropZones();
+    initToolStartButtons();
+    initTrimTimeline();
+});
+
+function initToolDropZones() {
+    ['convert', 'extract', 'compress', 'trim'].forEach(tool => {
+        const panel = document.getElementById(`tool-${tool}`);
+        if (!panel) return;
+
+        let dragCounter = 0;
+
+        panel.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter++;
+            if (dragCounter === 1) {
+                panel.classList.add('drag-over');
+            }
+        });
+
+        panel.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        panel.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter--;
+            if (dragCounter === 0) {
+                panel.classList.remove('drag-over');
+            }
+        });
+
+        panel.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            panel.classList.remove('drag-over');
+
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length === 0) return;
+            const paths = files.map(f => f.path || f.name).filter(p => p);
+            if (paths.length === 0) {
+                showToast('无法获取文件路径，请使用点击选择', 'warning');
+                return;
+            }
+            addFilesToTool(tool, paths);
+        });
+    });
+}
+
+function selectFilesForTool(tool) {
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.select_tool_files().then(res => {
+            if (res && res.status === 'success' && res.files) {
+                addFilesToTool(tool, res.files);
+            }
+        });
+    }
+}
+
+function addFilesToTool(tool, paths) {
+    // 过滤支持的格式
+    const supportedExts = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.m4s', '.ts', '.wmv'];
+    const validPaths = paths.filter(p => {
+        const ext = p.toLowerCase().substring(p.lastIndexOf('.'));
+        return supportedExts.includes(ext);
+    });
+
+    if (validPaths.length === 0) {
+        showToast('未找到支持的视频文件', 'warning');
+        return;
+    }
+
+    // 获取文件信息
+    validPaths.forEach(path => {
+        if (window.pywebview && window.pywebview.api) {
+            window.pywebview.api.get_video_info(path).then(info => {
+                if (info && info.status === 'success') {
+                    toolFiles[tool].push(info);
+                    renderToolTable(tool);
+                    updateToolStartButton(tool);
+                    showToast(`已添加: ${info.name}`, 'success');
+
+                    // 裁剪工具：激活时间轴滑块
+                    if (tool === 'trim' && info.duration && window.setTrimDuration) {
+                        window.setTrimDuration(info.duration);
+                    }
+                }
+            });
+        } else {
+            toolFiles[tool].push({
+                filepath: path,
+                name: path.split(/[\\/]/).pop(),
+                size: '未知',
+            });
+            renderToolTable(tool);
+            updateToolStartButton(tool);
+        }
+    });
+}
+
+function renderToolTable(tool) {
+    const tbody = document.getElementById(`${tool}-tbody`);
+    if (!tbody) return;
+
+    const files = toolFiles[tool];
+    if (files.length === 0) {
+        const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️' };
+        tbody.innerHTML = `
+            <tr class="empty-state-row" onclick="selectFilesForTool('${tool}')" style="cursor: pointer;">
+                <td colspan="6">
+                    <div class="empty-state">
+                        <div class="empty-icon">${emptyIcons[tool]}</div>
+                        <h3>拖入视频文件或点击此处选择</h3>
+                        <p>支持 mp4 / mkv / flv / mov / avi / webm</p>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = files.map((file, index) => {
+        const col2 = file.duration_str || file.size || '未知';
+        const col3 = file.size || '未知';
+        return `
+            <tr>
+                <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
+                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
+                <td>${col2}</td>
+                <td>${col3}</td>
+                <td class="tool-status">⏳ 待处理</td>
+                <td>
+                    <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+window.removeToolFile = function(tool, index) {
+    toolFiles[tool].splice(index, 1);
+    renderToolTable(tool);
+    updateToolStartButton(tool);
+};
+
+function updateToolStartButton(tool) {
+    const btn = document.getElementById(`${tool}-start-btn`);
+    if (btn) {
+        btn.disabled = toolFiles[tool].length === 0;
+    }
+}
+
+/* === 14. 视频裁剪时间轴滑块 === */
+let trimDuration = 0; // 视频总时长（秒）
+let trimStartSec = 0;
+let trimEndSec = 0;
+
+function initTrimTimeline() {
+    const handleStart = document.getElementById('trim-handle-start');
+    const handleEnd = document.getElementById('trim-handle-end');
+    const track = document.querySelector('.trim-track');
+    if (!handleStart || !handleEnd || !track) return;
+
+    let dragging = null; // 'start' or 'end'
+
+    function getPercent(e) {
+        const rect = track.getBoundingClientRect();
+        let pct = (e.clientX - rect.left) / rect.width;
+        return Math.max(0, Math.min(1, pct));
+    }
+
+    function secToTime(sec) {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = Math.floor(sec % 60);
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function timeToSec(time) {
+        const parts = time.split(':').map(Number);
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        return parseFloat(time) || 0;
+    }
+
+    function updateVisual() {
+        if (trimDuration <= 0) return;
+        const startPct = (trimStartSec / trimDuration) * 100;
+        const endPct = (trimEndSec / trimDuration) * 100;
+
+        handleStart.style.left = `${startPct}%`;
+        handleEnd.style.left = `${endPct}%`;
+
+        const selected = document.getElementById('trim-selected');
+        if (selected) {
+            selected.style.left = `${startPct}%`;
+            selected.style.width = `${endPct - startPct}%`;
+        }
+
+        document.getElementById('trim-label-start').textContent = secToTime(trimStartSec);
+        document.getElementById('trim-label-end').textContent = secToTime(trimEndSec);
+        document.getElementById('trim-start').value = secToTime(trimStartSec);
+        document.getElementById('trim-end').value = secToTime(trimEndSec);
+    }
+
+    function onMove(e) {
+        if (!dragging) return;
+        const pct = getPercent(e);
+        const sec = pct * trimDuration;
+
+        if (dragging === 'start') {
+            trimStartSec = Math.min(sec, trimEndSec - 1);
+        } else {
+            trimEndSec = Math.max(sec, trimStartSec + 1);
+        }
+        updateVisual();
+    }
+
+    function onUp() {
+        dragging = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    }
+
+    handleStart.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = 'start';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    handleEnd.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = 'end';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // 点击轨道跳转
+    track.addEventListener('click', (e) => {
+        if (e.target.classList.contains('trim-handle')) return;
+        const pct = getPercent(e);
+        const sec = pct * trimDuration;
+        // 点击位置离哪个手柄近就移动哪个
+        const distStart = Math.abs(sec - trimStartSec);
+        const distEnd = Math.abs(sec - trimEndSec);
+        if (distStart < distEnd) {
+            trimStartSec = Math.min(sec, trimEndSec - 1);
+        } else {
+            trimEndSec = Math.max(sec, trimStartSec + 1);
+        }
+        updateVisual();
+    });
+
+    // 手动输入框同步
+    document.getElementById('trim-start').addEventListener('change', (e) => {
+        trimStartSec = Math.min(timeToSec(e.target.value), trimEndSec - 1);
+        updateVisual();
+    });
+    document.getElementById('trim-end').addEventListener('change', (e) => {
+        trimEndSec = Math.max(timeToSec(e.target.value), trimStartSec + 1);
+        updateVisual();
+    });
+
+    // 暴露给外部调用
+    window.setTrimDuration = function(duration) {
+        trimDuration = duration;
+        trimStartSec = 0;
+        trimEndSec = duration;
+        const timeline = document.getElementById('trim-timeline');
+        if (timeline) timeline.style.display = 'block';
+        const hint = document.getElementById('trim-duration-hint');
+        if (hint) {
+            const h = Math.floor(duration / 3600);
+            const m = Math.floor((duration % 3600) / 60);
+            const s = Math.floor(duration % 60);
+            hint.textContent = `(总时长: ${h}h ${m}m ${s}s)`;
+        }
+        updateVisual();
+    };
+}
+
+// 选择输出目录
+window.selectToolOutputDir = function(tool) {
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.select_output_dir_dialog().then(res => {
+            if (res && res.output_dir) {
+                const input = document.getElementById(`${tool}-output-dir`);
+                if (input) input.value = res.output_dir;
+            }
+        });
+    }
+};
+
+function initToolStartButtons() {
+    // 格式转换
+    const convertBtn = document.getElementById('convert-start-btn');
+    if (convertBtn) {
+        convertBtn.addEventListener('click', () => {
+            const format = document.getElementById('convert-format').value;
+            const mode = document.getElementById('convert-mode').value;
+            const outputDir = document.getElementById('convert-output-dir')?.value || '';
+            runToolTask('convert', (file) => {
+                return window.pywebview.api.convert_file(file.filepath, format, mode, outputDir);
+            });
+        });
+    }
+
+    // 提取音频
+    const extractBtn = document.getElementById('extract-start-btn');
+    if (extractBtn) {
+        extractBtn.addEventListener('click', () => {
+            const format = document.getElementById('extract-format').value;
+            const bitrate = document.getElementById('extract-bitrate').value;
+            const outputDir = document.getElementById('extract-output-dir')?.value || '';
+            runToolTask('extract', (file) => {
+                return window.pywebview.api.extract_audio_api(file.filepath, format, bitrate, outputDir);
+            });
+        });
+    }
+
+    // 视频压缩
+    const compressBtn = document.getElementById('compress-start-btn');
+    if (compressBtn) {
+        compressBtn.addEventListener('click', () => {
+            const preset = document.getElementById('compress-preset').value;
+            const resolution = document.getElementById('compress-resolution').value;
+            const outputDir = document.getElementById('compress-output-dir')?.value || '';
+            runToolTask('compress', (file) => {
+                return window.pywebview.api.compress_video_api(file.filepath, preset, resolution, outputDir);
+            });
+        });
+    }
+
+    // 视频裁剪
+    const trimBtn = document.getElementById('trim-start-btn');
+    if (trimBtn) {
+        trimBtn.addEventListener('click', () => {
+            const start = document.getElementById('trim-start').value;
+            const end = document.getElementById('trim-end').value;
+            const mode = document.getElementById('trim-mode').value;
+            const outputDir = document.getElementById('trim-output-dir')?.value || '';
+            if (!end) {
+                showToast('请填写结束时间', 'warning');
+                return;
+            }
+            runToolTask('trim', (file) => {
+                return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir);
+            });
+        });
+    }
+}
+
+// 获取选中的文件（带复选框的行）
+function getSelectedFiles(tool) {
+    const tbody = document.getElementById(`${tool}-tbody`);
+    if (!tbody) return [];
+    const checkboxes = tbody.querySelectorAll('.tool-row-cb:checked');
+    if (checkboxes.length === 0) return toolFiles[tool]; // 没勾选则全选
+    return Array.from(checkboxes).map(cb => {
+        const idx = parseInt(cb.getAttribute('data-index'), 10);
+        return toolFiles[tool][idx];
+    }).filter(Boolean);
+}
+
+function runToolTask(tool, taskFn) {
+    const selectedFiles = getSelectedFiles(tool);
+    if (selectedFiles.length === 0) {
+        showToast('请先添加文件', 'warning');
+        return;
+    }
+
+    if (!window.pywebview || !window.pywebview.api) {
+        showToast('请在桌面客户端中使用此功能', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById(`${tool}-start-btn`);
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 处理中...';
+    }
+
+    let completed = 0;
+    let failed = 0;
+    const total = selectedFiles.length;
+
+    // 标记选中行为处理中
+    const tbody = document.getElementById(`${tool}-tbody`);
+    const allRows = tbody ? Array.from(tbody.querySelectorAll('tr:not(.empty-state-row)')) : [];
+    selectedFiles.forEach(file => {
+        const idx = toolFiles[tool].indexOf(file);
+        if (allRows[idx]) {
+            const statusCell = allRows[idx].querySelector('.tool-status');
+            if (statusCell) statusCell.textContent = '⏳ 等待中...';
+        }
+    });
+
+    async function processNext(i) {
+        if (i >= selectedFiles.length) {
+            if (btn) {
+                btn.textContent = '🚀 开始处理';
+                btn.disabled = false;
+            }
+            showToast(`处理完成：成功 ${completed}，失败 ${failed}`, failed > 0 ? 'warning' : 'success');
+            return;
+        }
+
+        const file = selectedFiles[i];
+        const idx = toolFiles[tool].indexOf(file);
+        if (allRows[idx]) {
+            const statusCell = allRows[idx].querySelector('.tool-status');
+            if (statusCell) statusCell.textContent = '⚡ 处理中...';
+        }
+
+        try {
+            const result = await taskFn(file);
+            if (result && result.status === 'success') {
+                completed++;
+                if (allRows[idx]) {
+                    const statusCell = allRows[idx].querySelector('.tool-status');
+                    if (statusCell) statusCell.textContent = '✅ 完成';
+                }
+            } else {
+                failed++;
+                const errMsg = result?.error || result?.message || '失败';
+                if (allRows[idx]) {
+                    const statusCell = allRows[idx].querySelector('.tool-status');
+                    if (statusCell) statusCell.textContent = `❌ ${errMsg}`;
+                }
+                console.error(`[${tool}] 失败:`, errMsg);
+            }
+        } catch (e) {
+            failed++;
+            if (allRows[idx]) {
+                const statusCell = allRows[idx].querySelector('.tool-status');
+                if (statusCell) statusCell.textContent = `❌ ${e}`;
+            }
+            console.error(`[${tool}] 异常:`, e);
+        }
+
+        processNext(i + 1);
+    }
+
+    processNext(0);
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐑 B站 m4s 视频合并工具 v0.4.0</title>
+    <title>🐑 Fisheep 视频工具箱 v0.5.0</title>
     <!-- 引入本地高阶字体，实现 100% 离线可用 -->
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
@@ -18,25 +18,33 @@
                 <span class="logo-emoji" id="logo-icon">🐑</span>
                 <div class="logo-text">
                     <h1>Fisheep</h1>
-                    <span class="version-tag">v0.4.0 WebUI</span>
+                    <span class="version-tag">v0.5.0 工具箱</span>
                 </div>
             </div>
-            
+
             <nav class="nav-links">
-                <button class="nav-btn active" data-tab="merge-queue">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-text">合并队列</span>
+                <button class="nav-btn active" data-tool="merge">
+                    <span class="nav-icon">🔗</span>
+                    <span class="nav-text">音视频合并</span>
                 </button>
-                <button class="nav-btn" data-tab="pending">
-                    <span class="nav-icon">⏳</span>
-                    <span class="nav-text">待整理</span>
+                <button class="nav-btn" data-tool="convert">
+                    <span class="nav-icon">🔄</span>
+                    <span class="nav-text">格式转换</span>
                 </button>
-                <button class="nav-btn" data-tab="muxed">
-                    <span class="nav-icon">✅</span>
-                    <span class="nav-text">已完整</span>
+                <button class="nav-btn" data-tool="extract">
+                    <span class="nav-icon">🎵</span>
+                    <span class="nav-text">提取音频</span>
+                </button>
+                <button class="nav-btn" data-tool="compress">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">视频压缩</span>
+                </button>
+                <button class="nav-btn" data-tool="trim">
+                    <span class="nav-icon">✂️</span>
+                    <span class="nav-text">视频裁剪</span>
                 </button>
             </nav>
-            
+
             <div class="sidebar-footer">
                 <div class="theme-toggle-area">
                     <span class="theme-label">🌓 主题模式</span>
@@ -47,194 +55,493 @@
 
         <!-- 2. 右侧主工作区 (Main Work Area) -->
         <main class="main-content">
-            <!-- 头部操作条 -->
-            <header class="main-header">
-                <div class="header-title-section">
-                    <h2 id="current-tab-title">合并队列</h2>
-                    <p class="subtitle" id="current-tab-desc">拖入B站缓存文件夹或导入 .m4s 音视频即可开始并行合并</p>
-                </div>
-                <div class="header-actions">
-                    <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
-                    <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
-                    <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
-                    <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板">🎛️ 任务配置</button>
-                </div>
-            </header>
 
-            <!-- 三标签页的面板槽 -->
-            <section class="tab-panels">
-                
-                <!-- 2.1 合并队列面板 -->
-                <div class="tab-panel active" id="panel-merge-queue">
-                    <div class="table-container">
-                        <table class="data-table" id="queue-table">
-                            <thead>
-                                <tr>
-                                    <th width="40"><input type="checkbox" id="select-all-checkbox"></th>
-                                    <th>视频名称</th>
-                                    <th>格式</th>
-                                    <th>分辨率</th>
-                                    <th>大小</th>
-                                    <th>进度/状态</th>
-                                    <th width="100">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="queue-tbody">
-                                <!-- 动态插入扫描后的合并任务行 -->
-                                <tr class="empty-state-row">
-                                    <td colspan="7">
-                                        <div class="empty-state">
-                                            <div class="empty-icon">🐑</div>
-                                            <h3>目前队列空空如也</h3>
-                                            <p>直接拖入B站手机/电脑版缓存目录，或点击上方导入文件夹</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+            <!-- ========== 工具面板：音视频合并 ========== -->
+            <div class="tool-panel active" id="tool-merge">
+                <header class="tool-header">
+                    <div>
+                        <h2>音视频合并</h2>
+                        <p class="subtitle">拖入B站缓存文件夹或导入 .m4s 音视频即可开始并行合并</p>
                     </div>
-                </div>
-
-                <!-- 2.2 待整理面板 -->
-                <div class="tab-panel" id="panel-pending">
-                    <div class="table-container">
-                        <table class="data-table" id="pending-table">
-                            <thead>
-                                <tr>
-                                    <th width="40"><input type="checkbox" id="select-all-pending"></th>
-                                    <th>源名称</th>
-                                    <th>大小</th>
-                                    <th>修改日期</th>
-                                    <th width="120">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pending-tbody">
-                                <tr class="empty-state-row">
-                                    <td colspan="5">
-                                        <div class="empty-state">
-                                            <div class="empty-icon">📁</div>
-                                            <h3>没有需要整理的零散片段</h3>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="header-actions">
+                        <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
+                        <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
+                        <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
+                        <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板">🎛️ 配置</button>
                     </div>
+                </header>
+
+                <!-- 合并工具子标签切换栏 -->
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button class="btn btn-secondary active" data-subtab="merge-queue" data-parent="merge">📊 合并队列</button>
+                    <button class="btn btn-secondary" data-subtab="pending" data-parent="merge">⏳ 待整理</button>
+                    <button class="btn btn-secondary" data-subtab="muxed" data-parent="merge">✅ 已完整</button>
                 </div>
 
-                <!-- 2.3 已完整面板 -->
-                <div class="tab-panel" id="panel-muxed">
-                    <div class="table-container">
-                        <table class="data-table" id="muxed-table">
-                            <thead>
-                                <tr>
-                                    <th width="40"><input type="checkbox" id="select-all-muxed"></th>
-                                    <th>已合并文件</th>
-                                    <th>分辨率</th>
-                                    <th>大小</th>
-                                    <th>合并时间</th>
-                                    <th width="180">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="muxed-tbody">
-                                <tr class="empty-state-row">
-                                    <td colspan="6">
-                                        <div class="empty-state">
-                                            <div class="empty-icon">🎬</div>
-                                            <h3>尚未完成任何视频合并</h3>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-        </main>
+                <!-- 合并工具主体：表格 + 配置面板 -->
+                <div class="merge-workspace" id="merge-workspace">
 
-        <!-- 3. 右侧极客配置侧边面板 (Right Config Sidebar) -->
-        <aside class="config-panel">
-            <div class="config-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>🎛️ 任务配置</h3>
-                <button id="config-close-btn" class="icon-toggle" title="隐藏配置面板" style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
-            </div>
-            
-            <div class="config-sections">
-                <!-- 预设参数卡片 -->
-                <div class="config-card">
-                    <h4>📂 输出设置</h4>
-                    <div class="form-group">
-                        <label>预计输出目录</label>
-                        <div class="input-with-action">
-                            <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly>
-                            <button id="select-output-btn" class="mini-action-btn">📂</button>
+                <section class="tab-panels">
+                    <!-- 合并队列子标签 -->
+                    <div class="tab-panel active" id="panel-merge-queue">
+                        <div class="table-container">
+                            <table class="data-table" id="queue-table">
+                                <thead>
+                                    <tr>
+                                        <th width="40"><input type="checkbox" id="select-all-checkbox"></th>
+                                        <th>视频名称</th>
+                                        <th>格式</th>
+                                        <th>分辨率</th>
+                                        <th>大小</th>
+                                        <th>进度/状态</th>
+                                        <th width="100">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="queue-tbody">
+                                    <tr class="empty-state-row">
+                                        <td colspan="7">
+                                            <div class="empty-state">
+                                                <div class="empty-icon">🐑</div>
+                                                <h3>目前队列空空如也</h3>
+                                                <p>直接拖入B站手机/电脑版缓存目录，或点击上方导入文件夹</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>默认合并格式</label>
-                        <select id="output-format-select">
-                            <option value="mp4">MP4 (.mp4)</option>
-                            <option value="mkv">MKV (.mkv)</option>
+
+                    <!-- 待整理子标签 -->
+                    <div class="tab-panel" id="panel-pending">
+                        <div class="table-container">
+                            <table class="data-table" id="pending-table">
+                                <thead>
+                                    <tr>
+                                        <th width="40"><input type="checkbox" id="select-all-pending"></th>
+                                        <th>源名称</th>
+                                        <th>大小</th>
+                                        <th>修改日期</th>
+                                        <th width="120">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pending-tbody">
+                                    <tr class="empty-state-row">
+                                        <td colspan="5">
+                                            <div class="empty-state">
+                                                <div class="empty-icon">📁</div>
+                                                <h3>没有需要整理的零散片段</h3>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 已完整子标签 -->
+                    <div class="tab-panel" id="panel-muxed">
+                        <div class="table-container">
+                            <table class="data-table" id="muxed-table">
+                                <thead>
+                                    <tr>
+                                        <th width="40"><input type="checkbox" id="select-all-muxed"></th>
+                                        <th>已合并文件</th>
+                                        <th>分辨率</th>
+                                        <th>大小</th>
+                                        <th>合并时间</th>
+                                        <th width="180">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="muxed-tbody">
+                                    <tr class="empty-state-row">
+                                        <td colspan="6">
+                                            <div class="empty-state">
+                                                <div class="empty-icon">🎬</div>
+                                                <h3>尚未完成任何视频合并</h3>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 右侧配置面板（仅合并工具） -->
+                <aside class="config-panel" id="config-panel">
+                    <div class="config-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>🎛️ 任务配置</h3>
+                        <button id="config-close-btn" class="icon-toggle" title="隐藏配置面板" style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
+                    </div>
+
+                    <div class="config-sections">
+                        <div class="config-card">
+                            <h4>📂 输出设置</h4>
+                            <div class="form-group">
+                                <label>预计输出目录</label>
+                                <div class="input-with-action">
+                                    <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly>
+                                    <button id="select-output-btn" class="mini-action-btn">📂</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>默认合并格式</label>
+                                <select id="output-format-select">
+                                    <option value="mp4">MP4 (.mp4)</option>
+                                    <option value="mkv">MKV (.mkv)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="output-filename-group">
+                                <label>当前选中任务输出文件名</label>
+                                <input type="text" id="output-filename-input" placeholder="未选中任务，请双击/单击列表行" disabled>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h4>⚡ 并发与流控</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>并发任务限制</label>
+                                    <input type="number" id="concurrency-input" min="1" max="8" value="2">
+                                </div>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="overwrite-checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    自动覆盖同名文件
+                                </label>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="delete-source-checkbox">
+                                    <span class="checkmark"></span>
+                                    合并成功后删除源文件
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h4>🔗 路径预览</h4>
+                            <div id="detail-path-label" class="path-preview-box">
+                                尚未选择任何任务，请双击列表行进行高级分析...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-footer">
+                        <button id="start-btn" class="btn btn-primary btn-block">🚀 开始合并队列</button>
+                    </div>
+                </aside>
+
+                </div> <!-- 关闭水平 flex 容器 -->
+
+                <!-- 合并状态条（仅合并运行时显示） -->
+                <div id="merge-status-bar" class="merge-status-bar hidden">
+                    <span id="merge-status-text">⚡ 正在合并: 0/0</span>
+                    <span id="merge-status-speed"></span>
+                    <div class="merge-status-progress">
+                        <div class="merge-status-progress-chunk" id="merge-status-chunk"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== 工具面板：格式转换 ========== -->
+            <div class="tool-panel" id="tool-convert">
+                <header class="tool-header">
+                    <div>
+                        <h2>格式转换</h2>
+                        <p class="subtitle">将视频文件转换为其他格式，支持流复制（快速）和重编码</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="selectFilesForTool('convert')">📄 添加文件</button>
+                    </div>
+                </header>
+
+                <div class="tool-options">
+                    <div class="tool-option-group">
+                        <label>目标格式</label>
+                        <select id="convert-format">
+                            <option value="mp4">MP4</option>
+                            <option value="mkv">MKV</option>
+                            <option value="webm">WebM</option>
+                            <option value="avi">AVI</option>
                         </select>
                     </div>
-
-                    <div class="form-group" id="output-filename-group">
-                        <label>当前选中任务输出文件名</label>
-                        <input type="text" id="output-filename-input" placeholder="未选中任务，请双击/单击列表行" disabled>
+                    <div class="tool-option-group">
+                        <label>转换模式</label>
+                        <select id="convert-mode">
+                            <option value="copy">快速流复制（无损，秒级）</option>
+                            <option value="recode">重编码（兼容性更好）</option>
+                        </select>
                     </div>
-                </div>
-
-                <!-- 并发与流控配置 -->
-                <div class="config-card">
-                    <h4>⚡ 并发与流控</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>并发任务限制</label>
-                            <input type="number" id="concurrency-input" min="1" max="8" value="2">
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="convert-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('convert')">📂</button>
                         </div>
                     </div>
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="overwrite-checkbox" checked>
-                            <span class="checkmark"></span>
-                            自动覆盖同名文件
-                        </label>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" checked></th>
+                                <th>文件名</th>
+                                <th>原始格式</th>
+                                <th>大小</th>
+                                <th>状态</th>
+                                <th width="80">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="convert-tbody">
+                            <tr class="empty-state-row">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">🔄</div>
+                                        <h3>拖入视频文件开始转换</h3>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                    <button id="convert-start-btn" class="btn btn-primary" disabled>🚀 开始转换</button>
+                </div>
+            </div>
+
+            <!-- ========== 工具面板：提取音频 ========== -->
+            <div class="tool-panel" id="tool-extract">
+                <header class="tool-header">
+                    <div>
+                        <h2>提取音频</h2>
+                        <p class="subtitle">从视频文件中提取音轨，支持多种音频格式输出</p>
                     </div>
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="delete-source-checkbox">
-                            <span class="checkmark"></span>
-                            合并成功后删除源文件
-                        </label>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="selectFilesForTool('extract')">📄 添加文件</button>
+                    </div>
+                </header>
+
+                <div class="tool-options">
+                    <div class="tool-option-group">
+                        <label>音频格式</label>
+                        <select id="extract-format">
+                            <option value="mp3">MP3</option>
+                            <option value="aac">AAC</option>
+                            <option value="flac">FLAC</option>
+                            <option value="wav">WAV</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>音频码率</label>
+                        <select id="extract-bitrate">
+                            <option value="128k">128 kbps（标准）</option>
+                            <option value="192k" selected>192 kbps（高质量）</option>
+                            <option value="320k">320 kbps（极高品质）</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="extract-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('extract')">📂</button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 预计输出路径指示框 -->
-                <div class="config-card">
-                    <h4>🔗 路径预览</h4>
-                    <div id="detail-path-label" class="path-preview-box">
-                        尚未选择任何任务，请双击列表行进行高级分析...
-                    </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" checked></th>
+                                <th>文件名</th>
+                                <th>时长</th>
+                                <th>大小</th>
+                                <th>状态</th>
+                                <th width="80">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="extract-tbody">
+                            <tr class="empty-state-row">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">🎵</div>
+                                        <h3>拖入视频文件提取音频</h3>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                    <button id="extract-start-btn" class="btn btn-primary" disabled>🚀 开始提取</button>
                 </div>
             </div>
 
-            <!-- 控制底盘按钮 -->
-            <div class="control-footer">
-                <button id="start-btn" class="btn btn-primary btn-block">🚀 开始合并队列</button>
-            </div>
-        </aside>
+            <!-- ========== 工具面板：视频压缩 ========== -->
+            <div class="tool-panel" id="tool-compress">
+                <header class="tool-header">
+                    <div>
+                        <h2>视频压缩</h2>
+                        <p class="subtitle">降低视频码率或分辨率，显著减小文件体积</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="selectFilesForTool('compress')">📄 添加文件</button>
+                    </div>
+                </header>
 
-        <!-- 4. 底部高并发卡片监视看板 (Bottom Status area) -->
-        <div id="active-tasks-dashboard" class="dashboard-collapsed">
-            <div class="dashboard-header" id="dashboard-toggle-bar">
-                <span class="dashboard-title">⚡ 正在运行的后台合并通道 (<span id="active-count">0</span>)</span>
-                <span class="dashboard-arrow">▲</span>
+                <div class="tool-options">
+                    <div class="tool-option-group">
+                        <label>压缩预设</label>
+                        <select id="compress-preset">
+                            <option value="high">高质量（CRF 20）</option>
+                            <option value="balanced" selected>均衡（CRF 26）</option>
+                            <option value="small">极限压缩（CRF 32）</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>分辨率缩放</label>
+                        <select id="compress-resolution">
+                            <option value="original" selected>原始分辨率</option>
+                            <option value="1080p">缩放到 1080p</option>
+                            <option value="720p">缩放到 720p</option>
+                            <option value="480p">缩放到 480p</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="compress-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('compress')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" checked></th>
+                                <th>文件名</th>
+                                <th>原始大小</th>
+                                <th>预估大小</th>
+                                <th>状态</th>
+                                <th width="80">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compress-tbody">
+                            <tr class="empty-state-row">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📦</div>
+                                        <h3>拖入视频文件开始压缩</h3>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                    <button id="compress-start-btn" class="btn btn-primary" disabled>🚀 开始压缩</button>
+                </div>
             </div>
-            <div class="dashboard-content" id="dashboard-cards-container">
-                <!-- 动态注入并发卡片 -->
+
+            <!-- ========== 工具面板：视频裁剪 ========== -->
+            <div class="tool-panel" id="tool-trim">
+                <header class="tool-header">
+                    <div>
+                        <h2>视频裁剪</h2>
+                        <p class="subtitle">按起止时间截取视频片段，快速模式无损裁剪</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="selectFilesForTool('trim')">📄 添加文件</button>
+                    </div>
+                </header>
+
+                <!-- 裁剪区间（全宽） -->
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">
+                        裁剪区间 <span id="trim-duration-hint" style="font-weight: 400;"></span>
+                    </label>
+                    <div id="trim-timeline" class="trim-timeline" style="display: none;">
+                        <div class="trim-track">
+                            <div class="trim-selected" id="trim-selected"></div>
+                            <div class="trim-handle trim-handle-start" id="trim-handle-start"></div>
+                            <div class="trim-handle trim-handle-end" id="trim-handle-end"></div>
+                        </div>
+                        <div class="trim-time-labels">
+                            <span id="trim-label-start">00:00:00</span>
+                            <span id="trim-label-duration" style="color: var(--text-muted);"></span>
+                            <span id="trim-label-end">00:00:00</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 8px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px; color: var(--text-muted);">开始时间</label>
+                            <input type="text" id="trim-start" placeholder="00:00:00" value="00:00:00">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px; color: var(--text-muted);">结束时间</label>
+                            <input type="text" id="trim-end" placeholder="00:05:00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模式与输出目录 -->
+                <div class="tool-options">
+                    <div class="tool-option-group">
+                        <label>裁剪模式</label>
+                        <select id="trim-mode">
+                            <option value="copy">快速裁剪（关键帧对齐，无损）</option>
+                            <option value="recode">精确裁剪（重编码，帧级精度）</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="trim-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('trim')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" checked></th>
+                                <th>文件名</th>
+                                <th>时长</th>
+                                <th>大小</th>
+                                <th>状态</th>
+                                <th width="80">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trim-tbody">
+                            <tr class="empty-state-row">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">✂️</div>
+                                        <h3>拖入视频文件开始裁剪</h3>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                    <button id="trim-start-btn" class="btn btn-primary" disabled>🚀 开始裁剪</button>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- 5. 全窗口拖拽半透明毛玻璃蒙层 (Drag and Drop Overlay) -->

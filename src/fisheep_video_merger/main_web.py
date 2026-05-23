@@ -65,7 +65,7 @@ def main():
         height=700,
         min_size=(800, 600),
         resizable=True,
-        text_select=False, # 禁止网页内容被用户选中拖拽，更像原生 App
+        text_select=True,
     )
 
     # 将 window 句柄反向挂载入桥，以便后台线程主动 evaluate_js 回传进度
