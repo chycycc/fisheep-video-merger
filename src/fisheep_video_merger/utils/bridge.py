@@ -276,7 +276,13 @@ class UIBridge:
     def delete_task(self, index: int) -> Dict:
         """删除指定索引的任务"""
         if 0 <= index < len(self.tasks):
-            self.tasks.pop(index)
+            task = self.tasks.pop(index)
+            # 同时从缓存流中移除关联的原始文件，防止重新匹配时复活
+            paths_to_remove = set()
+            if task.video_file: paths_to_remove.add(task.video_file)
+            if task.audio_file: paths_to_remove.add(task.audio_file)
+            self.all_stream_infos = [info for info in self.all_stream_infos if info.filepath not in paths_to_remove]
+            
             self._save_workspace_state()
             return self._get_queue_data()
         return {"status": "error", "message": "Index out of range"}
@@ -395,7 +401,9 @@ class UIBridge:
         self.is_merging = False
         self._save_workspace_state()
         
-        # 恢复前端按钮
+        # 恢复前端按钮并刷新列表
+        state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
+        self._evaluate_js_safe(f"handleBackendResponse({state_json})")
         self._evaluate_js_safe("document.getElementById('start-btn').disabled = false")
         self._evaluate_js_safe("document.getElementById('start-btn').textContent = '🚀 开始合并队列'")
         self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
@@ -447,6 +455,17 @@ class UIBridge:
             if success:
                 task.status = "completed"
                 task.error_message = None
+                
+                # 添加到已完整列表
+                from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
+                with self._lock:
+                    self.muxed_files.append(StreamInfo(
+                        filepath=output_path,
+                        stream_type=StreamType.MUXED,
+                        has_video=True,
+                        has_audio=True
+                    ))
+                    
                 self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'completed')")
                 
                 # 可选：如果勾选合并成功删除源文件，此处标记
@@ -454,9 +473,9 @@ class UIBridge:
                     try:
                         # 用 send2trash 安全丢进回收站，或者直接 os.remove
                         import send2trash
-                        if os.path.exists(task.video_file):
+                        if task.video_file and os.path.exists(task.video_file):
                             send2trash.send2trash(task.video_file)
-                        if os.path.exists(task.audio_file):
+                        if task.audio_file and os.path.exists(task.audio_file):
                             send2trash.send2trash(task.audio_file)
                     except Exception as ex:
                         logger.warning(f"删除源文件失败: {ex}")
@@ -482,7 +501,8 @@ class UIBridge:
                 continue
             if directory not in self.root_paths:
                 self.root_paths.append(directory)
-                new_directories.append(directory)
+            # 无论是否已经在 root_paths 中，都加入待扫描列表以支持重复导入和刷新
+            new_directories.append(directory)
         
         if not new_directories:
             return
@@ -505,7 +525,11 @@ class UIBridge:
                 self.tasks = match_result.auto_tasks
                 self.pending_videos = match_result.pending_videos
                 self.pending_audios = match_result.pending_audios
-                self.muxed_files = match_result.muxed_files
+                
+                if match_result.muxed_files:
+                    for m in match_result.muxed_files:
+                        if not any(x.filepath == m.filepath for x in self.muxed_files):
+                            self.muxed_files.append(m)
 
                 # 自动设置输出目录
                 if not self.settings.get("output_dir"):
@@ -517,6 +541,12 @@ class UIBridge:
                 # 异步通过 JS 重新刷新前端任务与零散文件表格
                 state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
                 self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+                
+                # 给用户明确的反馈
+                if len(match_result.auto_tasks) > 0 or len(match_result.pending_videos) > 0 or len(match_result.pending_audios) > 0:
+                    self._evaluate_js_safe("showToast('文件夹扫描完成', 'success')")
+                else:
+                    self._evaluate_js_safe("showToast('选中文件夹内未发现支持的视频缓存', 'warning')")
             except Exception as e:
                 logger.error(f"UIBridge 异步扫描失败: {e}")
                 self._evaluate_js_safe(f"showToast('扫描失败: {e}', 'error')")
@@ -529,7 +559,10 @@ class UIBridge:
             try:
                 new_videos, new_audios, new_muxed = [], [], []
                 for fp in filepaths:
-                    if not fp.lower().endswith(".m4s"):
+                    if not fp.lower().endswith((".m4s", ".mp4", ".mkv", ".flv", ".mov", ".avi")):
+                        continue
+                    # 去重
+                    if any(x.filepath == fp for x in self.all_stream_infos):
                         continue
                     info = analyze_file(fp)
                     with self._lock:
@@ -542,21 +575,34 @@ class UIBridge:
                             new_muxed.append(info)
 
                 with self._lock:
-                    if new_videos or new_audios:
-                        self.pending_videos.extend(new_videos)
-                        self.pending_audios.extend(new_audios)
-                    if new_muxed:
-                        self.muxed_files.extend(new_muxed)
-                    
-                    # 智能重新匹配
+                    old_tasks_count = len(self.tasks)
+                    # 智能重新匹配，完全以匹配结果为准来重置各列表
                     match_result = auto_match(self.all_stream_infos, self.root_paths)
                     self.tasks = match_result.auto_tasks
+                    self.pending_videos = match_result.pending_videos
+                    self.pending_audios = match_result.pending_audios
+                    
+                    # 对于已完整视频（通常不需要智能配对，但保险起见还是把新增加的合并进去）
+                    # 也可以直接以 auto_match 的 muxed_files 为准
+                    if new_muxed:
+                        for m in new_muxed:
+                            if not any(x.filepath == m.filepath for x in self.muxed_files):
+                                self.muxed_files.append(m)
                     
                     self._save_workspace_state()
                 
                 # 刷新前端
                 state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
                 self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+                
+                # 给用户友好的提示，特别是当单文件进入待整理队列时
+                if len(new_videos) + len(new_audios) > 0:
+                    if len(self.tasks) > old_tasks_count:
+                        pass # 有新任务进入合并队列，用户能直观看到
+                    else:
+                        self._evaluate_js_safe("showToast('导入的片段由于缺少对应音/视频，已自动归入【待整理】队列', 'warning')")
+                elif len(new_muxed) > 0:
+                    self._evaluate_js_safe("showToast('导入的视频已是完整文件，自动归入【已完整】队列', 'info')")
             except Exception as e:
                 logger.error(f"UIBridge 异步添加文件失败: {e}")
                 self._evaluate_js_safe(f"showToast('添加文件失败: {e}', 'error')")
@@ -570,10 +616,11 @@ class UIBridge:
             # 获取格式和大小
             fmt = self.settings.get("output_format", "mp4").upper()
             size_str = "未知"
-            if os.path.exists(t.video_file):
-                v_size = os.path.getsize(t.video_file)
-                a_size = os.path.getsize(t.audio_file) if os.path.exists(t.audio_file) else 0
-                size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
+            if task_video := getattr(t, "video_file", None):
+                if os.path.exists(task_video):
+                    v_size = os.path.getsize(task_video)
+                    a_size = os.path.getsize(t.audio_file) if getattr(t, "audio_file", None) and os.path.exists(t.audio_file) else 0
+                    size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
 
             tasks_list.append({
                 "name": t.output_name,

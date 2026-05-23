@@ -257,7 +257,6 @@ class MainWindow(QMainWindow):
         self.settings_panel.settings_changed.connect(self._update_status)
         self.settings_panel.settings_changed.connect(self._update_all_output_paths)
         # 监听外观主题变更与系统级明暗反转信号
-        self.settings_panel.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         try:
             QGuiApplication.styleHints().colorSchemeChanged.connect(self._on_theme_changed)
         except Exception:

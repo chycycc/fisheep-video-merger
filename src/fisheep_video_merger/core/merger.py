@@ -63,16 +63,24 @@ def build_ffmpeg_command(
     Returns:
         ffmpeg 命令参数列表
     """
-    return [
-        get_ffmpeg_path(),
-        "-i", video_file,
-        "-i", audio_file,
-        "-c", "copy",
-        "-map", "0:v:0",
-        "-map", "1:a:0",
-        "-y",  # 默认覆盖，由上层处理重名策略
-        output_path,
-    ]
+    cmd = [get_ffmpeg_path()]
+    
+    if video_file:
+        cmd.extend(["-i", video_file])
+    if audio_file:
+        cmd.extend(["-i", audio_file])
+        
+    cmd.extend(["-c", "copy"])
+    
+    if video_file and audio_file:
+        cmd.extend(["-map", "0:v:0", "-map", "1:a:0"])
+    elif video_file:
+        cmd.extend(["-map", "0:v:0"])
+    elif audio_file:
+        cmd.extend(["-map", "0:a:0"])
+        
+    cmd.extend(["-y", output_path])
+    return cmd
 
 
 def handle_conflict(
@@ -188,6 +196,7 @@ def _run_ffmpeg_with_progress(
     last_emit_time = 0.0
     last_pct = -1.0
 
+    start_time = time.time()
     logger.info(f"开始执行 ffmpeg {op_name}: {' '.join(cmd)}")
     try:
         process = subprocess.Popen(
@@ -227,10 +236,22 @@ def _run_ffmpeg_with_progress(
                         curr = to_seconds(t_match)
                         pct = min(99.9, (curr / total_seconds) * 100.0)
                         now = time.time()
+                        
+                        elapsed = now - start_time
+                        speed_mult = (curr / elapsed) if elapsed > 0 else 1.0
+                        eta_sec = max(0.0, total_seconds - curr) / speed_mult if speed_mult > 0 else 0.0
+                        
                         # 节流条件：距离上次发送超过 300ms，或到达临界点（防止过多 COM 消息淹没 GUI 线程导致无响应）
                         if (now - last_emit_time >= 0.3) or pct >= 99.9:
                             if progress_callback:
-                                progress_callback(f"正在{op_name}: {filename} ({pct:.1f}%)")
+                                txt_prog = f"正在{op_name}: {filename} ({pct:.1f}%)"
+                                try:
+                                    progress_callback(txt_prog, pct, eta_sec, speed_mult)
+                                except TypeError:
+                                    try:
+                                        progress_callback(txt_prog)
+                                    except Exception:
+                                        pass
                             last_emit_time = now
                             last_pct = pct
             else:

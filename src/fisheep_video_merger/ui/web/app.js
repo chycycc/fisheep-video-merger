@@ -3,12 +3,22 @@
    处理界面渲染、拖拽捕获、选项卡切换、并作为 Bridge 终点对接 Python 后端
    ==================================================================== */
 
+// 全局工作空间状态缓存
+let currentTasks = [];
+let currentPending = [];
+let currentMuxed = [];
+window.selectedTaskIndex = -1;
+
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initTabs();
     initDragAndDrop();
     initDashboardToggle();
+    initConfigPanelToggle();
     initMockOrBridge();
+    initSettingsListeners();
+    initContextMenu();
+    bindRowSelectionListeners();
 });
 
 /* === 1. 主题自适应配置 (Dark/Light/Auto) === */
@@ -30,18 +40,22 @@ function initTheme() {
     });
     
     // 左侧悬浮按钮点击切换 (在深色/浅色之间循环)
-    themeBtn.addEventListener('click', () => {
-        const resolvedCurrent = document.documentElement.getAttribute('data-theme');
-        const nextTheme = resolvedCurrent === 'dark' ? 'light' : 'dark';
-        applyTheme(nextTheme);
-        notifyPythonTheme(nextTheme);
-    });
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const resolvedCurrent = document.documentElement.getAttribute('data-theme');
+            const nextTheme = resolvedCurrent === 'dark' ? 'light' : 'dark';
+            applyTheme(nextTheme);
+            notifyPythonTheme(nextTheme);
+        });
+    }
 
     // 右侧下拉框选择切换
-    themeSelect.addEventListener('change', (e) => {
-        applyTheme(e.target.value);
-        notifyPythonTheme(e.target.value);
-    });
+    if (themeSelect) {
+        themeSelect.addEventListener('change', (e) => {
+            applyTheme(e.target.value);
+            notifyPythonTheme(e.target.value);
+        });
+    }
     
     function applyTheme(theme) {
         currentTheme = theme;
@@ -55,8 +69,12 @@ function initTheme() {
         document.documentElement.setAttribute('data-theme', resolvedTheme);
         
         // 同步修改两个控制组件的视觉属性
-        themeBtn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
-        themeSelect.value = theme;
+        if (themeBtn) {
+            themeBtn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
+        }
+        if (themeSelect) {
+            themeSelect.value = theme;
+        }
     }
     
     // 外部或异步调用入口，便于 Python 主动同步
@@ -213,11 +231,15 @@ function initMockOrBridge() {
 
     // 绑定常规操作按钮到 Python 端
     document.getElementById('add-folder-btn').addEventListener('click', () => {
-        callPython('select_folder_dialog');
+        callPython('select_folder_dialog').then(res => {
+            handleBackendResponse(res);
+        });
     });
 
     document.getElementById('add-files-btn').addEventListener('click', () => {
-        callPython('select_files_dialog');
+        callPython('select_files_dialog').then(res => {
+            handleBackendResponse(res);
+        });
     });
 
     document.getElementById('select-output-btn').addEventListener('click', () => {
@@ -225,6 +247,9 @@ function initMockOrBridge() {
             if (res && res.output_dir) {
                 document.getElementById('output-dir-input').value = res.output_dir;
                 showToast(`输出目录已设置为: ${res.output_dir}`, 'success');
+                callPython('get_current_state').then(state => {
+                    handleBackendResponse(state);
+                });
             }
         });
     });
@@ -293,7 +318,7 @@ function renderQueue(tasks) {
         }
 
         return `
-            <tr id="queue-row-${index}" class="${task.status === 'completed' ? 'selected' : ''}">
+            <tr id="queue-row-${index}" class="${task.status === 'completed' ? 'selected' : ''}" onclick="selectQueueRow(${index}, event)">
                 <td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>
                 <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.name}</td>
                 <td><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;">${task.format}</span></td>
@@ -305,7 +330,104 @@ function renderQueue(tasks) {
                 </td>
             </tr>`;
     }).join('');
+    
+    // 恢复先前选中的行高亮并刷新输出路径预览
+    if (window.selectedTaskIndex !== undefined && window.selectedTaskIndex !== -1 && window.selectedTaskIndex < tasks.length) {
+        setTimeout(() => {
+            const row = document.getElementById(`queue-row-${window.selectedTaskIndex}`);
+            if (row) {
+                row.classList.add('active-row');
+            }
+            if (window.updatePathPreview) {
+                window.updatePathPreview();
+            }
+        }, 0);
+    } else {
+        if (window.updatePathPreview) {
+            window.updatePathPreview();
+        }
+    }
 }
+
+// A2. 单击列表行，更新右侧的预计输出路径预览
+window.selectQueueRow = function(index, event) {
+    if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
+        return;
+    }
+    
+    window.selectedTaskIndex = index;
+    
+    // 移除所有行的 active-row 样式，并将当前行加上 active-row 样式
+    const rows = document.querySelectorAll('#queue-tbody tr');
+    rows.forEach(r => r.classList.remove('active-row'));
+    
+    const row = document.getElementById(`queue-row-${index}`);
+    if (row) {
+        row.classList.add('active-row');
+    }
+    
+    window.updatePathPreview();
+};
+
+window.updatePathPreview = function() {
+    const label = document.getElementById('detail-path-label');
+    const filenameInput = document.getElementById('output-filename-input');
+    if (!label) return;
+    
+    const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
+    const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+    
+    // 找出唯一的单选任务索引
+    let singleSelectIndex = -1;
+    if (window.selectedTaskIndex !== -1 && currentTasks && currentTasks[window.selectedTaskIndex]) {
+        singleSelectIndex = window.selectedTaskIndex;
+    } else if (activeRows.length === 1) {
+        const idStr = activeRows[0].id;
+        const index = parseInt(idStr.replace('queue-row-', ''), 10);
+        if (currentTasks && currentTasks[index]) {
+            singleSelectIndex = index;
+        }
+    } else if (checkedBoxes.length === 1) {
+        const index = parseInt(checkedBoxes[0].getAttribute('data-index'), 10);
+        if (currentTasks && currentTasks[index]) {
+            singleSelectIndex = index;
+        }
+    }
+    
+    // 更新文件名输入框的可用状态与内容
+    if (filenameInput) {
+        if (singleSelectIndex !== -1 && currentTasks[singleSelectIndex]) {
+            const task = currentTasks[singleSelectIndex];
+            if (document.activeElement !== filenameInput) {
+                filenameInput.value = task.name || '';
+            }
+            filenameInput.disabled = false;
+            filenameInput.placeholder = "请输入新的输出文件名";
+        } else {
+            filenameInput.value = "";
+            filenameInput.disabled = true;
+            filenameInput.placeholder = "未选中任务，请单击列表行";
+        }
+    }
+    
+    if (singleSelectIndex !== -1 && currentTasks[singleSelectIndex]) {
+        const task = currentTasks[singleSelectIndex];
+        const outputDirInput = document.getElementById('output-dir-input');
+        const outputFormatSelect = document.getElementById('output-format-select');
+        
+        const outputDir = (outputDirInput ? outputDirInput.value.trim() : '') || task.source_dir;
+        const format = (outputFormatSelect ? outputFormatSelect.value : '') || 'mp4';
+        const newName = (filenameInput ? filenameInput.value.trim() : '') || task.name;
+        
+        const separator = outputDir.includes('/') ? '/' : '\\';
+        const predictedPath = outputDir + (outputDir.endsWith(separator) ? '' : separator) + newName + '.' + format;
+        label.textContent = predictedPath;
+    } else if (checkedBoxes.length > 1) {
+        label.textContent = `已选择 ${checkedBoxes.length} 个任务，将输出到相应的目标文件夹。`;
+    } else {
+        label.textContent = '尚未选择任何任务，请双击列表行进行高级分析...';
+    }
+};
 
 // B. 动态更新某条任务的合并进度 (在后台线程并发合并时，由 Python 通过 window.evaluate_js 回调此函数)
 window.updateTaskProgress = function(index, percent, eta, speed) {
@@ -348,6 +470,18 @@ window.updateTaskStatus = function(index, status, errorMsg = '') {
             if (cardStatus) {
                 cardStatus.textContent = '已完成';
                 cardStatus.style.color = 'var(--primary-color)';
+            }
+            const cardChunk = document.getElementById(`card-chunk-${index}`);
+            if (cardChunk) {
+                cardChunk.style.width = '100%';
+            }
+            const cardEta = document.getElementById(`card-eta-${index}`);
+            if (cardEta) {
+                cardEta.textContent = '已完成';
+            }
+            const cardSpeed = document.getElementById(`card-speed-${index}`);
+            if (cardSpeed) {
+                cardSpeed.textContent = '已结束';
             }
         } else if (status === 'failed') {
             statusTd.innerHTML = `<span style="color: #EF4444;" title="${errorMsg || ''}">❌ 失败</span>`;
@@ -397,11 +531,12 @@ window.initDashboardCards = function(tasks) {
 
 // C3. 全局删除任务函数，回传给后端并重新渲染
 window.deleteTask = function(index) {
+    if (window.event) {
+        window.event.stopPropagation();
+    }
     callPython('delete_task', index).then(res => {
-        if (res && res.tasks) {
-            renderQueue(res.tasks);
-            showToast('任务已从列表中移除', 'info');
-        }
+        handleBackendResponse(res);
+        showToast('任务已从列表中移除', 'info');
     });
 };
 
@@ -429,14 +564,17 @@ function handleBackendResponse(res) {
     if (!res) return;
     
     if (res.tasks) {
+        currentTasks = res.tasks;
         renderQueue(res.tasks);
     }
     
     if (res.pending) {
+        currentPending = res.pending;
         renderPending(res.pending);
     }
     
     if (res.muxed) {
+        currentMuxed = res.muxed;
         renderMuxed(res.muxed);
     }
 }
@@ -580,4 +718,331 @@ function showToast(message, type = 'info') {
             container.removeChild(toast);
         }, 300);
     }, 3500);
+}
+
+/* === 9. 监听配置面板中表单控件的值变化并更新到 Python === */
+function initSettingsListeners() {
+    const outputFormat = document.getElementById('output-format-select');
+    const concurrency = document.getElementById('concurrency-input');
+    const overwrite = document.getElementById('overwrite-checkbox');
+    const deleteSource = document.getElementById('delete-source-checkbox');
+
+    if (outputFormat) {
+        outputFormat.addEventListener('change', (e) => {
+            callPython('update_setting', 'output_format', e.target.value);
+        });
+    }
+
+    if (concurrency) {
+        concurrency.addEventListener('change', (e) => {
+            let val = parseInt(e.target.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 8) val = 8;
+            e.target.value = val;
+            callPython('update_setting', 'concurrency', val);
+        });
+    }
+
+    if (overwrite) {
+        overwrite.addEventListener('change', (e) => {
+            callPython('update_setting', 'overwrite', e.target.checked);
+        });
+    }
+
+    if (deleteSource) {
+        deleteSource.addEventListener('change', (e) => {
+            callPython('update_setting', 'delete_source', e.target.checked);
+        });
+    }
+
+    const filenameInput = document.getElementById('output-filename-input');
+    if (filenameInput) {
+        // 当用户在输入框打字时，实时同步更新路径预览，但暂不提交后端
+        filenameInput.addEventListener('input', () => {
+            if (window.updatePathPreview) {
+                window.updatePathPreview();
+            }
+        });
+
+        // 当用户敲回车或输入框失去焦点时，正式提交后端重命名，完成存盘
+        filenameInput.addEventListener('change', (e) => {
+            const newName = e.target.value.trim();
+            const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
+            const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+            
+            let singleSelectIndex = -1;
+            if (window.selectedTaskIndex !== -1 && currentTasks && currentTasks[window.selectedTaskIndex]) {
+                singleSelectIndex = window.selectedTaskIndex;
+            } else if (activeRows.length === 1) {
+                const idStr = activeRows[0].id;
+                const index = parseInt(idStr.replace('queue-row-', ''), 10);
+                if (currentTasks && currentTasks[index]) {
+                    singleSelectIndex = index;
+                }
+            } else if (checkedBoxes.length === 1) {
+                const index = parseInt(checkedBoxes[0].getAttribute('data-index'), 10);
+                if (currentTasks && currentTasks[index]) {
+                    singleSelectIndex = index;
+                }
+            }
+
+            if (singleSelectIndex !== -1 && newName) {
+                callPython('rename_task', singleSelectIndex, newName).then(res => {
+                    handleBackendResponse(res);
+                    showToast('已更新输出文件名', 'success');
+                });
+            }
+        });
+    }
+}
+
+/* === 10. 全局自定义上下文菜单 (右键菜单) === */
+function initContextMenu() {
+    const menu = document.getElementById('custom-context-menu');
+    if (!menu) return;
+    const list = menu.querySelector('.context-menu-list');
+    if (!list) return;
+
+    // 监听全局 contextmenu 事件
+    document.addEventListener('contextmenu', (e) => {
+        // 如果是在输入框等原生可右击区域，则保留系统默认右键菜单
+        if (e.target.closest('input:not([type="checkbox"]):not([type="radio"]), textarea')) {
+            return;
+        }
+        
+        e.preventDefault();
+        
+        let menuItems = [];
+        
+        // 判断右击目标
+        const trQueue = e.target.closest('#queue-tbody tr');
+        const trPending = e.target.closest('#pending-tbody tr');
+        const trMuxed = e.target.closest('#muxed-tbody tr');
+        
+        if (trQueue && !trQueue.classList.contains('empty-state-row')) {
+            // A. 合并队列行
+            const index = parseInt(trQueue.id.replace('queue-row-', ''), 10);
+            const task = currentTasks[index];
+            if (task) {
+                // 高亮当前行
+                document.querySelectorAll('#queue-tbody tr').forEach(r => r.classList.remove('active-row'));
+                trQueue.classList.add('active-row');
+                window.selectedTaskIndex = index;
+                if (window.updatePathPreview) {
+                    window.updatePathPreview();
+                }
+                
+                menuItems = [
+                    { label: '🚀 开始合并此队列', action: () => document.getElementById('start-btn').click() },
+                    { label: '📂 定位视频源文件', action: () => window.openFileFolder(task.video_file) },
+                    { label: '📂 定位音频源文件', action: () => window.openFileFolder(task.audio_file) },
+                    { separator: true },
+                    { label: '🗑️ 从列表中移除', class: 'danger', action: () => window.deleteTask(index) }
+                ];
+            }
+        } else if (trPending && !trPending.classList.contains('empty-state-row')) {
+            // B. 待整理行
+            const checkbox = trPending.querySelector('.row-checkbox-pending');
+            if (checkbox) {
+                const filepath = checkbox.getAttribute('data-filepath');
+                document.querySelectorAll('#pending-tbody tr').forEach(r => r.classList.remove('active-row'));
+                trPending.classList.add('active-row');
+                
+                menuItems = [
+                    { label: '📂 在资源管理器中定位', action: () => window.openFileFolder(filepath) },
+                    { separator: true },
+                    { label: '🗑️ 移除该零散记录', class: 'danger', action: () => window.deletePendingFile(filepath) }
+                ];
+            }
+        } else if (trMuxed && !trMuxed.classList.contains('empty-state-row')) {
+            // C. 已完整行
+            const checkbox = trMuxed.querySelector('.row-checkbox-muxed');
+            if (checkbox) {
+                const filepath = checkbox.getAttribute('data-filepath');
+                document.querySelectorAll('#muxed-tbody tr').forEach(r => r.classList.remove('active-row'));
+                trMuxed.classList.add('active-row');
+                
+                menuItems = [
+                    { label: '▶️ 使用系统播放器播放', action: () => window.playVideo(filepath) },
+                    { label: '📂 在资源管理器中定位', action: () => window.openFileFolder(filepath) },
+                    { separator: true },
+                    { label: '🗑️ 从列表中移除', class: 'danger', action: () => window.deleteMuxedFile(filepath) }
+                ];
+            }
+        } else {
+            // D. 空白区域
+            // 清除所有表格行高亮
+            document.querySelectorAll('.data-table tbody tr').forEach(r => r.classList.remove('active-row'));
+            window.selectedTaskIndex = -1;
+            if (window.updatePathPreview) {
+                window.updatePathPreview();
+            }
+            
+            menuItems = [
+                { label: '📂 导入 B站 缓存文件夹', action: () => document.getElementById('add-folder-btn').click() },
+                { label: '📄 导入 .m4s 单文件', action: () => document.getElementById('add-files-btn').click() },
+                { separator: true },
+                { label: '🌓 切换主题配色', action: () => document.getElementById('theme-switch-btn').click() },
+                { separator: true },
+                { label: '🧹 清空队列与缓存', class: 'danger', action: () => document.getElementById('clear-btn').click() }
+            ];
+        }
+        
+        if (menuItems.length === 0) return;
+        
+        // 渲染菜单项
+        list.innerHTML = '';
+        menuItems.forEach(item => {
+            if (item.separator) {
+                const sep = document.createElement('li');
+                sep.className = 'context-menu-separator';
+                list.appendChild(sep);
+            } else {
+                const li = document.createElement('li');
+                li.className = 'context-menu-item' + (item.class ? ' ' + item.class : '');
+                li.textContent = item.label;
+                li.addEventListener('click', () => {
+                    item.action();
+                    hideMenu();
+                });
+                list.appendChild(li);
+            }
+        });
+        
+        // 计算定位防溢出
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+            menu.classList.add('show');
+            const menuWidth = menu.offsetWidth || 200;
+            const menuHeight = menu.offsetHeight || 150;
+            
+            let posX = e.pageX;
+            let posY = e.pageY;
+            
+            if (posX + menuWidth > window.innerWidth + window.scrollX) {
+                posX = window.innerWidth + window.scrollX - menuWidth - 10;
+            }
+            if (posY + menuHeight > window.innerHeight + window.scrollY) {
+                posY = window.innerHeight + window.scrollY - menuHeight - 10;
+            }
+            
+            menu.style.left = `${posX}px`;
+            menu.style.top = `${posY}px`;
+        }, 10);
+    });
+
+    // 隐藏菜单
+    function hideMenu() {
+        menu.classList.remove('show');
+        setTimeout(() => {
+            if (!menu.classList.contains('show')) {
+                menu.classList.add('hidden');
+            }
+        }, 150);
+        document.querySelectorAll('.data-table tbody tr').forEach(r => {
+            const cb = r.querySelector('input[type="checkbox"]');
+            const idxAttr = cb ? cb.getAttribute('data-index') : null;
+            const idx = idxAttr !== null ? parseInt(idxAttr, 10) : -1;
+            
+            if ((cb && cb.checked) || (idx !== -1 && window.selectedTaskIndex === idx)) {
+                r.classList.add('active-row');
+            } else {
+                r.classList.remove('active-row');
+            }
+        });
+        if (window.updatePathPreview) {
+            window.updatePathPreview();
+        }
+    }
+
+    // 点击其他地方隐藏
+    document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target)) {
+            hideMenu();
+        }
+    });
+
+    document.addEventListener('scroll', hideMenu);
+    window.addEventListener('resize', hideMenu);
+}
+
+/* === 11. 绑定行点击高亮及多选联动 (Delegated Event Handlers) === */
+function bindRowSelectionListeners() {
+    // 监听表格内所有非空行的点击事件
+    document.querySelectorAll('.data-table tbody').forEach(tbody => {
+        tbody.addEventListener('click', (e) => {
+            if (e.target.closest('button') || e.target.closest('input[type="checkbox"]') || e.target.closest('a')) {
+                return;
+            }
+            
+            const tr = e.target.closest('tr');
+            if (tr && !tr.classList.contains('empty-state-row')) {
+                const cb = tr.querySelector('input[type="checkbox"]');
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        });
+        
+        tbody.addEventListener('change', (e) => {
+            if (e.target.classList.contains('row-checkbox') || 
+                e.target.classList.contains('row-checkbox-pending') || 
+                e.target.classList.contains('row-checkbox-muxed')) {
+                const tr = e.target.closest('tr');
+                if (tr) {
+                    if (e.target.checked) {
+                        tr.classList.add('active-row');
+                        if (e.target.classList.contains('row-checkbox')) {
+                            window.selectedTaskIndex = parseInt(e.target.getAttribute('data-index'), 10);
+                        }
+                    } else {
+                        tr.classList.remove('active-row');
+                        if (e.target.classList.contains('row-checkbox')) {
+                            const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                            if (window.selectedTaskIndex === idx) {
+                                window.selectedTaskIndex = -1;
+                            }
+                        }
+                    }
+                    if (window.updatePathPreview) {
+                        window.updatePathPreview();
+                    }
+                }
+            }
+        });
+    });
+}
+
+/* === 12. 右侧配置侧边栏折叠/显示控制器 (Config Panel Toggle) === */
+function initConfigPanelToggle() {
+    const configPanel = document.querySelector('.config-panel');
+    const toggleBtn = document.getElementById('config-toggle-btn');
+    const closeBtn = document.getElementById('config-close-btn');
+    
+    // 初始化时，如果面板未折叠，则给按钮加上 active 激活态
+    if (toggleBtn && configPanel && !configPanel.classList.contains('collapsed')) {
+        toggleBtn.classList.add('active');
+    }
+    
+    if (toggleBtn && configPanel) {
+        toggleBtn.addEventListener('click', () => {
+            if (configPanel.classList.contains('collapsed')) {
+                configPanel.classList.remove('collapsed');
+                toggleBtn.classList.add('active');
+            } else {
+                configPanel.classList.add('collapsed');
+                toggleBtn.classList.remove('active');
+            }
+        });
+    }
+    
+    if (closeBtn && configPanel) {
+        closeBtn.addEventListener('click', () => {
+            configPanel.classList.add('collapsed');
+            if (toggleBtn) {
+                toggleBtn.classList.remove('active');
+            }
+        });
+    }
 }
