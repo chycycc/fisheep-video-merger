@@ -5,8 +5,6 @@
 
 // 右键菜单模式：'custom' = 自定义菜单, 'native' = 系统原生菜单
 let contextMenuMode = localStorage.getItem('contextMenuMode') || 'custom';
-// 复制模式：'pybridge' = Python clip, 'js' = JS clipboard
-let copyMode = localStorage.getItem('copyMode') || 'pybridge';
 
 // Alpine.js 响应式状态（在 alpine:init 事件中注册，早于 DOM 处理）
 document.addEventListener('alpine:init', () => {
@@ -31,11 +29,7 @@ document.addEventListener('alpine:init', () => {
     });
 });
 
-// 全局工作空间状态缓存（保留引用，供 handleBackendResponse 和进度更新使用）
-let currentTasks = [];
-let currentPending = [];
-let currentMuxed = [];
-window.selectedTaskIndex = -1;
+// 全局工作空间状态已迁移至 Alpine.store('app')，旧变量已移除
 
 // 复制文字到剪贴板（优先 Python bridge，file:// 下 navigator.clipboard 不可用）
 function copyText(text) {
@@ -74,13 +68,6 @@ window.toggleContextMenu = function() {
     contextMenuMode = contextMenuMode === 'custom' ? 'native' : 'custom';
     localStorage.setItem('contextMenuMode', contextMenuMode);
     showToast(`右键菜单: ${contextMenuMode === 'custom' ? '自定义' : '原生'}`, 'info');
-};
-
-// 切换复制模式
-window.toggleCopyMode = function() {
-    copyMode = copyMode === 'pybridge' ? 'js' : 'pybridge';
-    localStorage.setItem('copyMode', copyMode);
-    showToast(`复制模式: ${copyMode === 'pybridge' ? 'Python桥接' : 'JS原生'}`, 'info');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -353,7 +340,6 @@ window.selectQueueRow = function(index, event) {
 
     // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
     Alpine.store('app').selectedTaskIndex = index;
-    window.selectedTaskIndex = index;
 
     window.updatePathPreview();
 };
@@ -367,26 +353,28 @@ window.updatePathPreview = function() {
     const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
     
     // 找出唯一的单选任务索引
+    const tasks = Alpine.store('app').tasks;
     let singleSelectIndex = -1;
-    if (window.selectedTaskIndex !== -1 && currentTasks && currentTasks[window.selectedTaskIndex]) {
-        singleSelectIndex = window.selectedTaskIndex;
+    const selectedIdx = Alpine.store('app').selectedTaskIndex;
+    if (selectedIdx !== -1 && tasks[selectedIdx]) {
+        singleSelectIndex = selectedIdx;
     } else if (activeRows.length === 1) {
         const idStr = activeRows[0].id;
         const index = parseInt(idStr.replace('queue-row-', ''), 10);
-        if (currentTasks && currentTasks[index]) {
+        if (tasks[index]) {
             singleSelectIndex = index;
         }
     } else if (checkedBoxes.length === 1) {
         const index = parseInt(checkedBoxes[0].getAttribute('data-index'), 10);
-        if (currentTasks && currentTasks[index]) {
+        if (tasks[index]) {
             singleSelectIndex = index;
         }
     }
     
     // 更新文件名输入框的可用状态与内容
     if (filenameInput) {
-        if (singleSelectIndex !== -1 && currentTasks[singleSelectIndex]) {
-            const task = currentTasks[singleSelectIndex];
+        if (singleSelectIndex !== -1 && tasks[singleSelectIndex]) {
+            const task = tasks[singleSelectIndex];
             if (document.activeElement !== filenameInput) {
                 filenameInput.value = task.name || '';
             }
@@ -399,8 +387,8 @@ window.updatePathPreview = function() {
         }
     }
     
-    if (singleSelectIndex !== -1 && currentTasks[singleSelectIndex]) {
-        const task = currentTasks[singleSelectIndex];
+    if (singleSelectIndex !== -1 && tasks[singleSelectIndex]) {
+        const task = tasks[singleSelectIndex];
         const outputDirInput = document.getElementById('output-dir-input');
         const outputFormatSelect = document.getElementById('output-format-select');
         
@@ -533,19 +521,16 @@ function handleBackendResponse(res) {
     const store = Alpine.store('app');
 
     if (res.tasks) {
-        currentTasks = res.tasks;
         store.tasks = res.tasks;
         renderQueue(res.tasks);
     }
 
     if (res.pending) {
-        currentPending = res.pending;
         store.pending = res.pending;
         renderPending(res.pending);
     }
 
     if (res.muxed) {
-        currentMuxed = res.muxed;
         store.muxed = res.muxed;
         renderMuxed(res.muxed);
     }
@@ -638,18 +623,20 @@ function initSettingsListeners() {
             const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
             const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
             
+            const tasks = Alpine.store('app').tasks;
+            const selectedIdx = Alpine.store('app').selectedTaskIndex;
             let singleSelectIndex = -1;
-            if (window.selectedTaskIndex !== -1 && currentTasks && currentTasks[window.selectedTaskIndex]) {
-                singleSelectIndex = window.selectedTaskIndex;
+            if (selectedIdx !== -1 && tasks[selectedIdx]) {
+                singleSelectIndex = selectedIdx;
             } else if (activeRows.length === 1) {
                 const idStr = activeRows[0].id;
                 const index = parseInt(idStr.replace('queue-row-', ''), 10);
-                if (currentTasks && currentTasks[index]) {
+                if (tasks[index]) {
                     singleSelectIndex = index;
                 }
             } else if (checkedBoxes.length === 1) {
                 const index = parseInt(checkedBoxes[0].getAttribute('data-index'), 10);
-                if (currentTasks && currentTasks[index]) {
+                if (tasks[index]) {
                     singleSelectIndex = index;
                 }
             }
@@ -707,12 +694,12 @@ function initContextMenu() {
         if (trQueue && !trQueue.classList.contains('empty-state-row')) {
             // A. 合并队列行
             const index = parseInt(trQueue.id.replace('queue-row-', ''), 10);
-            const task = currentTasks[index];
+            const task = Alpine.store('app').tasks[index];
             if (task) {
                 // 高亮当前行
                 document.querySelectorAll('#queue-tbody tr').forEach(r => r.classList.remove('active-row'));
                 trQueue.classList.add('active-row');
-                window.selectedTaskIndex = index;
+                Alpine.store('app').selectedTaskIndex = index;
                 if (window.updatePathPreview) {
                     window.updatePathPreview();
                 }
@@ -758,7 +745,7 @@ function initContextMenu() {
             // D. 空白区域
             // 清除所有表格行高亮
             document.querySelectorAll('.data-table tbody tr').forEach(r => r.classList.remove('active-row'));
-            window.selectedTaskIndex = -1;
+            Alpine.store('app').selectedTaskIndex = -1;
             if (window.updatePathPreview) {
                 window.updatePathPreview();
             }
@@ -829,7 +816,7 @@ function initContextMenu() {
             const idxAttr = cb ? cb.getAttribute('data-index') : null;
             const idx = idxAttr !== null ? parseInt(idxAttr, 10) : -1;
             
-            if ((cb && cb.checked) || (idx !== -1 && window.selectedTaskIndex === idx)) {
+            if ((cb && cb.checked) || (idx !== -1 && Alpine.store('app').selectedTaskIndex === idx)) {
                 r.classList.add('active-row');
             } else {
                 r.classList.remove('active-row');
@@ -879,14 +866,14 @@ function bindRowSelectionListeners() {
                     if (e.target.checked) {
                         tr.classList.add('active-row');
                         if (e.target.classList.contains('row-checkbox')) {
-                            window.selectedTaskIndex = parseInt(e.target.getAttribute('data-index'), 10);
+                            Alpine.store('app').selectedTaskIndex = parseInt(e.target.getAttribute('data-index'), 10);
                         }
                     } else {
                         tr.classList.remove('active-row');
                         if (e.target.classList.contains('row-checkbox')) {
                             const idx = parseInt(e.target.getAttribute('data-index'), 10);
-                            if (window.selectedTaskIndex === idx) {
-                                window.selectedTaskIndex = -1;
+                            if (Alpine.store('app').selectedTaskIndex === idx) {
+                                Alpine.store('app').selectedTaskIndex = -1;
                             }
                         }
                     }
