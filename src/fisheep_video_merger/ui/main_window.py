@@ -359,9 +359,9 @@ class MainWindow(QMainWindow):
         """切换标签页时驱动右侧栏详情的动态重置与刷新 (U-3)"""
         widget = self.tab_widget.widget(index)
         if widget == self.merge_queue_tab:
-            self.merge_queue_tab._on_selection_changed()
+            self.merge_queue_tab.notify_selection_changed()
         elif widget == self.muxed_tab:
-            self.muxed_tab._on_selection_changed()
+            self.muxed_tab.notify_selection_changed()
         else:
             # 切换到非输出页签时折叠侧栏详情
             self.settings_panel.update_task_detail("")
@@ -411,7 +411,7 @@ class MainWindow(QMainWindow):
         if new_videos or new_audios:
             self.pending_tab.video_files.extend(new_videos)
             self.pending_tab.audio_files.extend(new_audios)
-            self.pending_tab._refresh_table()
+            self.pending_tab.refresh()
 
         if new_muxed:
             self.muxed_files.extend(new_muxed)
@@ -734,7 +734,7 @@ class MainWindow(QMainWindow):
                 a for a in self.pending_tab.audio_files
                 if a.filepath != info.filepath
             ]
-        self.pending_tab._refresh_table()
+        self.pending_tab.refresh()
 
     def _on_preview(self, filepath: str):
         """预览文件"""
@@ -822,7 +822,7 @@ class MainWindow(QMainWindow):
             for i, task in enumerate(selected_tasks):
                 task.output_name = f"{prefix}_{start + i:0{digits}d}"
 
-            self.merge_queue_tab._refresh_table()
+            self.merge_queue_tab.refresh()
             self._update_all_output_paths()
             self._update_status()
 
@@ -1511,8 +1511,8 @@ class MainWindow(QMainWindow):
 
             raw_pa = state.get("pending_audios", [])
             self.pending_tab.audio_files = [x for x in (deserialize_info(d) for d in raw_pa) if x is not None]
-            
-            self.pending_tab._refresh_table()
+
+            self.pending_tab.refresh()
 
             # 5. 填充已完整合并文件 (U-6 强化: 对本地恢复的旧版本存盘空编码进行就地静默修复扫描)
             from fisheep_video_merger.utils.ffprobe import analyze_file

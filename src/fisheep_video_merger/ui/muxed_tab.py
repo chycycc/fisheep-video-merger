@@ -249,6 +249,10 @@ class MuxedTab(QWidget):
         self.calculated_output_paths = [x[0] for x in paths_with_display]
         self._on_selection_changed()
 
+    def notify_selection_changed(self):
+        """公开接口：手动触发选中变更联动"""
+        self._on_selection_changed()
+
     def _on_selection_changed(self):
         """选中项联动响应：提取第一行文件路径供侧栏"""
         rows = self.table.selectionModel().selectedRows()

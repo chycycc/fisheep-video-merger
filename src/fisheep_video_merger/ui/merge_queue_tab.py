@@ -287,6 +287,10 @@ class MergeQueueTab(QWidget):
 
         self.table.blockSignals(False)
 
+    def refresh(self):
+        """公开接口：刷新表格显示"""
+        self._refresh_table()
+
     def _refresh_table(self):
         """刷新表格显示"""
         self.table.blockSignals(True)
@@ -362,6 +366,10 @@ class MergeQueueTab(QWidget):
         """缓存预计输出全路径并驱动联动展示 (U-3)"""
         self.calculated_output_paths = [x[0] for x in paths_with_display]
         # 刷新一下当前的选中详情
+        self._on_selection_changed()
+
+    def notify_selection_changed(self):
+        """公开接口：手动触发选中变更联动"""
         self._on_selection_changed()
 
     def _on_selection_changed(self):

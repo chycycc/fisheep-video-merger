@@ -104,6 +104,10 @@ class PendingTab(QWidget):
             self._known_file_paths.clear()
         self._refresh_table()
 
+    def refresh(self):
+        """公开接口：刷新表格显示"""
+        self._refresh_table()
+
     def _refresh_table(self):
         """刷新表格显示"""
         self.table.setRowCount(0)

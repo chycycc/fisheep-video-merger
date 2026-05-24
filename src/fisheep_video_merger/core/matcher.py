@@ -316,28 +316,57 @@ class DirectoryMatchStrategy(MatchStrategy):
                 logger.info(f"自动配对 (1v1): {output_name} ({v.filepath} + {a.filepath})")
 
             elif len(v_list) == len(a_list) and len(v_list) > 1:
-                # 多对多等量：按文件名排序后配对
-                v_list.sort(key=lambda x: os.path.basename(x.filepath))
-                a_list.sort(key=lambda x: os.path.basename(x.filepath))
-
+                # 多对多等量：按集数匹配（而非字母序）
                 folder_name = os.path.basename(dirpath)
 
-                for i, (v, a) in enumerate(zip(v_list, a_list)):
-                    # 尝试从当前视频文件名提取集数
-                    current_ep = extract_episode_number(os.path.basename(v.filepath))
-                    if current_ep is not None:
-                        output_name = f"{current_ep:02d}"
-                        # 如果目录名有含义，加上前缀
+                # 构建音频文件的集数索引
+                a_by_ep: dict[int, StreamInfo] = {}
+                a_no_ep: list[StreamInfo] = []
+                for a in a_list:
+                    ep = extract_episode_number(os.path.basename(a.filepath))
+                    if ep is not None and ep not in a_by_ep:
+                        a_by_ep[ep] = a
+                    else:
+                        a_no_ep.append(a)
+
+                matched_audio_paths: set[str] = set()
+
+                for v in v_list:
+                    v_ep = extract_episode_number(os.path.basename(v.filepath))
+                    matched_audio = None
+
+                    # 优先：按集数精确匹配
+                    if v_ep is not None and v_ep in a_by_ep:
+                        matched_audio = a_by_ep[v_ep]
+                        matched_audio_paths.add(matched_audio.filepath)
+
+                    # 降级：取第一个未匹配的音频
+                    if matched_audio is None:
+                        for a in a_list:
+                            if a.filepath not in matched_audio_paths:
+                                matched_audio = a
+                                matched_audio_paths.add(a.filepath)
+                                logger.warning(f"NvN 降级配对（无集数匹配）: {v.filepath} + {a.filepath}")
+                                break
+
+                    if matched_audio is None:
+                        logger.error(f"未找到匹配音频: {v.filepath}")
+                        continue
+
+                    # 生成输出名
+                    if v_ep is not None:
                         clean_folder = re.sub(r"[-_\s]+", "_", folder_name).strip("_")
                         if clean_folder and not re.match(r"^[\d]+$", clean_folder):
-                            output_name = f"{clean_folder}_{current_ep:02d}"
+                            output_name = f"{clean_folder}_{v_ep:02d}"
+                        else:
+                            output_name = f"{v_ep:02d}"
                     else:
-                        output_name = f"{folder_name}_{i + 1:02d}"
+                        output_name = normalize_episode_name(v.filepath)
 
                     task = MergeTask(
                         output_name=output_name,
                         video_file=v.filepath,
-                        audio_file=a.filepath,
+                        audio_file=matched_audio.filepath,
                         source_dir=dirpath,
                         root_path=root_path,
                         is_multi_episode=True,

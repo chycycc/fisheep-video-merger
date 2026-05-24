@@ -119,9 +119,12 @@ def handle_conflict(
         counter = 1
         while counter < 10000:
             new_path = f"{base}_{counter}{ext}"
-            if not os.path.exists(new_path):
+            try:
+                fd = os.open(new_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
                 return new_path, strategy, applied_all
-            counter += 1
+            except FileExistsError:
+                counter += 1
         return output_path, strategy, applied_all
 
     # 需要用户决策
@@ -132,9 +135,12 @@ def handle_conflict(
             counter = 1
             while counter < 10000:
                 new_path = f"{base}_{counter}{ext}"
-                if not os.path.exists(new_path):
+                try:
+                    fd = os.open(new_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    os.close(fd)
                     return new_path, strategy, applied_all
-                counter += 1
+                except FileExistsError:
+                    counter += 1
         return output_path, strategy, applied_all
 
     # 默认覆盖
