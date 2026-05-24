@@ -8,13 +8,14 @@
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body x-data>
     <!-- App 主容器 -->
-    <div id="app-container" class="app-layout">
+    <div id="app-container" class="app-layout" :class="{ 'sidebar-collapsed': $store.app.sidebarCollapsed }">
         
         <!-- 1. 左侧扁平科技感导航栏 (Sidebar) -->
-        <aside class="sidebar">
-            <div class="logo-area" id="logo-area-toggle" style="cursor: pointer;" title="点击折叠侧栏">
+        <aside class="sidebar" :class="{ 'collapsed': $store.app.sidebarCollapsed }">
+            <div class="logo-area" id="logo-area-toggle" style="cursor: pointer;" title="点击折叠侧栏"
+                 @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed">
                 <span class="logo-emoji" id="logo-icon">🐑</span>
                 <div class="logo-text">
                     <h1>Fisheep</h1>
@@ -23,30 +24,42 @@
             </div>
 
             <nav class="nav-links">
-                <button class="nav-btn active" data-tool="merge">
+                <button class="nav-btn" data-tool="merge"
+                        :class="{ 'active': $store.app.currentTool === 'merge' }"
+                        @click="$store.app.currentTool = 'merge'; window.location.hash = 'merge'">
                     <span class="nav-icon">🔗</span>
                     <span class="nav-text">音视频合并</span>
                 </button>
-                <button class="nav-btn" data-tool="convert">
+                <button class="nav-btn" data-tool="convert"
+                        :class="{ 'active': $store.app.currentTool === 'convert' }"
+                        @click="$store.app.currentTool = 'convert'; window.location.hash = 'convert'">
                     <span class="nav-icon">🔄</span>
                     <span class="nav-text">格式转换</span>
                 </button>
-                <button class="nav-btn" data-tool="extract">
+                <button class="nav-btn" data-tool="extract"
+                        :class="{ 'active': $store.app.currentTool === 'extract' }"
+                        @click="$store.app.currentTool = 'extract'; window.location.hash = 'extract'">
                     <span class="nav-icon">🎵</span>
                     <span class="nav-text">提取音频</span>
                 </button>
-                <button class="nav-btn" data-tool="compress">
+                <button class="nav-btn" data-tool="compress"
+                        :class="{ 'active': $store.app.currentTool === 'compress' }"
+                        @click="$store.app.currentTool = 'compress'; window.location.hash = 'compress'">
                     <span class="nav-icon">📦</span>
                     <span class="nav-text">视频压缩</span>
                 </button>
-                <button class="nav-btn" data-tool="trim">
+                <button class="nav-btn" data-tool="trim"
+                        :class="{ 'active': $store.app.currentTool === 'trim' }"
+                        @click="$store.app.currentTool = 'trim'; window.location.hash = 'trim'">
                     <span class="nav-icon">✂️</span>
                     <span class="nav-text">视频裁剪</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
-                <button class="nav-btn" data-tool="settings">
+                <button class="nav-btn" data-tool="settings"
+                        :class="{ 'active': $store.app.currentTool === 'settings' }"
+                        @click="$store.app.currentTool = 'settings'; window.location.hash = 'settings'">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">设置</span>
                 </button>
@@ -61,7 +74,7 @@
         <main class="main-content">
 
             <!-- ========== 工具面板：音视频合并 ========== -->
-            <div class="tool-panel active" id="tool-merge">
+            <div class="tool-panel" id="tool-merge" :class="{ 'active': $store.app.currentTool === 'merge' }">
                 <header class="tool-header">
                     <div>
                         <h2>音视频合并</h2>
@@ -71,15 +84,22 @@
                         <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
                         <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
                         <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
-                        <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板">🎛️ 配置</button>
+                        <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板"
+                                @click="$store.app.configPanelOpen = !$store.app.configPanelOpen">🎛️ 配置</button>
                     </div>
                 </header>
 
                 <!-- 合并工具子标签切换栏 -->
                 <div class="subtab-bar">
-                    <button class="btn active" data-subtab="merge-queue" data-parent="merge">📊 合并队列</button>
-                    <button class="btn" data-subtab="pending" data-parent="merge">⏳ 待整理</button>
-                    <button class="btn" data-subtab="muxed" data-parent="merge">✅ 已完整</button>
+                    <button class="btn" data-subtab="merge-queue" data-parent="merge"
+                            :class="{ 'active': $store.app.subtab === 'merge-queue' }"
+                            @click="$store.app.subtab = 'merge-queue'">📊 合并队列</button>
+                    <button class="btn" data-subtab="pending" data-parent="merge"
+                            :class="{ 'active': $store.app.subtab === 'pending' }"
+                            @click="$store.app.subtab = 'pending'">⏳ 待整理</button>
+                    <button class="btn" data-subtab="muxed" data-parent="merge"
+                            :class="{ 'active': $store.app.subtab === 'muxed' }"
+                            @click="$store.app.subtab = 'muxed'">✅ 已完整</button>
                 </div>
 
                 <!-- 合并工具主体：表格 + 配置面板 -->
@@ -87,7 +107,7 @@
 
                 <section class="tab-panels">
                     <!-- 合并队列子标签 -->
-                    <div class="tab-panel active" id="panel-merge-queue">
+                    <div class="tab-panel" id="panel-merge-queue" :class="{ 'active': $store.app.subtab === 'merge-queue' }">
                         <div class="table-container">
                             <table class="data-table" id="queue-table">
                                 <thead>
@@ -102,7 +122,32 @@
                                     </tr>
                                 </thead>
                                 <tbody id="queue-tbody">
-                                    <tr class="empty-state-row">
+                                    <!-- Alpine x-for: 合并队列 -->
+                                    <template x-for="(task, index) in $store.app.tasks" :key="task.name + index">
+                                        <tr :id="'queue-row-' + index"
+                                            :class="{ 'active-row': $store.app.selectedTaskIndex === index, 'selected': task.status === 'completed' }"
+                                            @click="selectQueueRow(index, $event)">
+                                            <td><input type="checkbox" class="row-checkbox" :data-index="index"></td>
+                                            <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" x-text="task.name"></td>
+                                            <td><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;" x-text="task.format"></span></td>
+                                            <td x-text="task.resolution || '未知'"></td>
+                                            <td x-text="task.size || '未知'"></td>
+                                            <td>
+                                                <span x-show="task.status === 'pending'" style="color: var(--text-muted);">⏳ 待命</span>
+                                                <div x-show="task.status === 'processing'" class="table-progress-bar">
+                                                    <div class="table-progress-chunk" :style="'width:' + (task.percent || 0) + '%'"></div>
+                                                    <span class="table-progress-text" x-text="(task.percent || 0) + '%'"></span>
+                                                </div>
+                                                <span x-show="task.status === 'completed'" style="color: var(--primary-color);">✅ 完成</span>
+                                                <span x-show="task.status === 'failed'" style="color: #EF4444;" :title="task.error || ''">❌ 失败</span>
+                                            </td>
+                                            <td>
+                                                <button class="mini-action-btn" @click.stop="deleteTask(index)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <!-- 空状态 -->
+                                    <tr class="empty-state-row" x-show="$store.app.tasks.length === 0">
                                         <td colspan="7">
                                             <div class="empty-state">
                                                 <div class="empty-icon">🐑</div>
@@ -117,7 +162,7 @@
                     </div>
 
                     <!-- 待整理子标签 -->
-                    <div class="tab-panel" id="panel-pending">
+                    <div class="tab-panel" id="panel-pending" :class="{ 'active': $store.app.subtab === 'pending' }">
                         <div class="table-container">
                             <table class="data-table" id="pending-table">
                                 <thead>
@@ -130,7 +175,24 @@
                                     </tr>
                                 </thead>
                                 <tbody id="pending-tbody">
-                                    <tr class="empty-state-row">
+                                    <!-- Alpine x-for: 待整理文件列表 -->
+                                    <template x-for="(item, index) in $store.app.pending" :key="item.filepath">
+                                        <tr>
+                                            <td><input type="checkbox" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
+                                            <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
+                                                <span x-text="item.name"></span>
+                                                <span x-show="item.stream_type === 'video'" style="background-color: rgba(16,185,129,0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 11px;">视频</span>
+                                                <span x-show="item.stream_type !== 'video'" style="background-color: rgba(59,130,246,0.15); color: #3B82F6; padding: 2px 6px; border-radius: 4px; font-size: 11px;">音频</span>
+                                            </td>
+                                            <td x-text="item.size || '未知'"></td>
+                                            <td x-text="item.mtime || '未知'"></td>
+                                            <td>
+                                                <button class="mini-action-btn" @click="deletePendingFile(item.filepath)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <!-- 空状态 -->
+                                    <tr class="empty-state-row" x-show="$store.app.pending.length === 0">
                                         <td colspan="5">
                                             <div class="empty-state">
                                                 <div class="empty-icon">📁</div>
@@ -144,7 +206,7 @@
                     </div>
 
                     <!-- 已完整子标签 -->
-                    <div class="tab-panel" id="panel-muxed">
+                    <div class="tab-panel" id="panel-muxed" :class="{ 'active': $store.app.subtab === 'muxed' }">
                         <div class="table-container">
                             <table class="data-table" id="muxed-table">
                                 <thead>
@@ -158,7 +220,27 @@
                                     </tr>
                                 </thead>
                                 <tbody id="muxed-tbody">
-                                    <tr class="empty-state-row">
+                                    <!-- Alpine x-for: 已完整文件列表 -->
+                                    <template x-for="(item, index) in $store.app.muxed" :key="item.filepath">
+                                        <tr>
+                                            <td><input type="checkbox" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
+                                            <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
+                                                <span x-text="item.name"></span>
+                                            </td>
+                                            <td x-text="item.resolution || '自动'"></td>
+                                            <td x-text="item.size || '未知'"></td>
+                                            <td x-text="item.mtime || '未知'"></td>
+                                            <td>
+                                                <div style="display: flex; gap: 6px;">
+                                                    <button class="mini-action-btn" @click="playVideo(item.filepath)" style="color: var(--primary-color); border-color: rgba(16,185,129,0.2);" title="使用系统播放器播放">▶️</button>
+                                                    <button class="mini-action-btn" @click="openFileFolder(item.filepath)" style="color: var(--text-color); border-color: var(--border-color);" title="在资源管理器中定位">📂</button>
+                                                    <button class="mini-action-btn" @click="deleteMuxedFile(item.filepath)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="从列表中移除">🗑️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <!-- 空状态 -->
+                                    <tr class="empty-state-row" x-show="$store.app.muxed.length === 0">
                                         <td colspan="6">
                                             <div class="empty-state">
                                                 <div class="empty-icon">🎬</div>
@@ -173,10 +255,12 @@
                 </section>
 
                 <!-- 右侧配置面板（仅合并工具） -->
-                <aside class="config-panel" id="config-panel">
+                <aside class="config-panel" id="config-panel" :class="{ 'collapsed': !$store.app.configPanelOpen }">
                     <div class="config-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>🎛️ 任务配置</h3>
-                        <button id="config-close-btn" class="icon-toggle" title="隐藏配置面板" style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
+                        <button id="config-close-btn" class="icon-toggle" title="隐藏配置面板"
+                                @click="$store.app.configPanelOpen = false"
+                                style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
                     </div>
 
                     <div class="config-sections">
@@ -185,13 +269,17 @@
                             <div class="form-group">
                                 <label>预计输出目录</label>
                                 <div class="input-with-action">
-                                    <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly>
-                                    <button id="select-output-btn" class="mini-action-btn">📂</button>
+                                    <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly
+                                           :value="$store.settings.outputDir">
+                                    <button id="select-output-btn" class="mini-action-btn"
+                                            @click="selectOutputDir()">📂</button>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>默认合并格式</label>
-                                <select id="output-format-select">
+                                <select id="output-format-select"
+                                        x-model="$store.settings.outputFormat"
+                                        @change="callPython('update_setting', 'outputFormat', $store.settings.outputFormat)">
                                     <option value="mp4">MP4 (.mp4)</option>
                                     <option value="mkv">MKV (.mkv)</option>
                                 </select>
@@ -207,19 +295,25 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>并发任务限制</label>
-                                    <input type="number" id="concurrency-input" min="1" max="8" value="2">
+                                    <input type="number" id="concurrency-input" min="1" max="8"
+                                           x-model.number="$store.settings.concurrency"
+                                           @change="callPython('update_setting', 'concurrency', $store.settings.concurrency)">
                                 </div>
                             </div>
                             <div class="form-group checkbox-group">
                                 <label class="checkbox-container">
-                                    <input type="checkbox" id="overwrite-checkbox" checked>
+                                    <input type="checkbox" id="overwrite-checkbox"
+                                           x-model="$store.settings.overwrite"
+                                           @change="callPython('update_setting', 'overwrite', $store.settings.overwrite)">
                                     <span class="checkmark"></span>
                                     自动覆盖同名文件
                                 </label>
                             </div>
                             <div class="form-group checkbox-group">
                                 <label class="checkbox-container">
-                                    <input type="checkbox" id="delete-source-checkbox">
+                                    <input type="checkbox" id="delete-source-checkbox"
+                                           x-model="$store.settings.deleteSource"
+                                           @change="callPython('update_setting', 'deleteSource', $store.settings.deleteSource)">
                                     <span class="checkmark"></span>
                                     合并成功后删除源文件
                                 </label>
@@ -252,7 +346,7 @@
             </div>
 
             <!-- ========== 工具面板：格式转换 ========== -->
-            <div class="tool-panel" id="tool-convert">
+            <div class="tool-panel" id="tool-convert" :class="{ 'active': $store.app.currentTool === 'convert' }">
                 <header class="tool-header">
                     <div>
                         <h2>格式转换</h2>
@@ -320,7 +414,7 @@
             </div>
 
             <!-- ========== 工具面板：提取音频 ========== -->
-            <div class="tool-panel" id="tool-extract">
+            <div class="tool-panel" id="tool-extract" :class="{ 'active': $store.app.currentTool === 'extract' }">
                 <header class="tool-header">
                     <div>
                         <h2>提取音频</h2>
@@ -389,7 +483,7 @@
             </div>
 
             <!-- ========== 工具面板：视频压缩 ========== -->
-            <div class="tool-panel" id="tool-compress">
+            <div class="tool-panel" id="tool-compress" :class="{ 'active': $store.app.currentTool === 'compress' }">
                 <header class="tool-header">
                     <div>
                         <h2>视频压缩</h2>
@@ -458,7 +552,7 @@
             </div>
 
             <!-- ========== 工具面板：视频裁剪 ========== -->
-            <div class="tool-panel" id="tool-trim">
+            <div class="tool-panel" id="tool-trim" :class="{ 'active': $store.app.currentTool === 'trim' }">
                 <header class="tool-header">
                     <div>
                         <h2>视频裁剪</h2>
@@ -547,7 +641,7 @@
             </div>
 
             <!-- ========== 工具面板：设置 ========== -->
-            <div class="tool-panel" id="tool-settings">
+            <div class="tool-panel" id="tool-settings" :class="{ 'active': $store.app.currentTool === 'settings' }">
                 <header class="tool-header">
                     <div>
                         <h2>设置</h2>
@@ -634,6 +728,10 @@
         </main>
     </div>
 
+    <!-- 配置面板遮罩层（Alpine 控制） -->
+    <div class="config-backdrop" :class="{ 'visible': $store.app.configPanelOpen }"
+         @click="$store.app.configPanelOpen = false"></div>
+
     <!-- 5. 全窗口拖拽半透明毛玻璃蒙层 (Drag and Drop Overlay) -->
     <div id="drop-overlay" class="hidden">
         <div class="drop-border-frame">
@@ -651,5 +749,6 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="alpine.min.js" defer></script>
 </body>
 </html>

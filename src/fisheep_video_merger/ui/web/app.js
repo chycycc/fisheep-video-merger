@@ -8,46 +8,65 @@ let contextMenuMode = localStorage.getItem('contextMenuMode') || 'custom';
 // 复制模式：'pybridge' = Python clip, 'js' = JS clipboard
 let copyMode = localStorage.getItem('copyMode') || 'pybridge';
 
-// 全局工作空间状态缓存
+// Alpine.js 响应式状态（在 alpine:init 事件中注册，早于 DOM 处理）
+document.addEventListener('alpine:init', () => {
+    Alpine.store('app', {
+        tasks: [],
+        pending: [],
+        muxed: [],
+        selectedTaskIndex: -1,
+        currentTool: 'merge',
+        subtab: 'merge-queue',
+        sidebarCollapsed: false,
+        configPanelOpen: true,
+        theme: localStorage.getItem('theme') || 'dark',
+    });
+
+    Alpine.store('settings', {
+        outputFormat: 'mp4',
+        concurrency: 2,
+        overwrite: true,
+        deleteSource: false,
+        outputDir: '',
+    });
+});
+
+// 全局工作空间状态缓存（保留引用，供 handleBackendResponse 和进度更新使用）
 let currentTasks = [];
 let currentPending = [];
 let currentMuxed = [];
 window.selectedTaskIndex = -1;
 
-// 复制文字到剪贴板（多种方式尝试）
+// 复制文字到剪贴板（优先 Python bridge，file:// 下 navigator.clipboard 不可用）
 function copyText(text) {
-    if (copyMode === 'pybridge' && window.pywebview && window.pywebview.api) {
+    if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.copy_to_clipboard(text).then(res => {
             if (res && res.status === 'success') {
                 showToast('已复制到剪贴板', 'success');
             } else {
-                jsCopy(text);
+                jsCopyFallback(text);
             }
-        }).catch(() => jsCopy(text));
+        }).catch(() => jsCopyFallback(text));
     } else {
-        jsCopy(text);
+        jsCopyFallback(text);
     }
 }
 
-function jsCopy(text) {
-    navigator.clipboard.writeText(text).then(() => {
+// JS 降级复制（textarea + execCommand，file:// 下可用）
+function jsCopyFallback(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;left:-9999px;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
         showToast('已复制到剪贴板', 'success');
-    }).catch(() => {
-        try {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            showToast('已复制到剪贴板', 'success');
-        } catch (e) {
-            showToast('复制失败，请手动选择文字', 'error');
-        }
-    });
+    } catch (e) {
+        showToast('复制失败，请手动选择文字', 'error');
+    }
 }
 
 // 切换右键菜单模式
@@ -143,22 +162,17 @@ function initTheme() {
 
 /* === 1.5 侧栏折叠/展开切换 (Sidebar Toggle) === */
 function initSidebarToggle() {
-    const sidebar = document.querySelector('.sidebar');
-    const toggleArea = document.getElementById('logo-area-toggle');
-    const appContainer = document.getElementById('app-container');
-
-    if (!sidebar || !toggleArea) return;
+    const store = Alpine.store('app');
 
     // 小屏幕下默认收起
     if (window.innerWidth <= 900) {
-        sidebar.classList.add('collapsed');
+        store.sidebarCollapsed = true;
     }
 
-    toggleArea.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        sidebar.classList.toggle('manually-open');
-        if (appContainer) {
-            appContainer.classList.toggle('sidebar-collapsed');
+    // 窗口缩放时自动收起/展开
+    window.addEventListener('resize', () => {
+        if (window.innerWidth <= 900) {
+            store.sidebarCollapsed = true;
         }
     });
 }
@@ -182,59 +196,14 @@ function notifyPythonTheme(theme) {
 
 /* === 2. 工具路由切换 (Tool Router) === */
 function initTabs() {
-    const navButtons = document.querySelectorAll('.nav-btn[data-tool]');
-    const toolPanels = document.querySelectorAll('.tool-panel');
+    // 子标签切换已由 Alpine 声明式绑定控制，无需手动 addEventListener
 
-    // 工具切换
-    navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetTool = btn.getAttribute('data-tool');
-
-            // 切换侧栏按钮激活态
-            navButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // 切换工具面板
-            toolPanels.forEach(p => p.classList.remove('active'));
-            const panel = document.getElementById(`tool-${targetTool}`);
-            if (panel) {
-                panel.classList.add('active');
-            }
-
-            // 更新 hash
-            window.location.hash = targetTool;
-        });
-    });
-
-    // 合并工具内的子标签切换
-    document.querySelectorAll('[data-subtab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetSubtab = btn.getAttribute('data-subtab');
-            const parent = btn.getAttribute('data-parent');
-
-            // 切换子标签按钮激活态
-            document.querySelectorAll(`[data-subtab][data-parent="${parent}"]`)
-                .forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // 切换子面板
-            const parentPanel = document.getElementById(`tool-${parent}`);
-            if (parentPanel) {
-                parentPanel.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                const subPanel = document.getElementById(`panel-${targetSubtab}`);
-                if (subPanel) {
-                    subPanel.classList.add('active');
-                }
-            }
-        });
-    });
-
-    // Hash 路由：根据 URL hash 切换工具
+    // Hash 路由：根据 URL hash 切换工具（使用 Alpine.store）
     function navigateFromHash() {
         const hash = window.location.hash.replace('#', '') || 'merge';
-        const targetBtn = document.querySelector(`.nav-btn[data-tool="${hash}"]`);
-        if (targetBtn) {
-            targetBtn.click();
+        const validTools = ['merge', 'convert', 'extract', 'compress', 'trim', 'settings'];
+        if (validTools.includes(hash)) {
+            Alpine.store('app').currentTool = hash;
         }
     }
 
@@ -261,6 +230,7 @@ function initDragAndDrop() {
     });
 
     window.addEventListener('dragover', (e) => {
+        // 阻止浏览器默认打开文件行为
         e.preventDefault();
     });
 
@@ -279,6 +249,9 @@ function initDragAndDrop() {
         e.preventDefault();
         dragCounter = 0;
         dropOverlay.classList.add('hidden');
+
+        // 清除所有工具面板的拖拽状态
+        document.querySelectorAll('.tool-panel.drag-over').forEach(p => p.classList.remove('drag-over'));
 
         // 如果当前不是合并工具，让工具面板自己的 handler 处理
         const mergePanel = document.getElementById('tool-merge');
@@ -306,10 +279,8 @@ function initDragAndDrop() {
     });
 }
 
-/* === 4. 合并状态条控制 === */
-function initDashboardToggle() {
-    // 状态条由合并流程自动控制，无需手动折叠
-}
+/* === 4. 合并状态条: 自动控制 === */
+function initDashboardToggle() {}
 
 /* === 5. 双线渲染支持与跨端 Bridge 检测 === */
 function initMockOrBridge() {
@@ -338,17 +309,7 @@ function initMockOrBridge() {
         });
     });
 
-    document.getElementById('select-output-btn').addEventListener('click', () => {
-        callPython('select_output_dir_dialog').then(res => {
-            if (res && res.output_dir) {
-                document.getElementById('output-dir-input').value = res.output_dir;
-                showToast(`输出目录已设置为: ${res.output_dir}`, 'success');
-                callPython('get_current_state').then(state => {
-                    handleBackendResponse(state);
-                });
-            }
-        });
-    });
+    // select-output-btn 已由 Alpine @click 绑定到 selectOutputDir() 函数
 
     document.getElementById('clear-btn').addEventListener('click', () => {
         callPython('clear_queue').then(res => {
@@ -381,87 +342,19 @@ function callPython(methodName, ...args) {
 /* === 7. 数据驱动界面刷新渲染器 (Render Functions) === */
 
 // A. 渲染合并队列数据表格
-function renderQueue(tasks) {
-    const tbody = document.getElementById('queue-tbody');
-    if (!tasks || tasks.length === 0) {
-        tbody.innerHTML = `
-            <tr class="empty-state-row">
-                <td colspan="7">
-                    <div class="empty-state">
-                        <div class="empty-icon">🐑</div>
-                        <h3>目前队列空空如也</h3>
-                        <p>直接拖入B站手机/电脑版缓存目录，或点击上方导入文件夹</p>
-                    </div>
-                </td>
-            </tr>`;
-        return;
-    }
-
-    tbody.innerHTML = tasks.map((task, index) => {
-        let statusBadge = '';
-        if (task.status === 'pending') {
-            statusBadge = `<span style="color: var(--text-muted);">⏳ 待命</span>`;
-        } else if (task.status === 'processing') {
-            statusBadge = `
-                <div class="table-progress-bar" id="t-prog-${index}">
-                    <div class="table-progress-chunk" id="t-chunk-${index}" style="width: ${task.percent || 0}%;"></div>
-                    <span class="table-progress-text" id="t-text-${index}">${task.percent || 0}%</span>
-                </div>`;
-        } else if (task.status === 'completed') {
-            statusBadge = `<span style="color: var(--primary-color);">✅ 完成</span>`;
-        } else if (task.status === 'failed') {
-            statusBadge = `<span style="color: #EF4444;" title="${task.error || ''}">❌ 失败</span>`;
-        }
-
-        return `
-            <tr id="queue-row-${index}" class="${task.status === 'completed' ? 'selected' : ''}" onclick="selectQueueRow(${index}, event)">
-                <td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>
-                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.name}</td>
-                <td><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;">${task.format}</span></td>
-                <td>${task.resolution || '未知'}</td>
-                <td>${task.size || '未知'}</td>
-                <td id="queue-status-td-${index}">${statusBadge}</td>
-                <td>
-                    <button class="mini-action-btn" onclick="deleteTask(${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
-                </td>
-            </tr>`;
-    }).join('');
-    
-    // 恢复先前选中的行高亮并刷新输出路径预览
-    if (window.selectedTaskIndex !== undefined && window.selectedTaskIndex !== -1 && window.selectedTaskIndex < tasks.length) {
-        setTimeout(() => {
-            const row = document.getElementById(`queue-row-${window.selectedTaskIndex}`);
-            if (row) {
-                row.classList.add('active-row');
-            }
-            if (window.updatePathPreview) {
-                window.updatePathPreview();
-            }
-        }, 0);
-    } else {
-        if (window.updatePathPreview) {
-            window.updatePathPreview();
-        }
-    }
-}
+// renderQueue: Alpine x-for 自动渲染，此函数保留兼容
+function renderQueue(tasks) {}
 
 // A2. 单击列表行，更新右侧的预计输出路径预览
 window.selectQueueRow = function(index, event) {
     if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
         return;
     }
-    
+
+    // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
+    Alpine.store('app').selectedTaskIndex = index;
     window.selectedTaskIndex = index;
-    
-    // 移除所有行的 active-row 样式，并将当前行加上 active-row 样式
-    const rows = document.querySelectorAll('#queue-tbody tr');
-    rows.forEach(r => r.classList.remove('active-row'));
-    
-    const row = document.getElementById(`queue-row-${index}`);
-    if (row) {
-        row.classList.add('active-row');
-    }
-    
+
     window.updatePathPreview();
 };
 
@@ -525,54 +418,40 @@ window.updatePathPreview = function() {
     }
 };
 
-// B. 动态更新某条任务的合并进度
+// B. 动态更新某条任务的合并进度（通过 Alpine.store 触发响应式更新）
 window.updateTaskProgress = function(index, percent, eta, speed) {
-    // 1. 刷新主表格中的嵌入式进度条
-    const chunk = document.getElementById(`t-chunk-${index}`);
-    const text = document.getElementById(`t-text-${index}`);
-    if (chunk && text) {
-        chunk.style.width = `${percent}%`;
-        text.textContent = `${percent}%`;
+    const store = Alpine.store('app');
+    if (store.tasks[index]) {
+        store.tasks[index].percent = percent;
+        store.tasks[index].eta = eta;
+        store.tasks[index].speed = speed;
     }
 
-    // 2. 更新顶部状态条
+    // 更新顶部状态条
     const statusSpeed = document.getElementById('merge-status-speed');
     if (statusSpeed && speed) {
         statusSpeed.textContent = `${speed} | ETA: ${eta}`;
     }
 };
 
-// C. 动态更新列表行状态
+// C. 动态更新列表行状态（通过 Alpine.store 触发响应式更新）
 window.updateTaskStatus = function(index, status, errorMsg = '') {
-    const statusTd = document.getElementById(`queue-status-td-${index}`);
-    if (statusTd) {
+    const store = Alpine.store('app');
+    if (store.tasks[index]) {
+        store.tasks[index].status = status;
+        store.tasks[index].error = errorMsg || '';
         if (status === 'processing') {
-            statusTd.innerHTML = `
-                <div class="table-progress-bar" id="t-prog-${index}">
-                    <div class="table-progress-chunk" id="t-chunk-${index}" style="width: 0%;"></div>
-                    <span class="table-progress-text" id="t-text-${index}">0%</span>
-                </div>`;
-        } else if (status === 'completed') {
-            statusTd.innerHTML = `<span style="color: var(--primary-color);">✅ 完成</span>`;
-            document.getElementById(`queue-row-${index}`)?.classList.add('selected');
-            updateMergeStatusBar();
-        } else if (status === 'failed') {
-            statusTd.innerHTML = `<span style="color: #EF4444;" title="${errorMsg || ''}">❌ 失败</span>`;
-            updateMergeStatusBar();
+            store.tasks[index].percent = 0;
         }
+        updateMergeStatusBar();
     }
 };
 
 function updateMergeStatusBar() {
-    const rows = document.querySelectorAll('#queue-tbody tr:not(.empty-state-row)');
-    const total = rows.length;
-    let done = 0;
-    rows.forEach(row => {
-        const statusCell = row.querySelector('td:nth-child(6)');
-        if (statusCell && (statusCell.textContent.includes('完成') || statusCell.textContent.includes('失败'))) {
-            done++;
-        }
-    });
+    const store = Alpine.store('app');
+    const tasks = store.tasks;
+    const total = tasks.length;
+    const done = tasks.filter(t => t.status === 'completed' || t.status === 'failed').length;
 
     const statusBar = document.getElementById('merge-status-bar');
     const statusText = document.getElementById('merge-status-text');
@@ -602,6 +481,19 @@ window.initDashboardCards = function(tasks) {
     }
 };
 
+// 选择输出目录（由 Alpine @click 调用）
+window.selectOutputDir = function() {
+    callPython('select_output_dir_dialog').then(res => {
+        if (res && res.output_dir) {
+            Alpine.store('settings').outputDir = res.output_dir;
+            showToast(`输出目录已设置为: ${res.output_dir}`, 'success');
+            callPython('get_current_state').then(state => {
+                handleBackendResponse(state);
+            });
+        }
+    });
+};
+
 // C3. 全局删除任务函数，回传给后端并重新渲染
 window.deleteTask = function(index) {
     if (window.event) {
@@ -618,12 +510,13 @@ window.deleteTask = function(index) {
 function syncSettingsFromPython() {
     callPython('get_current_settings').then(settings => {
         if (settings) {
-            document.getElementById('output-dir-input').value = settings.output_dir || '';
-            document.getElementById('output-format-select').value = settings.output_format || 'mp4';
-            document.getElementById('concurrency-input').value = settings.concurrency || 2;
-            document.getElementById('overwrite-checkbox').checked = !!settings.overwrite;
-            document.getElementById('delete-source-checkbox').checked = !!settings.delete_source;
-            
+            const store = Alpine.store('settings');
+            store.outputDir = settings.output_dir || '';
+            store.outputFormat = settings.output_format || 'mp4';
+            store.concurrency = settings.concurrency || 2;
+            store.overwrite = !!settings.overwrite;
+            store.deleteSource = !!settings.delete_source;
+
             // 同步应用从后端载入的界面主题
             if (settings.theme && window.setAppTheme) {
                 window.setAppTheme(settings.theme);
@@ -635,99 +528,32 @@ function syncSettingsFromPython() {
 // E. 接收扫描与工作空间状态结果，同步填充三个数据面板
 function handleBackendResponse(res) {
     if (!res) return;
-    
+
+    // 同步到 Alpine.store（响应式）
+    const store = Alpine.store('app');
+
     if (res.tasks) {
         currentTasks = res.tasks;
+        store.tasks = res.tasks;
         renderQueue(res.tasks);
     }
-    
+
     if (res.pending) {
         currentPending = res.pending;
+        store.pending = res.pending;
         renderPending(res.pending);
     }
-    
+
     if (res.muxed) {
         currentMuxed = res.muxed;
+        store.muxed = res.muxed;
         renderMuxed(res.muxed);
     }
 }
 
-// E2. 渲染待整理零散音视频表格
-function renderPending(pending) {
-    const tbody = document.getElementById('pending-tbody');
-    if (!tbody) return;
-    
-    if (pending.length === 0) {
-        tbody.innerHTML = `
-            <tr class="empty-state-row">
-                <td colspan="5">
-                    <div class="empty-state">
-                        <div class="empty-icon">📁</div>
-                        <h3>没有需要整理的零散片段</h3>
-                    </div>
-                </td>
-            </tr>`;
-        return;
-    }
-    
-    tbody.innerHTML = pending.map((item, index) => {
-        const typeBadge = item.stream_type === 'video' 
-            ? `<span style="background-color: rgba(16,185,129,0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 11px;">视频</span>`
-            : `<span style="background-color: rgba(59,130,246,0.15); color: #3B82F6; padding: 2px 6px; border-radius: 4px; font-size: 11px;">音频</span>`;
-            
-        return `
-            <tr>
-                <td><input type="checkbox" class="row-checkbox-pending" data-filepath="${item.filepath}"></td>
-                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.filepath}">
-                    ${item.name} ${typeBadge}
-                </td>
-                <td>${item.size || '未知'}</td>
-                <td>${item.mtime || '未知'}</td>
-                <td>
-                    <button class="mini-action-btn" onclick="deletePendingFile('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
-                </td>
-            </tr>`;
-    }).join('');
-}
-
-// E3. 渲染已完整视频文件表格
-function renderMuxed(muxed) {
-    const tbody = document.getElementById('muxed-tbody');
-    if (!tbody) return;
-    
-    if (muxed.length === 0) {
-        tbody.innerHTML = `
-            <tr class="empty-state-row">
-                <td colspan="6">
-                    <div class="empty-state">
-                        <div class="empty-icon">🎬</div>
-                        <h3>尚未完成任何视频合并</h3>
-                    </div>
-                </td>
-            </tr>`;
-        return;
-    }
-    
-    tbody.innerHTML = muxed.map((item, index) => {
-        return `
-            <tr>
-                <td><input type="checkbox" class="row-checkbox-muxed" data-filepath="${item.filepath}"></td>
-                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.filepath}">
-                    ${item.name}
-                </td>
-                <td>${item.resolution || '自动'}</td>
-                <td>${item.size || '未知'}</td>
-                <td>${item.mtime || '未知'}</td>
-                <td>
-                    <div style="display: flex; gap: 6px;">
-                        <button class="mini-action-btn" onclick="playVideo('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: var(--primary-color); border-color: rgba(16,185,129,0.2);" title="使用系统播放器播放">▶️</button>
-                        <button class="mini-action-btn" onclick="openFileFolder('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: var(--text-color); border-color: var(--border-color);" title="在资源管理器中定位">📂</button>
-                        <button class="mini-action-btn" onclick="deleteMuxedFile('${item.filepath.replace(/\\/g, '\\\\')}')" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="从列表中移除">🗑️</button>
-                    </div>
-                </td>
-            </tr>`;
-    }).join('');
-}
+// renderPending / renderMuxed: Alpine x-for 自动渲染，保留兼容
+function renderPending(pending) {}
+function renderMuxed(muxed) {}
 
 // E4. 跨端系统级操作的全局 JS 包装器
 window.deletePendingFile = function(filepath) {
@@ -795,38 +621,7 @@ function showToast(message, type = 'info') {
 
 /* === 9. 监听配置面板中表单控件的值变化并更新到 Python === */
 function initSettingsListeners() {
-    const outputFormat = document.getElementById('output-format-select');
-    const concurrency = document.getElementById('concurrency-input');
-    const overwrite = document.getElementById('overwrite-checkbox');
-    const deleteSource = document.getElementById('delete-source-checkbox');
-
-    if (outputFormat) {
-        outputFormat.addEventListener('change', (e) => {
-            callPython('update_setting', 'output_format', e.target.value);
-        });
-    }
-
-    if (concurrency) {
-        concurrency.addEventListener('change', (e) => {
-            let val = parseInt(e.target.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > 8) val = 8;
-            e.target.value = val;
-            callPython('update_setting', 'concurrency', val);
-        });
-    }
-
-    if (overwrite) {
-        overwrite.addEventListener('change', (e) => {
-            callPython('update_setting', 'overwrite', e.target.checked);
-        });
-    }
-
-    if (deleteSource) {
-        deleteSource.addEventListener('change', (e) => {
-            callPython('update_setting', 'delete_source', e.target.checked);
-        });
-    }
+    // 输出格式、并发数、复选框已由 Alpine x-model + @change 绑定，无需手动 addEventListener
 
     const filenameInput = document.getElementById('output-filename-input');
     if (filenameInput) {
@@ -1104,40 +899,8 @@ function bindRowSelectionListeners() {
     });
 }
 
-/* === 12. 右侧配置侧边栏折叠/显示控制器 (Config Panel Toggle) === */
-function initConfigPanelToggle() {
-    const configPanel = document.querySelector('.config-panel');
-    const toggleBtn = document.getElementById('config-toggle-btn');
-    const closeBtn = document.getElementById('config-close-btn');
-    
-    // 初始化时，如果面板未折叠，则给按钮加上 active 激活态
-    if (toggleBtn && configPanel && !configPanel.classList.contains('collapsed')) {
-        toggleBtn.classList.add('active');
-    }
-    
-    if (toggleBtn && configPanel) {
-        toggleBtn.addEventListener('click', () => {
-            if (configPanel.classList.contains('collapsed')) {
-                configPanel.classList.remove('collapsed');
-                configPanel.classList.add('manually-open');
-                toggleBtn.classList.add('active');
-            } else {
-                configPanel.classList.add('collapsed');
-                configPanel.classList.remove('manually-open');
-                toggleBtn.classList.remove('active');
-            }
-        });
-    }
-    
-    if (closeBtn && configPanel) {
-        closeBtn.addEventListener('click', () => {
-            configPanel.classList.add('collapsed');
-            if (toggleBtn) {
-                toggleBtn.classList.remove('active');
-            }
-        });
-    }
-}
+/* === 12. 配置面板: Alpine 控制 === */
+function initConfigPanelToggle() {}
 
 /* === 13. 通用视频工具前端逻辑 (Convert / Extract / Compress / Trim) === */
 
