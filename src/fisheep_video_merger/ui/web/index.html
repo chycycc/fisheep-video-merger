@@ -84,6 +84,8 @@
                         <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
                         <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
                         <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
+                        <button class="btn btn-secondary" @click="batchDeleteSelected()" title="删除选中的任务">🗑️ 删除选中</button>
+                        <button class="btn btn-secondary" @click="batchRetryFailed()" title="重试所有失败的任务">🔄 重试失败</button>
                         <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板"
                                 @click="$store.app.configPanelOpen = !$store.app.configPanelOpen">🎛️ 配置</button>
                     </div>
@@ -112,7 +114,7 @@
                             <table class="data-table" id="queue-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" id="select-all-checkbox"></th>
+                                        <th width="40"><input type="checkbox" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
                                         <th>视频名称</th>
                                         <th>格式</th>
                                         <th>分辨率</th>

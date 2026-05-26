@@ -479,6 +479,31 @@ window.initDashboardCards = function(tasks) {
 };
 
 // 取消合并（由 Alpine @click 调用）
+window.toggleSelectAll = function(checked) {
+    document.querySelectorAll('#queue-tbody .row-checkbox').forEach(cb => {
+        cb.checked = checked;
+        const tr = cb.closest('tr');
+        if (tr) tr.classList.toggle('active-row', checked);
+    });
+};
+
+window.batchDeleteSelected = function() {
+    const checkboxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+    if (checkboxes.length === 0) { showToast('请先勾选要删除的任务', 'warning'); return; }
+    checkboxes.forEach(cb => {
+        const index = parseInt(cb.getAttribute('data-index'), 10);
+        if (!isNaN(index)) callPython('delete_task', index);
+    });
+    showToast(`已删除 ${checkboxes.length} 个任务`, 'info');
+};
+
+window.batchRetryFailed = function() {
+    const tasks = Alpine.store('app').tasks;
+    tasks.forEach((t, i) => { if (t.status === 'failed') t.status = 'pending'; });
+    callPython('start_merging');
+    showToast('正在重试失败任务...', 'info');
+};
+
 window.cancelMerging = function() {
     callPython('cancel_merging').then(res => {
         if (res && res.status === 'success') {
