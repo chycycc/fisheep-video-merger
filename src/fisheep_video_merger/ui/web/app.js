@@ -469,6 +469,15 @@ window.initDashboardCards = function(tasks) {
     }
 };
 
+// 取消合并（由 Alpine @click 调用）
+window.cancelMerging = function() {
+    callPython('cancel_merging').then(res => {
+        if (res && res.status === 'success') {
+            showToast('正在取消合并...', 'warning');
+        }
+    });
+};
+
 // 选择输出目录（由 Alpine @click 调用）
 window.selectOutputDir = function() {
     callPython('select_output_dir_dialog').then(res => {

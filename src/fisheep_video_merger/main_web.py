@@ -71,6 +71,15 @@ def main():
     # 将 window 句柄反向挂载入桥，以便后台线程主动 evaluate_js 回传进度
     bridge.set_window(window)
 
+    # 窗口关闭处理：保存状态 + 终止 FFmpeg 进程
+    def on_window_closed():
+        logger.info("窗口关闭，正在清理...")
+        bridge.cancel_merging()
+        bridge._save_workspace_state()
+        logger.info("清理完成")
+
+    window.events.closed += on_window_closed
+
     # 6. 运行 webview 主循环
     webview.start(debug=True) # 正常运行不弹出调试器，如需右键审查元素可设为 True
 

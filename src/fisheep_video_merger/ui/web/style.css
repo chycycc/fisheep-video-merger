@@ -64,6 +64,11 @@
     user-select: none; /* 禁止原生桌面拖拽文本选择 */
 }
 
+.hidden {
+    display: none !important;
+}
+}
+
 body {
     font-family: 'Inter', 'Microsoft YaHei', -apple-system, sans-serif;
     background-color: var(--window-bg);

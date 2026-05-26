@@ -45,8 +45,14 @@ class UIBridge:
         self.root_paths: List[str] = []
         self.all_stream_infos: List[StreamInfo] = []
         self.muxed_files: List[StreamInfo] = []
-        
+
         self.tasks: List[MergeTask] = []
+
+        # 合并取消支持
+        self._cancel_event = threading.Event()
+        self._executor: Optional[ThreadPoolExecutor] = None
+        self._futures: List = []
+        self._active_processes: Dict[int, subprocess.Popen] = {}
         self.pending_videos: List[StreamInfo] = []
         self.pending_audios: List[StreamInfo] = []
         
@@ -216,6 +222,30 @@ class UIBridge:
         """获取当前配置参数字典"""
         return self.settings
 
+    def check_ffmpeg_status(self) -> Dict:
+        """检查 FFmpeg/ffprobe 可用性，返回详细状态"""
+        from fisheep_video_merger.utils.ffprobe import check_ffmpeg_available, get_ffprobe_path
+        available = check_ffmpeg_available()
+        path = get_ffprobe_path() if available else ""
+
+        version = ""
+        if available:
+            try:
+                result = subprocess.run(
+                    [path, "-version"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    version = result.stdout.split('\n')[0].strip()
+            except Exception:
+                pass
+
+        return {
+            "available": available,
+            "path": path,
+            "version": version
+        }
+
     def update_theme(self, theme: str) -> Dict:
         """更新界面主题配置并保存"""
         self.settings["theme"] = theme
@@ -364,11 +394,14 @@ class UIBridge:
     def _run_merge_loop(self):
         """执行后台并发合并循环"""
         self.is_merging = True
+        self._cancel_event.clear()
+        self._active_processes.clear()
         concurrency = int(self.settings.get("concurrency", 2))
-        
+
         # 更新前端按钮状态为合并中
         self._evaluate_js_safe("document.getElementById('start-btn').disabled = true")
         self._evaluate_js_safe("document.getElementById('start-btn').textContent = '⚡ 正在合并队列...'")
+        self._evaluate_js_safe("document.getElementById('cancel-btn').classList.remove('hidden')")
 
         # 初始化并渲染底部并发监视面板的卡片
         queue_data = self._get_queue_data()["tasks"]
@@ -386,31 +419,67 @@ class UIBridge:
 
         # 并发执行器
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = []
+            self._executor = executor
+            self._futures = []
             for idx in pending_indexes:
+                if self._cancel_event.is_set():
+                    break
                 task = self.tasks[idx]
                 task.status = "processing"
-                
+
                 # 刷新前端该行显示为进度条态
                 self._evaluate_js_safe(f"window.updateTaskStatus({idx}, 'processing')")
-                
+
                 # 提交给线程池
                 future = executor.submit(self._merge_worker_thread, idx, task)
-                futures.append(future)
+                self._futures.append(future)
 
             # 等待所有任务完成
-            for f in futures:
+            for f in self._futures:
+                if self._cancel_event.is_set():
+                    break
                 f.result()
+            self._executor = None
+            self._futures = []
 
         self.is_merging = False
+        self._active_processes.clear()
         self._save_workspace_state()
-        
+
         # 恢复前端按钮并刷新列表
         state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
         self._evaluate_js_safe(f"handleBackendResponse({state_json})")
         self._evaluate_js_safe("document.getElementById('start-btn').disabled = false")
         self._evaluate_js_safe("document.getElementById('start-btn').textContent = '🚀 开始合并队列'")
-        self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
+        self._evaluate_js_safe("document.getElementById('cancel-btn').classList.add('hidden')")
+
+        if self._cancel_event.is_set():
+            self._evaluate_js_safe("showToast('⚠️ 合并已取消', 'warning')")
+        else:
+            self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
+
+    def cancel_merging(self) -> Dict:
+        """取消所有正在运行的合并任务"""
+        if not self.is_merging:
+            return {"status": "error", "message": "没有正在运行的合并任务"}
+
+        self._cancel_event.set()
+        logger.info("用户取消合并，正在终止所有 FFmpeg 进程...")
+
+        # 终止所有活跃的 FFmpeg 进程
+        for idx, process in list(self._active_processes.items()):
+            try:
+                process.kill()
+                logger.info(f"已终止任务 {idx} 的 FFmpeg 进程")
+            except Exception as e:
+                logger.warning(f"终止任务 {idx} 进程失败: {e}")
+        self._active_processes.clear()
+
+        # 关闭线程池
+        if self._executor:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+
+        return {"status": "success"}
 
     def _merge_worker_thread(self, index: int, task: MergeTask):
         """单个 FFmpeg 任务运行线程，拦截 stderr 进度并发送 evaluate_js"""
@@ -449,13 +518,23 @@ class UIBridge:
 
         try:
             # 调用核心 FFmpeg 单文件合并
+            def on_process_created(process):
+                self._active_processes[index] = process
+
             success, err = merge_single(
                 task.video_file,
                 task.audio_file,
                 output_path,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                process_callback=on_process_created
             )
-            
+
+            # 清理进程引用
+            self._active_processes.pop(index, None)
+
+            if self._cancel_event.is_set():
+                return
+
             if success:
                 task.status = "completed"
                 task.error_message = None

@@ -176,6 +176,7 @@ def _run_ffmpeg_with_progress(
     output_path: str,
     progress_callback: Optional[Callable[[str], None]],
     op_name: str = "合并",
+    process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     在后台运行 ffmpeg 并实时解析输出生成带百分比的进度
@@ -219,6 +220,9 @@ def _run_ffmpeg_with_progress(
             encoding="utf-8",
             errors="replace",
         )
+
+        if process_callback:
+            process_callback(process)
 
         # 缓冲读取 stderr，按 \r 和 \n 分割处理 ffmpeg 进度输出
         buffer = ""
@@ -321,6 +325,7 @@ def remux_single(
     input_file: str,
     output_path: str,
     progress_callback: Optional[Callable[[str], None]] = None,
+    process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     执行单个 muxed 文件的转封装
@@ -344,7 +349,7 @@ def remux_single(
     if progress_callback:
         progress_callback(f"正在准备转封装: {os.path.basename(output_path)}")
 
-    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "转封装")
+    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "转封装", process_callback)
 
 
 def merge_single(
@@ -352,6 +357,7 @@ def merge_single(
     audio_file: str,
     output_path: str,
     progress_callback: Optional[Callable[[str], None]] = None,
+    process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     执行单个合并任务
@@ -376,7 +382,7 @@ def merge_single(
     if progress_callback:
         progress_callback(f"正在准备合并: {os.path.basename(output_path)}")
 
-    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "合并")
+    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "合并", process_callback)
 
 
 import threading

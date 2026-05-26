@@ -330,6 +330,7 @@
 
                     <div class="control-footer">
                         <button id="start-btn" class="btn btn-primary btn-block">🚀 开始合并队列</button>
+                        <button id="cancel-btn" class="btn btn-danger btn-block hidden" @click="cancelMerging()">⏹️ 取消合并</button>
                     </div>
                 </aside>
 
@@ -709,8 +710,23 @@
                     <div class="config-card">
                         <h4>🔧 环境检测</h4>
                         <div class="form-group">
-                            <label>FFmpeg 路径</label>
-                            <div id="settings-ffmpeg-path" class="path-preview-box">检测中...</div>
+                            <label>FFmpeg 状态</label>
+                            <div id="settings-ffmpeg-status" class="path-preview-box" x-data="{ status: null }" x-init="callPython('check_ffmpeg_status').then(s => status = s)">
+                                <template x-if="status === null">
+                                    <span style="color: var(--text-muted);">检测中...</span>
+                                </template>
+                                <template x-if="status !== null">
+                                    <div>
+                                        <div :style="status.available ? 'color: #10B981' : 'color: #EF4444'">
+                                            <span x-text="status.available ? '✅ 可用' : '❌ 不可用'"></span>
+                                        </div>
+                                        <div x-show="status.available" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                            <div x-text="'路径: ' + status.path"></div>
+                                            <div x-text="status.version"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </div>
 
