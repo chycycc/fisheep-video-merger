@@ -361,7 +361,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>目标格式</label>
-                        <select id="convert-format">
+                        <select id="convert-format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
                             <option value="mp4">MP4</option>
                             <option value="mkv">MKV</option>
                             <option value="webm">WebM</option>
@@ -370,7 +370,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>转换模式</label>
-                        <select id="convert-mode">
+                        <select id="convert-mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
                             <option value="copy">快速流复制（无损，秒级）</option>
                             <option value="recode">重编码（兼容性更好）</option>
                         </select>
@@ -429,7 +429,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>音频格式</label>
-                        <select id="extract-format">
+                        <select id="extract-format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
                             <option value="mp3">MP3</option>
                             <option value="aac">AAC</option>
                             <option value="flac">FLAC</option>
@@ -438,7 +438,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>音频码率</label>
-                        <select id="extract-bitrate">
+                        <select id="extract-bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
                             <option value="128k">128 kbps（标准）</option>
                             <option value="192k" selected>192 kbps（高质量）</option>
                             <option value="320k">320 kbps（极高品质）</option>
@@ -498,7 +498,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>压缩预设</label>
-                        <select id="compress-preset">
+                        <select id="compress-preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
                             <option value="high">高质量（CRF 20）</option>
                             <option value="balanced" selected>均衡（CRF 26）</option>
                             <option value="small">极限压缩（CRF 32）</option>
@@ -506,7 +506,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>分辨率缩放</label>
-                        <select id="compress-resolution">
+                        <select id="compress-resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
                             <option value="original" selected>原始分辨率</option>
                             <option value="1080p">缩放到 1080p</option>
                             <option value="720p">缩放到 720p</option>
@@ -597,7 +597,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>裁剪模式</label>
-                        <select id="trim-mode">
+                        <select id="trim-mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
                             <option value="copy">快速裁剪（关键帧对齐，无损）</option>
                             <option value="recode">精确裁剪（重编码，帧级精度）</option>
                         </select>

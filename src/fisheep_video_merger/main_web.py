@@ -57,12 +57,16 @@ def main():
     logger.info(f"正在加载本地网页资源: {url}")
 
     # 5. 拉起高颜值桌面窗口 (Edge WebView2)
+    # 从设置中恢复窗口位置
+    s = bridge.settings
     window = webview.create_window(
         title=f"{__appname__} v{__version__} - 极速美化 WebView2 版 🐑",
         url=url,
         js_api=bridge,
-        width=1100,
-        height=700,
+        width=s.get("window_width", 1100),
+        height=s.get("window_height", 700),
+        x=s.get("window_x"),
+        y=s.get("window_y"),
         min_size=(800, 600),
         resizable=True,
         text_select=True,
@@ -71,9 +75,17 @@ def main():
     # 将 window 句柄反向挂载入桥，以便后台线程主动 evaluate_js 回传进度
     bridge.set_window(window)
 
-    # 窗口关闭处理：保存状态 + 终止 FFmpeg 进程
+    # 窗口关闭处理：保存状态 + 保存窗口位置 + 终止 FFmpeg 进程
     def on_window_closed():
         logger.info("窗口关闭，正在清理...")
+        # 保存窗口位置
+        try:
+            bridge.settings["window_x"] = window.x
+            bridge.settings["window_y"] = window.y
+            bridge.settings["window_width"] = window.width
+            bridge.settings["window_height"] = window.height
+        except Exception:
+            pass
         bridge.cancel_merging()
         bridge._save_workspace_state()
         logger.info("清理完成")

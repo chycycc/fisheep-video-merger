@@ -63,7 +63,26 @@ class UIBridge:
             "delete_allowed": False,
             "theme": "auto",
             "concurrency": 2,
-            "overwrite": True
+            "overwrite": True,
+            # 工具输出目录
+            "tool_output_dirs": {
+                "convert": "",
+                "extract": "",
+                "compress": "",
+                "trim": ""
+            },
+            # 工具设置
+            "tool_settings": {
+                "convert": {"format": "mp4", "mode": "copy"},
+                "extract": {"format": "aac", "bitrate": "192k"},
+                "compress": {"preset": "medium", "resolution": "720p"},
+                "trim": {"mode": "reencode"}
+            },
+            # 窗口位置
+            "window_x": None,
+            "window_y": None,
+            "window_width": 1100,
+            "window_height": 700
         }
         
         # 线程锁
@@ -246,6 +265,20 @@ class UIBridge:
             "version": version
         }
 
+    def update_tool_setting(self, tool: str, key: str, value) -> Dict:
+        """更新工具设置（convert/extract/compress/trim）"""
+        if tool in self.settings.get("tool_settings", {}):
+            self.settings["tool_settings"][tool][key] = value
+            self._save_workspace_state()
+        return {"status": "success"}
+
+    def update_tool_output_dir(self, tool: str, path: str) -> Dict:
+        """更新工具输出目录"""
+        if tool in self.settings.get("tool_output_dirs", {}):
+            self.settings["tool_output_dirs"][tool] = path
+            self._save_workspace_state()
+        return {"status": "success"}
+
     def update_theme(self, theme: str) -> Dict:
         """更新界面主题配置并保存"""
         self.settings["theme"] = theme
@@ -265,14 +298,14 @@ class UIBridge:
         return {"status": "cancelled"}
 
     def select_files_dialog(self) -> Dict:
-        """弹出系统 m4s 文件选择框"""
+        """弹出系统音视频文件选择框"""
         if not self._window:
             return {"status": "error", "message": "Window context not ready"}
-        
+
         result = self._window.create_file_dialog(
             webview.OPEN_DIALOG,
             allow_multiple=True,
-            file_types=('m4s files (*.m4s)', 'All files (*.*)')
+            file_types=('音视频文件 (*.m4s;*.webm;*.mp4;*.ts;*.m4a;*.aac;*.mp3;*.flac)', '所有文件 (*.*)')
         )
         if result and len(result) > 0:
             self._add_files(result)
@@ -359,18 +392,19 @@ class UIBridge:
 
     def on_files_dropped(self, file_paths: List[str]) -> Dict:
         """接收并解析从 OS 拖拽进 Webview 的文件或文件夹"""
+        from fisheep_video_merger.core.scanner import SUPPORTED_EXTENSIONS
         folders = []
-        m4s_files = []
+        media_files = []
         for path in file_paths:
             if os.path.isdir(path):
                 folders.append(path)
-            elif path.lower().endswith(".m4s"):
-                m4s_files.append(path)
+            elif os.path.splitext(path)[1].lower() in SUPPORTED_EXTENSIONS:
+                media_files.append(path)
 
         if folders:
             self._add_folders(folders, is_drag=True)
-        if m4s_files:
-            self._add_files(m4s_files)
+        if media_files:
+            self._add_files(media_files)
 
         return self._get_queue_data()
 
@@ -637,12 +671,13 @@ class UIBridge:
         threading.Thread(target=scan_worker, daemon=True).start()
 
     def _add_files(self, filepaths: List[str]):
-        """单任务添加 m4s 文件分析 (异步后台线程处理，防止卡死 UI)"""
+        """单任务添加音视频文件分析 (异步后台线程处理，防止卡死 UI)"""
+        from fisheep_video_merger.core.scanner import SUPPORTED_EXTENSIONS
         def files_worker():
             try:
                 new_videos, new_audios, new_muxed = [], [], []
                 for fp in filepaths:
-                    if not fp.lower().endswith((".m4s", ".mp4", ".mkv", ".flv", ".mov", ".avi")):
+                    if os.path.splitext(fp)[1].lower() not in SUPPORTED_EXTENSIONS:
                         continue
                     # 去重
                     if any(x.filepath == fp for x in self.all_stream_infos):

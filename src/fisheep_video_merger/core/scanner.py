@@ -1,6 +1,6 @@
 """
 文件扫描模块
-负责递归扫描目录收集 .m4s 文件，并调用 ffprobe 分析流类型
+负责递归扫描目录收集音视频文件，并调用 ffprobe 分析流类型
 """
 
 import os
@@ -12,6 +12,19 @@ from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType, analyze_f
 from fisheep_video_merger.utils.logger import get_logger
 
 logger = get_logger()
+
+# 支持的视频文件扩展名
+SUPPORTED_VIDEO_EXTENSIONS = {'.m4s', '.webm', '.mp4', '.ts', '.flv', '.f4v'}
+# 支持的音频文件扩展名
+SUPPORTED_AUDIO_EXTENSIONS = {'.m4a', '.aac', '.mp3', '.flac', '.wav', '.ogg'}
+# 所有支持的扩展名
+SUPPORTED_EXTENSIONS = SUPPORTED_VIDEO_EXTENSIONS | SUPPORTED_AUDIO_EXTENSIONS
+
+
+def _is_supported_file(filepath: str) -> bool:
+    """检查文件是否为支持的音视频格式"""
+    ext = os.path.splitext(filepath)[1].lower()
+    return ext in SUPPORTED_EXTENSIONS
 
 
 def scan_multiple_directories(
@@ -45,35 +58,35 @@ def scan_multiple_directories(
         
         # 兼容单文件输入模式
         if os.path.isfile(root_path):
-            if root_path.lower().endswith(".m4s"):
+            if _is_supported_file(root_path):
                 dirpath = os.path.dirname(root_path)
                 dir_to_files.setdefault(dirpath, []).append(root_path)
                 flat_files.append(root_path)
             continue
 
         for dirpath, _, filenames in os.walk(root_path):
-            m4s_in_dir = [
+            supported_in_dir = [
                 os.path.join(dirpath, f)
                 for f in filenames
-                if f.lower().endswith(".m4s")
+                if _is_supported_file(os.path.join(dirpath, f))
             ]
-            if m4s_in_dir:
-                dir_to_files.setdefault(dirpath, []).extend(m4s_in_dir)
-                flat_files.extend(m4s_in_dir)
+            if supported_in_dir:
+                dir_to_files.setdefault(dirpath, []).extend(supported_in_dir)
+                flat_files.extend(supported_in_dir)
 
     total_files = len(flat_files)
     if progress_callback:
         progress_callback(0, total_files)
 
     if not flat_files:
-        logger.info("未在给定路径中找到任何 .m4s 缓存文件")
+        logger.info("未在给定路径中找到任何支持的音视频文件")
         # 触发空的回调以防万一
         if dir_finished_callback:
             for root_path in root_paths:
                 dir_finished_callback(root_path, [])
         return []
 
-    logger.info(f"扫描到 {total_files} 个 .m4s 文件，启动扁平并发分析 (max_workers={max_workers})")
+    logger.info(f"扫描到 {total_files} 个音视频文件，启动扁平并发分析 (max_workers={max_workers})")
 
     # 2. 初始化线程同步变量与结果容器
     lock = threading.Lock()
@@ -149,7 +162,7 @@ def scan_directory(
     max_workers: int = 4,
 ) -> List[StreamInfo]:
     """
-    递归扫描目录，收集所有 .m4s 文件并分析流类型 (兼容单目录扫描接口)
+    递归扫描目录，收集所有支持的音视频文件并分析流类型 (兼容单目录扫描接口)
 
     Args:
         root_path: 要扫描的根目录路径

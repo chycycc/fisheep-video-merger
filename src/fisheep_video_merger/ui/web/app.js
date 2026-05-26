@@ -26,6 +26,15 @@ document.addEventListener('alpine:init', () => {
         overwrite: true,
         deleteSource: false,
         outputDir: '',
+        // 工具输出目录
+        toolOutputDirs: { convert: '', extract: '', compress: '', trim: '' },
+        // 工具设置
+        toolSettings: {
+            convert: { format: 'mp4', mode: 'copy' },
+            extract: { format: 'aac', bitrate: '192k' },
+            compress: { preset: 'medium', resolution: '720p' },
+            trim: { mode: 'reencode' }
+        }
     });
 });
 
@@ -513,6 +522,44 @@ function syncSettingsFromPython() {
             store.concurrency = settings.concurrency || 2;
             store.overwrite = !!settings.overwrite;
             store.deleteSource = !!settings.delete_source;
+
+            // 同步工具输出目录
+            if (settings.tool_output_dirs) {
+                Object.assign(store.toolOutputDirs, settings.tool_output_dirs);
+                ['convert', 'extract', 'compress', 'trim'].forEach(tool => {
+                    const el = document.getElementById(`${tool}-output-dir`);
+                    if (el && store.toolOutputDirs[tool]) el.value = store.toolOutputDirs[tool];
+                });
+            }
+
+            // 同步工具设置
+            if (settings.tool_settings) {
+                Object.assign(store.toolSettings, settings.tool_settings);
+                // 恢复到 DOM 元素
+                const ts = settings.tool_settings;
+                if (ts.convert) {
+                    const fmt = document.getElementById('convert-format');
+                    const mode = document.getElementById('convert-mode');
+                    if (fmt) fmt.value = ts.convert.format || 'mp4';
+                    if (mode) mode.value = ts.convert.mode || 'copy';
+                }
+                if (ts.extract) {
+                    const fmt = document.getElementById('extract-format');
+                    const br = document.getElementById('extract-bitrate');
+                    if (fmt) fmt.value = ts.extract.format || 'aac';
+                    if (br) br.value = ts.extract.bitrate || '192k';
+                }
+                if (ts.compress) {
+                    const pre = document.getElementById('compress-preset');
+                    const res = document.getElementById('compress-resolution');
+                    if (pre) pre.value = ts.compress.preset || 'medium';
+                    if (res) res.value = ts.compress.resolution || '720p';
+                }
+                if (ts.trim) {
+                    const mode = document.getElementById('trim-mode');
+                    if (mode) mode.value = ts.trim.mode || 'reencode';
+                }
+            }
 
             // 同步应用从后端载入的界面主题
             if (settings.theme && window.setAppTheme) {
@@ -1310,6 +1357,8 @@ window.selectToolOutputDir = function(tool) {
             if (res && res.output_dir) {
                 const input = document.getElementById(`${tool}-output-dir`);
                 if (input) input.value = res.output_dir;
+                // 持久化到后端
+                callPython('update_tool_output_dir', tool, res.output_dir);
             }
         });
     }
