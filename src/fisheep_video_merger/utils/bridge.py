@@ -16,6 +16,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import webview
 
+# 日志查看器最大显示条数
+MAX_DISPLAYED_LOGS = 200
+
 from fisheep_video_merger.core.matcher import (
     MergeTask,
     MatchResult,
@@ -277,7 +280,7 @@ class UIBridge:
         """获取最近的日志记录"""
         from fisheep_video_merger.utils.logger import get_logs
         logs = get_logs()
-        return {"logs": logs[-200:]}  # 最近 200 条
+        return {"logs": logs[-MAX_DISPLAYED_LOGS:]}
 
     def update_tool_setting(self, tool: str, key: str, value) -> Dict:
         """更新工具设置（convert/extract/compress/trim）"""
@@ -888,29 +891,36 @@ class UIBridge:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
         name = os.path.splitext(os.path.basename(input_file))[0]
         output_path = os.path.join(output_dir, f"{name}.{output_format}")
+        output_path = self._resolve_output_conflict(output_path)
 
-        def progress_callback(txt):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)})")
+        def progress_callback(txt, pct=None, eta=None, speed=None):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)}, {pct or 'null'})")
 
         success, err = convert_single(input_file, output_path, mode, progress_callback)
-        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+        return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
-    def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str, output_dir: str = "") -> Dict:
+    def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str, output_dir: str = "", output_name: str = "") -> Dict:
         """音频提取 API"""
         if not os.path.exists(input_file):
             return {"status": "error", "message": "文件不存在"}
 
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
-        name = os.path.splitext(os.path.basename(input_file))[0]
-        output_path = os.path.join(output_dir, f"{name}.{audio_format}")
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0]
+        # AAC 格式输出为 M4A（MP4 容器记录精确时长，ADTS 容器时长不准）
+        ext = "m4a" if audio_format == "aac" else audio_format
+        output_path = os.path.join(output_dir, f"{name}.{ext}")
+        output_path = self._resolve_output_conflict(output_path)
 
-        def progress_callback(txt):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)})")
+        def progress_callback(txt, pct=None, eta=None, speed=None):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)}, {pct or 'null'})")
 
         try:
             success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, progress_callback)
-            return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
         except Exception as e:
             logger.error(f"提取音频异常: {e}")
             return {"status": "error", "message": str(e)}
@@ -925,12 +935,13 @@ class UIBridge:
         name = os.path.splitext(os.path.basename(input_file))[0]
         ext = os.path.splitext(input_file)[1]
         output_path = os.path.join(output_dir, f"{name}_compressed{ext}")
+        output_path = self._resolve_output_conflict(output_path)
 
-        def progress_callback(txt):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)})")
+        def progress_callback(txt, pct=None, eta=None, speed=None):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)}, {pct or 'null'})")
 
         success, err = compress_video_fn(input_file, output_path, preset, resolution, progress_callback)
-        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+        return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str, output_dir: str = "") -> Dict:
         """视频裁剪 API"""
@@ -942,12 +953,24 @@ class UIBridge:
         name = os.path.splitext(os.path.basename(input_file))[0]
         ext = os.path.splitext(input_file)[1]
         output_path = os.path.join(output_dir, f"{name}_trimmed{ext}")
+        output_path = self._resolve_output_conflict(output_path)
 
-        def progress_callback(txt):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)})")
+        def progress_callback(txt, pct=None, eta=None, speed=None):
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)}, {pct or 'null'})")
 
         success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
-        return {"status": "success" if success else "error", "output_path": output_path, "error": err}
+        return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+
+    def _resolve_output_conflict(self, output_path: str) -> str:
+        """检查输出文件是否存在，若存在则自动重命名避免覆盖"""
+        if not os.path.exists(output_path):
+            return output_path
+        base, ext = os.path.splitext(output_path)
+        for i in range(1, 10000):
+            new_path = f"{base}_{i}{ext}"
+            if not os.path.exists(new_path):
+                return new_path
+        return output_path
 
     def _evaluate_js_safe(self, code: str):
         """线程安全地在 Webview window 中执行 JS"""

@@ -14,6 +14,21 @@ from fisheep_video_merger.utils.logger import get_logger
 
 logger = get_logger()
 
+# 进度回调节流间隔（秒）
+PROGRESS_THROTTLE_SECONDS = 0.3
+# 进度显示最大百分比
+MAX_DISPLAY_PERCENT = 99.9
+# stderr 读取缓冲大小（字节）
+STDERR_CHUNK_SIZE = 4096
+# 进程退出等待超时（秒）
+FFMPEG_WAIT_TIMEOUT = 30
+# 强制终止后等待超时（秒）
+FFMPEG_KILL_TIMEOUT = 10
+# 错误信息尾部保留行数
+ERROR_TAIL_LINES = 5
+# 错误信息最大长度（字符）
+MAX_ERROR_LENGTH = 500
+
 # FFmpeg 路径缓存
 _ffmpeg_path: Optional[str] = None
 
@@ -81,7 +96,7 @@ def run_ffmpeg(
         # 缓冲读取 stderr，按 \r 和 \n 分割
         buffer = ""
         while True:
-            chunk = process.stderr.read(4096)
+            chunk = process.stderr.read(STDERR_CHUNK_SIZE)
             if not chunk:
                 break
             buffer += chunk
@@ -118,14 +133,14 @@ def run_ffmpeg(
                     t_match = time_regex.search(line)
                     if t_match:
                         curr = to_seconds(t_match)
-                        pct = min(99.9, (curr / total_seconds) * 100.0)
+                        pct = min(MAX_DISPLAY_PERCENT, (curr / total_seconds) * 100.0)
                         now = time.time()
 
                         elapsed = now - start_time
                         speed_mult = (curr / elapsed) if elapsed > 0 else 1.0
                         eta_sec = max(0.0, total_seconds - curr) / speed_mult if speed_mult > 0 else 0.0
 
-                        if (now - last_emit_time >= 0.3) or pct >= 99.9:
+                        if (now - last_emit_time >= PROGRESS_THROTTLE_SECONDS) or pct >= MAX_DISPLAY_PERCENT:
                             if progress_callback:
                                 txt = f"正在{op_name}: {filename} ({pct:.1f}%)"
                                 try:
@@ -142,20 +157,20 @@ def run_ffmpeg(
             full_stderr.append(buffer.strip())
 
         # 等待进程退出
-        process.wait(timeout=30)
+        process.wait(timeout=FFMPEG_WAIT_TIMEOUT)
 
         if process.returncode == 0:
             logger.info(f"{op_name}成功: {output_path}")
             return True, None
         else:
-            tail = "\n".join(full_stderr[-5:])
+            tail = "\n".join(full_stderr[-ERROR_TAIL_LINES:])
             logger.error(f"{op_name}失败: {output_path}\n{tail}")
-            return False, tail[:500]
+            return False, tail[:MAX_ERROR_LENGTH]
 
     except subprocess.TimeoutExpired:
         try:
             process.kill()
-            process.wait(timeout=10)
+            process.wait(timeout=FFMPEG_KILL_TIMEOUT)
         except Exception:
             pass
         return False, f"ffmpeg {op_name}超时"
@@ -163,7 +178,7 @@ def run_ffmpeg(
         logger.error(f"{op_name}执行异常: {e}")
         try:
             process.kill()
-            process.wait(timeout=10)
+            process.wait(timeout=FFMPEG_KILL_TIMEOUT)
         except Exception:
             pass
         return False, str(e)

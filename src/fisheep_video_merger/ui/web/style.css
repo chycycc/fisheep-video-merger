@@ -61,7 +61,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    user-select: none; /* 禁止原生桌面拖拽文本选择 */
+    user-select: auto;
 }
 
 .hidden {
@@ -1214,6 +1214,42 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     user-select: text;
     -webkit-user-select: text;
     cursor: text;
+}
+
+/* 工具进度条 */
+.tool-progress-bar {
+    width: 100%;
+    height: 18px;
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    position: relative;
+    background-color: transparent;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tool-progress-chunk {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(59, 130, 246, 0.18);
+    transition: width 0.3s linear;
+    z-index: 0;
+}
+
+[data-theme="light"] .tool-progress-chunk {
+    background-color: rgba(37, 99, 235, 0.15);
+}
+
+.tool-progress-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-color);
+    position: relative;
+    z-index: 1;
 }
 
 /* 拖拽悬浮效果 */

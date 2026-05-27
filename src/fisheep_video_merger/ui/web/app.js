@@ -4,7 +4,7 @@
    ==================================================================== */
 
 // 右键菜单模式：'custom' = 自定义菜单, 'native' = 系统原生菜单
-let contextMenuMode = localStorage.getItem('contextMenuMode') || 'custom';
+let contextMenuMode = 'native';
 
 // Alpine.js 响应式状态（在 alpine:init 事件中注册，早于 DOM 处理）
 document.addEventListener('alpine:init', () => {
@@ -650,7 +650,6 @@ function handleBackendResponse(res) {
 
     if (res.muxed) {
         store.muxed = res.muxed;
-        renderMuxed(res.muxed);
     }
 }
 
@@ -1020,13 +1019,18 @@ function bindRowSelectionListeners() {
 const toolFiles = { convert: [], extract: [], compress: [], trim: [] };
 
 // 工具进度回调（由 Python 通过 evaluate_js 调用）
-window.updateToolProgress = function(tool, text) {
+window.updateToolProgress = function(tool, text, pct) {
     const tbody = document.getElementById(`${tool}-tbody`);
     if (!tbody) return;
     const progressRow = tbody.querySelector('.tool-processing');
-    if (progressRow) {
-        const statusCell = progressRow.querySelector('.tool-status');
-        if (statusCell) statusCell.textContent = text;
+    if (!progressRow) return;
+    const statusCell = progressRow.querySelector('.tool-status');
+    if (!statusCell) return;
+    if (pct != null && pct > 0) {
+        const pctVal = Math.min(99.9, pct);
+        statusCell.innerHTML = `<div class="tool-progress-bar"><div class="tool-progress-chunk" style="width:${pctVal}%"></div><span class="tool-progress-text">${pctVal.toFixed(1)}%</span></div>`;
+    } else {
+        statusCell.textContent = text;
     }
 };
 
@@ -1454,8 +1458,14 @@ function initToolStartButtons() {
             const format = document.getElementById('extract-format').value;
             const bitrate = document.getElementById('extract-bitrate').value;
             const outputDir = document.getElementById('extract-output-dir')?.value || '';
+            const outputName = document.getElementById('extract-output-name')?.value?.trim() || '';
+            const checkedCount = document.querySelectorAll('#extract-tbody .tool-row-cb:checked').length;
+            const totalCount = toolFiles.extract.length;
+            const selCount = checkedCount || totalCount;
+            // 仅单文件时使用自定义文件名，多文件时自动用源文件名
+            const nameForBatch = selCount === 1 ? outputName : '';
             runToolTask('extract', (file) => {
-                return window.pywebview.api.extract_audio_api(file.filepath, format, bitrate, outputDir);
+                return window.pywebview.api.extract_audio_api(file.filepath, format, bitrate, outputDir, nameForBatch);
             });
         });
     }
