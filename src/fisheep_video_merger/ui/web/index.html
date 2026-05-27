@@ -265,6 +265,21 @@
                                 style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
                     </div>
 
+                    <!-- 视频预览面板 -->
+                    <div id="video-preview" class="video-preview" style="display: none;">
+                        <div class="preview-screenshot">
+                            <img id="preview-img" src="" alt="视频截图">
+                        </div>
+                        <div class="preview-info">
+                            <div class="preview-info-row"><span class="preview-label">分辨率</span><span id="preview-resolution">-</span></div>
+                            <div class="preview-info-row"><span class="preview-label">视频编码</span><span id="preview-vcodec">-</span></div>
+                            <div class="preview-info-row"><span class="preview-label">音频编码</span><span id="preview-acodec">-</span></div>
+                            <div class="preview-info-row"><span class="preview-label">码率</span><span id="preview-bitrate">-</span></div>
+                            <div class="preview-info-row"><span class="preview-label">时长</span><span id="preview-duration">-</span></div>
+                            <div class="preview-info-row"><span class="preview-label">帧率</span><span id="preview-fps">-</span></div>
+                        </div>
+                    </div>
+
                     <div class="config-sections">
                         <div class="config-card">
                             <h4>📂 输出设置</h4>

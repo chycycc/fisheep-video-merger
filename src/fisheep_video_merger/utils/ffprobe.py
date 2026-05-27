@@ -4,10 +4,13 @@ ffprobe 封装模块
 """
 
 import json
+import os
 import subprocess
+import tempfile
 import threading
 from enum import Enum
 from dataclasses import dataclass
+from typing import Optional
 from typing import Optional
 
 
@@ -178,3 +181,84 @@ def analyze_file(filepath: str) -> StreamInfo:
             has_audio=False,
             error=str(e),
         )
+
+
+@dataclass
+class VideoDetail:
+    """视频详细信息"""
+    filepath: str
+    width: int = 0
+    height: int = 0
+    video_codec: str = ""
+    audio_codec: str = ""
+    bitrate: int = 0
+    duration: float = 0.0
+    fps: float = 0.0
+    error: Optional[str] = None
+
+
+def get_video_detail(filepath: str) -> VideoDetail:
+    """获取视频详细信息（分辨率/编码/码率/时长/帧率）"""
+    try:
+        probe = get_ffprobe_path()
+        if not probe:
+            return VideoDetail(filepath=filepath, error="未检测到 ffprobe")
+
+        if probe == "ffprobe":
+            cmd = [probe, "-v", "quiet", "-print_format", "json",
+                   "-show_format", "-show_streams", filepath]
+        else:
+            cmd = [probe, "-v", "quiet", "-print_format", "json",
+                   "-show_format", "-show_streams", "-i", filepath]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=True)
+        data = json.loads(result.stdout)
+
+        fmt = data.get("format", {})
+        streams = data.get("streams", [])
+
+        detail = VideoDetail(filepath=filepath)
+        detail.duration = float(fmt.get("duration", 0))
+        detail.bitrate = int(fmt.get("bit_rate", 0))
+
+        for s in streams:
+            if s.get("codec_type") == "video" and not detail.width:
+                detail.width = s.get("width", 0)
+                detail.height = s.get("height", 0)
+                detail.video_codec = s.get("codec_name", "")
+                # 解析帧率 r_frame_rate = "30/1" 形式
+                rfr = s.get("r_frame_rate", "0/1")
+                try:
+                    num, den = rfr.split("/")
+                    detail.fps = float(num) / float(den) if float(den) > 0 else 0
+                except (ValueError, ZeroDivisionError):
+                    pass
+            elif s.get("codec_type") == "audio" and not detail.audio_codec:
+                detail.audio_codec = s.get("codec_name", "")
+
+        return detail
+
+    except Exception as e:
+        return VideoDetail(filepath=filepath, error=str(e))
+
+
+def extract_screenshot(filepath: str) -> Optional[str]:
+    """
+    用 FFmpeg 截取视频第一帧，返回 PNG 临时文件路径
+    调用方负责清理临时文件
+    """
+    try:
+        from fisheep_video_merger.core.ffmpeg_runner import get_ffmpeg_path
+        ffmpeg = get_ffmpeg_path()
+        fd, tmp_path = tempfile.mkstemp(suffix=".png")
+        os.close(fd)
+        cmd = [ffmpeg, "-i", filepath, "-vframes", "1", "-y", tmp_path]
+        result = subprocess.run(cmd, capture_output=True, timeout=10)
+        if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
+            return tmp_path
+        # 截图失败，清理临时文件
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+    except Exception:
+        pass
+    return None

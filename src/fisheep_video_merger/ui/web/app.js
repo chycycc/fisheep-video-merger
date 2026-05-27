@@ -358,7 +358,7 @@ function callPython(methodName, ...args) {
 // renderQueue: Alpine x-for 自动渲染，此函数保留兼容
 // renderQueue: Alpine x-for 自动渲染
 
-// A2. 单击列表行，更新右侧的预计输出路径预览
+// A2. 单击列表行，更新右侧的预计输出路径预览 + 视频预览
 window.selectQueueRow = function(index, event) {
     if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
         return;
@@ -368,6 +368,39 @@ window.selectQueueRow = function(index, event) {
     Alpine.store('app').selectedTaskIndex = index;
 
     window.updatePathPreview();
+    window.loadVideoPreview(index);
+};
+
+// 加载视频预览（截图 + 元数据）
+window._previewDebounce = null;
+window.loadVideoPreview = function(index) {
+    clearTimeout(window._previewDebounce);
+    window._previewDebounce = setTimeout(() => {
+        const tasks = Alpine.store('app').tasks;
+        const task = tasks[index];
+        if (!task) return;
+        // 优先用 video_file，其次 audio_file
+        const filepath = task.video_file || task.audio_file;
+        if (!filepath) return;
+
+        const panel = document.getElementById('video-preview');
+        if (panel) panel.style.display = 'block';
+
+        callPython('get_video_preview', filepath).then(res => {
+            if (!res || res.status !== 'success') return;
+            const img = document.getElementById('preview-img');
+            if (img && res.screenshot) {
+                img.src = `data:image/png;base64,${res.screenshot}`;
+            }
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '-'; };
+            set('preview-resolution', res.resolution);
+            set('preview-vcodec', res.video_codec);
+            set('preview-acodec', res.audio_codec);
+            set('preview-bitrate', res.bitrate);
+            set('preview-duration', res.duration);
+            set('preview-fps', res.fps ? res.fps + ' fps' : '-');
+        });
+    }, 200);
 };
 
 window.updatePathPreview = function() {

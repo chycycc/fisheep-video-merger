@@ -961,6 +961,47 @@ class UIBridge:
         success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
+    def get_video_preview(self, filepath: str) -> Dict:
+        """获取视频预览信息（截图 + 元数据）"""
+        import base64
+        from fisheep_video_merger.utils.ffprobe import get_video_detail, extract_screenshot
+
+        if not os.path.exists(filepath):
+            return {"status": "error", "message": "文件不存在"}
+
+        detail = get_video_detail(filepath)
+        screenshot_b64 = None
+        tmp_path = extract_screenshot(filepath)
+        if tmp_path:
+            try:
+                with open(tmp_path, "rb") as f:
+                    screenshot_b64 = base64.b64encode(f.read()).decode("ascii")
+            except Exception:
+                pass
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+        # 格式化码率和时长
+        bitrate_str = f"{detail.bitrate // 1000} kbps" if detail.bitrate > 0 else "未知"
+        dur_m, dur_s = divmod(int(detail.duration), 60)
+        dur_str = f"{dur_m:02d}:{dur_s:02d}" if detail.duration > 0 else "未知"
+        resolution = f"{detail.width}x{detail.height}" if detail.width else "未知"
+
+        return {
+            "status": "success",
+            "screenshot": screenshot_b64,
+            "resolution": resolution,
+            "video_codec": detail.video_codec or "未知",
+            "audio_codec": detail.audio_codec or "未知",
+            "bitrate": bitrate_str,
+            "duration": dur_str,
+            "fps": f"{detail.fps:.0f}" if detail.fps > 0 else "未知",
+            "error": detail.error,
+        }
+
     def _resolve_output_conflict(self, output_path: str) -> str:
         """检查输出文件是否存在，若存在则自动重命名避免覆盖"""
         if not os.path.exists(output_path):

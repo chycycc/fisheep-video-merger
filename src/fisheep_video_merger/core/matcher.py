@@ -3,6 +3,7 @@
 负责自动配对和手动配对逻辑
 """
 
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -12,6 +13,63 @@ from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
 
 logger = get_logger()
+
+
+def read_bilibili_meta(source_dir: str) -> Optional[dict]:
+    """
+    读取 B站缓存目录的 entry.json 元数据
+    向上查找最多 3 级目录
+    """
+    for _ in range(3):
+        entry_path = os.path.join(source_dir, "entry.json")
+        if os.path.isfile(entry_path):
+            try:
+                with open(entry_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
+        parent = os.path.dirname(source_dir)
+        if parent == source_dir:
+            break
+        source_dir = parent
+    return None
+
+
+def suggest_output_name(video_filepath: str, source_dir: str, root_path: str) -> str:
+    """
+    智能生成输出文件名
+    优先级：B站 entry.json > 父目录名 > 文件名
+    """
+    # 1. 尝试读取 B站元数据
+    meta = read_bilibili_meta(source_dir)
+    if meta:
+        series_title = meta.get("title", "")
+        ep_info = meta.get("ep", {})
+        ep_index = ep_info.get("index", "")
+        ep_title = ep_info.get("index_title", "")
+
+        if series_title:
+            # 清理标题中的非法文件名字符
+            series_title = re.sub(r'[\\/:*?"<>|]', "", series_title).strip()
+            if ep_index:
+                return f"{series_title}_{int(ep_index):02d}"
+            elif ep_title:
+                ep_title = re.sub(r'[\\/:*?"<>|]', "", ep_title).strip()
+                return f"{series_title}_{ep_title}"
+            else:
+                return series_title
+
+    # 2. 从父目录名提取系列名
+    parent_name = os.path.basename(source_dir)
+    # 如果父目录是纯数字（如 B站的 80/82 目录），尝试用更上层目录
+    if re.match(r"^\d+$", parent_name):
+        grandparent = os.path.dirname(source_dir)
+        gp_name = os.path.basename(grandparent)
+        if gp_name and not re.match(r"^\d+$", gp_name) and gp_name != os.path.basename(root_path):
+            parent_name = gp_name
+
+    # 3. 使用文件名（现有逻辑）
+    return normalize_episode_name(video_filepath)
 
 # 中文数字映射
 _CN_NUM_MAP = {
@@ -301,10 +359,10 @@ class DirectoryMatchStrategy(MatchStrategy):
             root_path = _find_root_for_file(dirpath, root_paths)
 
             if len(v_list) == 1 and len(a_list) == 1:
-                # 单对单：智能提取集数信息作为输出名
+                # 单对单：智能提取系列名+集数作为输出名
                 v = v_list[0]
                 a = a_list[0]
-                output_name = normalize_episode_name(v.filepath)
+                output_name = suggest_output_name(v.filepath, dirpath, root_path)
                 task = MergeTask(
                     output_name=output_name,
                     video_file=v.filepath,
@@ -422,13 +480,15 @@ class CleanStemMatchStrategy(MatchStrategy):
                 if len(candidates) == 1:
                     a = candidates[0]
                     if a.filepath not in matched_audio_paths:
-                        out_name = normalize_episode_name(v.filepath)
+                        src_dir = os.path.dirname(v.filepath)
+                        rp = _find_root_for_file(v.filepath, root_paths)
+                        out_name = suggest_output_name(v.filepath, src_dir, rp)
                         task = MergeTask(
                             output_name=out_name,
                             video_file=v.filepath,
                             audio_file=a.filepath,
-                            source_dir=os.path.dirname(v.filepath),
-                            root_path=_find_root_for_file(v.filepath, root_paths),
+                            source_dir=src_dir,
+                            root_path=rp,
                         )
                         result.auto_tasks.append(task)
                         matched_video_paths.add(v.filepath)
@@ -481,13 +541,15 @@ class EpisodeInterlockStrategy(MatchStrategy):
                     v = vs[0]
                     a = as_[0]
                     if a.filepath not in matched_audio_paths:
-                        out_name = normalize_episode_name(v.filepath)
+                        src_dir = os.path.dirname(v.filepath)
+                        rp = _find_root_for_file(v.filepath, root_paths)
+                        out_name = suggest_output_name(v.filepath, src_dir, rp)
                         task = MergeTask(
                             output_name=out_name,
                             video_file=v.filepath,
                             audio_file=a.filepath,
-                            source_dir=os.path.dirname(v.filepath),
-                            root_path=_find_root_for_file(v.filepath, root_paths),
+                            source_dir=src_dir,
+                            root_path=rp,
                         )
                         result.auto_tasks.append(task)
                         matched_video_paths.add(v.filepath)
