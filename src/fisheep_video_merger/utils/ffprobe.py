@@ -89,42 +89,15 @@ def analyze_file(filepath: str) -> StreamInfo:
         StreamInfo 对象，包含流类型分析结果
     """
     try:
-        probe = get_ffprobe_path()
-        if not probe:
+        data = _probe_file(filepath)
+        if data is None:
             return StreamInfo(
                 filepath=filepath,
                 stream_type=StreamType.UNKNOWN,
                 has_video=False,
                 has_audio=False,
-                error="未检测到 ffmpeg/ffprobe",
+                error="ffprobe 调用失败",
             )
-
-        # ffprobe 和 ffmpeg 的参数格式不同
-        if probe == "ffprobe":
-            cmd = [
-                probe,
-                "-v", "quiet",
-                "-print_format", "json",
-                "-show_streams",
-                filepath,
-            ]
-        else:
-            # ffmpeg 需要 -i 指定输入
-            cmd = [
-                probe,
-                "-v", "quiet",
-                "-print_format", "json",
-                "-show_streams",
-                "-i", filepath,
-            ]
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            timeout=30,
-        )
-        data = json.loads(result.stdout)
         streams = data.get("streams", [])
 
         has_video = any(s.get("codec_type") == "video" for s in streams)
@@ -196,22 +169,31 @@ class VideoDetail:
     error: Optional[str] = None
 
 
+def _probe_file(filepath: str, extra_args: list = None) -> Optional[dict]:
+    """通用 ffprobe 调用，返回解析后的 JSON 或 None"""
+    probe = get_ffprobe_path()
+    if not probe:
+        return None
+    if probe == "ffprobe":
+        cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams"]
+    else:
+        cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams", "-i"]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.append(filepath)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=True)
+        return json.loads(result.stdout)
+    except (subprocess.CalledProcessError, json.JSONDecodeError, subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
 def get_video_detail(filepath: str) -> VideoDetail:
     """获取视频详细信息（分辨率/编码/码率/时长/帧率）"""
     try:
-        probe = get_ffprobe_path()
-        if not probe:
-            return VideoDetail(filepath=filepath, error="未检测到 ffprobe")
-
-        if probe == "ffprobe":
-            cmd = [probe, "-v", "quiet", "-print_format", "json",
-                   "-show_format", "-show_streams", filepath]
-        else:
-            cmd = [probe, "-v", "quiet", "-print_format", "json",
-                   "-show_format", "-show_streams", "-i", filepath]
-
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=True)
-        data = json.loads(result.stdout)
+        data = _probe_file(filepath, extra_args=["-show_format"])
+        if data is None:
+            return VideoDetail(filepath=filepath, error="ffprobe 调用失败")
 
         fmt = data.get("format", {})
         streams = data.get("streams", [])

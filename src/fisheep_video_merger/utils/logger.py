@@ -5,32 +5,37 @@
 
 import logging
 import os
+import threading
 from datetime import datetime
 from typing import Optional
 
 
 class MemoryLogHandler(logging.Handler):
-    """内存日志处理器，将日志保存在内存列表中"""
+    """内存日志处理器，将日志保存在内存列表中（线程安全）"""
 
     def __init__(self, max_records: int = 1000):
         super().__init__()
         self.max_records = max_records
         self.records: list[str] = []
+        self._lock = threading.Lock()
 
     def emit(self, record: logging.LogRecord) -> None:
         """添加日志记录"""
         msg = self.format(record)
-        self.records.append(msg)
-        if len(self.records) > self.max_records:
-            self.records.pop(0)
+        with self._lock:
+            self.records.append(msg)
+            if len(self.records) > self.max_records:
+                self.records.pop(0)
 
     def get_all(self) -> list[str]:
         """获取所有日志记录"""
-        return list(self.records)
+        with self._lock:
+            return list(self.records)
 
     def clear(self) -> None:
         """清空日志"""
-        self.records.clear()
+        with self._lock:
+            self.records.clear()
 
 
 _logger: Optional[logging.Logger] = None

@@ -7,7 +7,6 @@ import os
 from typing import Callable, Optional
 
 from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path
-from fisheep_video_merger.utils.ffprobe import analyze_file
 from fisheep_video_merger.utils.logger import get_logger
 
 logger = get_logger()
@@ -15,13 +14,12 @@ logger = get_logger()
 
 # 格式到编码器的映射
 _FORMAT_CODEC = {
-    "mp3": "libmp3lame",
     "aac": "aac",
     "flac": "flac",
     "wav": "pcm_s16le",
 }
 
-# 支持码率设置的格式（AAC 走独立路径，不在此列）
+# 支持码率设置的格式
 _BITRATE_FORMATS = {"mp3"}
 
 
@@ -39,7 +37,7 @@ def extract_audio(
         input_file: 输入文件路径
         output_path: 输出文件路径
         audio_format: 输出格式（mp3/aac/flac/wav）
-        bitrate: 音频码率（仅 mp3/aac 有效）
+        bitrate: 音频码率（仅 mp3 有效）
         progress_callback: 进度回调
 
     Returns:
@@ -49,40 +47,16 @@ def extract_audio(
     if err:
         return False, err
 
-    # 检查文件是否包含音频流
-    try:
-        info = analyze_file(input_file)
-        if not info.has_audio:
-            return False, "该文件不包含音频流，无法提取音频"
-    except Exception:
-        pass
+    cmd = [get_ffmpeg_path(), "-i", input_file, "-vn"]
 
-    codec = _FORMAT_CODEC.get(audio_format, "aac")
-
-    # AAC 格式：先提取为临时 AAC，再转封装到 M4A（MP4 容器记录精确时长）
-    # ADTS 容器的 duration 是按 bitrate 估算的，不准确
+    # AAC 格式：直接输出到 M4A 容器（MP4 容器记录精确时长，ADTS 不准）
     if audio_format == "aac":
-        import tempfile
-        tmp_fd, tmp_aac = tempfile.mkstemp(suffix=".aac")
-        os.close(tmp_fd)
-        try:
-            cmd_tmp = [get_ffmpeg_path(), "-i", input_file, "-vn",
-                       "-c:a", "aac", "-b:a", bitrate, "-y", tmp_aac]
-            success, err = run_ffmpeg(cmd_tmp, tmp_aac, progress_callback, "提取")
-            if not success:
-                return False, err
-            # 转封装到 M4A，容器会记录精确时长
-            cmd_m4a = [get_ffmpeg_path(), "-i", tmp_aac, "-c", "copy", "-y", output_path]
-            return run_ffmpeg(cmd_m4a, output_path, None, "转封装")
-        finally:
-            if os.path.exists(tmp_aac):
-                os.remove(tmp_aac)
-
-    cmd = [get_ffmpeg_path(), "-i", input_file, "-vn", "-c:a", codec]
-
-    # mp3 支持码率设置
-    if audio_format in _BITRATE_FORMATS:
-        cmd.extend(["-b:a", bitrate])
+        cmd.extend(["-c:a", "aac", "-b:a", bitrate, "-f", "mp4"])
+    else:
+        codec = _FORMAT_CODEC.get(audio_format, "aac")
+        cmd.extend(["-c:a", codec])
+        if audio_format in _BITRATE_FORMATS:
+            cmd.extend(["-b:a", bitrate])
 
     cmd.extend(["-y", output_path])
 

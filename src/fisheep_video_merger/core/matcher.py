@@ -130,64 +130,55 @@ def _parse_chinese_number(text: str) -> Optional[int]:
     return total if total > 0 else None
 
 
-# 声明式集数匹配与清理配置
-# 元组格式: (匹配模式正则, 提取处理器函数, 清理模式正则, 正则标志)
-EPISODE_PATTERNS: List[Tuple[str, Callable[[re.Match], Optional[int]], str, int]] = [
+# 声明式集数匹配与清理配置（正则已预编译）
+# 元组格式: (编译后的匹配正则, 提取处理器函数, 编译后的清理正则)
+_EPISODE_PATTERNS: List[Tuple[re.Pattern, Callable[[re.Match], Optional[int]], re.Pattern]] = [
     # 模式1: 第\d+集 / 第X集（支持 集/话/篇/幕/次/期/回/P）
     (
-        r"第\s*(\d+)\s*[集话篇幕次期回P]",
+        re.compile(r"第\s*(\d+)\s*[集话篇幕次期回P]", re.IGNORECASE),
         lambda m: int(m.group(1)),
-        r"第\s*\d+\s*[集话篇幕次期回P]",
-        re.IGNORECASE
+        re.compile(r"第\s*\d+\s*[集话篇幕次期回P]", re.IGNORECASE),
     ),
     (
-        r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期回]",
+        re.compile(r"第\s*([零一二两三四五六七八九十百千]+)\s*[集话篇幕次期回]"),
         lambda m: _parse_chinese_number(m.group(1)),
-        r"第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期回]",
-        0
+        re.compile(r"第\s*[零一二两三四五六七八九十百千]+\s*[集话篇幕次期回]"),
     ),
     # 模式2: EP\d+ / Part\d+ / P\d+
     (
-        r"(?:EP|Ep|ep|Part|part|P|p)\s*(\d+)",
+        re.compile(r"(?:EP|Ep|ep|Part|part|P|p)\s*(\d+)", re.IGNORECASE),
         lambda m: int(m.group(1)),
-        r"(?:EP|Ep|ep|Part|part|P|p)\s*\d+",
-        re.IGNORECASE
+        re.compile(r"(?:EP|Ep|ep|Part|part|P|p)\s*\d+", re.IGNORECASE),
     ),
     # 模式3: E\d+（单独的 E 后跟数字，但不是单词的一部分）
     (
-        r"(?<![a-zA-Z])E\s*(\d+)",
+        re.compile(r"(?<![a-zA-Z])E\s*(\d+)", re.IGNORECASE),
         lambda m: int(m.group(1)),
-        r"(?<![a-zA-Z])E\s*\d+",
-        re.IGNORECASE
+        re.compile(r"(?<![a-zA-Z])E\s*\d+", re.IGNORECASE),
     ),
     # 模式4: #\d+
     (
-        r"#\s*(\d+)",
+        re.compile(r"#\s*(\d+)"),
         lambda m: int(m.group(1)),
-        r"#\s*\d+",
-        0
+        re.compile(r"#\s*\d+"),
     ),
     # 模式5: 各种括弧包裹的数字，如 (03)、[3]、【03】
     (
-        r"[\(\[【]\s*(\d+)\s*[\)\]】]",
+        re.compile(r"[\(\[【]\s*(\d+)\s*[\)\]】]"),
         lambda m: int(m.group(1)),
-        r"[\(\[【]\s*\d+\s*[\)\]】]",
-        0
+        re.compile(r"[\(\[【]\s*\d+\s*[\)\]】]"),
     ),
     # 模式6: 前缀数字模式，常用于 "01. 这是一个视频.m4s"
-    # 限制1-4位数，避免匹配到分辨率等大数字（如 "1080 xxx"）
     (
-        r"^(\d{1,4})[\s._-]+",
+        re.compile(r"^(\d{1,4})[\s._-]+"),
         lambda m: int(m.group(1)),
-        r"^[\s._-]*\d+[\s._-]+",
-        0
+        re.compile(r"^[\s._-]*\d+[\s._-]+"),
     ),
     # 模式7: 文件名末尾或倒数第二部分为纯数字（至少2位，避免误判）
     (
-        r"[-_\s]+(\d{2,})$",
+        re.compile(r"[-_\s]+(\d{2,})$"),
         lambda m: int(m.group(1)),
-        r"[-_\s]+\d{2,}$",
-        0
+        re.compile(r"[-_\s]+\d{2,}$"),
     ),
 ]
 
@@ -214,8 +205,8 @@ def extract_episode_number(filename: str) -> Optional[int]:
         集数（从 1 开始），如果未找到则返回 None
     """
     name, _ = os.path.splitext(filename)
-    for pattern, processor, _, flags in EPISODE_PATTERNS:
-        m = re.search(pattern, name, flags)
+    for pattern, processor, _ in _EPISODE_PATTERNS:
+        m = pattern.search(name)
         if m:
             val = processor(m)
             if val is not None:
@@ -243,8 +234,8 @@ def normalize_episode_name(video_filename: str) -> str:
     if ep is not None:
         # 顺序执行清理，从原始名称中移除集数信息后作为前缀
         clean = name_without_ext
-        for _, _, clean_pat, flags in EPISODE_PATTERNS:
-            clean = re.sub(clean_pat, "", clean, flags=flags)
+        for _, _, clean_pat in _EPISODE_PATTERNS:
+            clean = clean_pat.sub("", clean)
         clean = clean.strip("-_ .")
 
         # 如果清理后非空，用清理后的前缀 + 集数

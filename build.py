@@ -52,8 +52,7 @@ def build_app():
     
     print(f"[Command] Running: {' '.join(cmd)}")
     
-    # 使用 shell=True 执行打包
-    result = subprocess.run(" ".join(cmd), shell=True)
+    result = subprocess.run(cmd)
     if result.returncode == 0:
         print("\n[Success] Build completed successfully!")
         exe_path = os.path.join("dist", "FisheepVideoMerger.exe")

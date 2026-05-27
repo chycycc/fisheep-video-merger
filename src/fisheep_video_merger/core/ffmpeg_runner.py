@@ -82,7 +82,7 @@ def run_ffmpeg(
     try:
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             shell=False,
             text=True,

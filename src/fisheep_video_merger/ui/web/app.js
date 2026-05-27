@@ -626,7 +626,7 @@ function syncSettingsFromPython() {
             store.outputFormat = settings.output_format || 'mp4';
             store.concurrency = settings.concurrency || 2;
             store.overwrite = !!settings.overwrite;
-            store.deleteSource = !!settings.delete_source;
+            store.deleteSource = !!settings.delete_allowed;
 
             // 同步工具输出目录
             if (settings.tool_output_dirs) {

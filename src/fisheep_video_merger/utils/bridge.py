@@ -12,7 +12,12 @@ import logging
 import threading
 import subprocess
 from typing import Optional, List, Dict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, CancelledError
+
+try:
+    import send2trash
+except ImportError:
+    send2trash = None
 
 import webview
 
@@ -113,7 +118,15 @@ class UIBridge:
         return os.path.join(app_dir, "workspace_state.json")
 
     def _save_workspace_state(self):
-        """将当前的工作区状态同步持久化写入本地 JSON"""
+        """将当前的工作区状态持久化写入本地 JSON（500ms 防抖）"""
+        if hasattr(self, '_save_timer'):
+            self._save_timer.cancel()
+        self._save_timer = threading.Timer(0.5, self._do_save_workspace_state)
+        self._save_timer.daemon = True
+        self._save_timer.start()
+
+    def _do_save_workspace_state(self):
+        """实际执行保存"""
         with self._lock:
             try:
                 state = {
@@ -282,6 +295,19 @@ class UIBridge:
         logs = get_logs()
         return {"logs": logs[-MAX_DISPLAYED_LOGS:]}
 
+    def update_setting(self, key: str, value) -> Dict:
+        """更新主设置项（output_dir, output_format, concurrency 等）"""
+        self.settings[key] = value
+        self._save_workspace_state()
+        return {"status": "success"}
+
+    def rename_task(self, index: int, new_name: str) -> Dict:
+        """重命名任务输出文件名"""
+        if 0 <= index < len(self.tasks):
+            self.tasks[index].output_name = new_name
+            return self._get_queue_data()
+        return {"status": "error", "message": "Invalid index"}
+
     def update_tool_setting(self, tool: str, key: str, value) -> Dict:
         """更新工具设置（convert/extract/compress/trim）"""
         if tool in self.settings.get("tool_settings", {}):
@@ -399,7 +425,10 @@ class UIBridge:
         """在系统文件管理器中定位该文件"""
         if os.path.exists(filepath):
             try:
-                subprocess.Popen(f'explorer /select,"{os.path.abspath(filepath)}"')
+                subprocess.Popen(
+                    ["explorer", f"/select,{os.path.abspath(filepath)}"],
+                    shell=False,
+                )
                 return {"status": "success"}
             except Exception as e:
                 return {"status": "error", "message": str(e)}
@@ -488,7 +517,10 @@ class UIBridge:
             for f in self._futures:
                 if self._cancel_event.is_set():
                     break
-                f.result()
+                try:
+                    f.result()
+                except CancelledError:
+                    pass
             self._executor = None
             self._futures = []
 
@@ -606,10 +638,8 @@ class UIBridge:
                 self._evaluate_js_safe(f"window.updateTaskStatus({index}, 'completed')")
                 
                 # 可选：如果勾选合并成功删除源文件，此处标记
-                if self.settings.get("delete_allowed"):
+                if self.settings.get("delete_allowed") and send2trash:
                     try:
-                        # 用 send2trash 安全丢进回收站，或者直接 os.remove
-                        import send2trash
                         if task.video_file and os.path.exists(task.video_file):
                             send2trash.send2trash(task.video_file)
                         if task.audio_file and os.path.exists(task.audio_file):
@@ -652,16 +682,28 @@ class UIBridge:
                     return
 
                 # 增量存入 stream_infos 缓存
-                existing_paths = {x.filepath for x in self.all_stream_infos}
-                for info in results:
-                    if info.filepath not in existing_paths:
-                        self.all_stream_infos.append(info)
+                with self._lock:
+                    existing_paths = {x.filepath for x in self.all_stream_infos}
+                    for info in results:
+                        if info.filepath not in existing_paths:
+                            self.all_stream_infos.append(info)
 
-                # 重新计算自动配对任务
-                match_result = auto_match(self.all_stream_infos, self.root_paths)
-                self.tasks = match_result.auto_tasks
-                self.pending_videos = match_result.pending_videos
-                self.pending_audios = match_result.pending_audios
+                    # 重新计算自动配对任务，保留已完成任务的状态
+                    old_status = {}
+                    for t in self.tasks:
+                        if t.status in ("completed", "failed"):
+                            key = (t.video_file, t.audio_file)
+                            old_status[key] = (t.status, t.error_message)
+
+                    match_result = auto_match(self.all_stream_infos, self.root_paths)
+                    for new_task in match_result.auto_tasks:
+                        key = (new_task.video_file, new_task.audio_file)
+                        if key in old_status:
+                            new_task.status, new_task.error_message = old_status[key]
+
+                    self.tasks = match_result.auto_tasks
+                    self.pending_videos = match_result.pending_videos
+                    self.pending_audios = match_result.pending_audios
                 
                 if match_result.muxed_files:
                     for m in match_result.muxed_files:
@@ -695,15 +737,24 @@ class UIBridge:
         from fisheep_video_merger.core.scanner import SUPPORTED_EXTENSIONS
         def files_worker():
             try:
+                # 过滤去重
+                existing_paths = {x.filepath for x in self.all_stream_infos}
+                new_fps = [
+                    fp for fp in filepaths
+                    if os.path.splitext(fp)[1].lower() in SUPPORTED_EXTENSIONS
+                    and fp not in existing_paths
+                ]
+                if not new_fps:
+                    return
+
+                # 并行分析文件
+                from concurrent.futures import ThreadPoolExecutor as TPE
+                with TPE(max_workers=4) as pool:
+                    results = list(pool.map(analyze_file, new_fps))
+
                 new_videos, new_audios, new_muxed = [], [], []
-                for fp in filepaths:
-                    if os.path.splitext(fp)[1].lower() not in SUPPORTED_EXTENSIONS:
-                        continue
-                    # 去重
-                    if any(x.filepath == fp for x in self.all_stream_infos):
-                        continue
-                    info = analyze_file(fp)
-                    with self._lock:
+                with self._lock:
+                    for info in results:
                         self.all_stream_infos.append(info)
                         if info.stream_type == StreamType.VIDEO_ONLY:
                             new_videos.append(info)
@@ -714,8 +765,19 @@ class UIBridge:
 
                 with self._lock:
                     old_tasks_count = len(self.tasks)
-                    # 智能重新匹配，完全以匹配结果为准来重置各列表
+                    # 保留已完成任务的状态
+                    old_status = {}
+                    for t in self.tasks:
+                        if t.status in ("completed", "failed"):
+                            key = (t.video_file, t.audio_file)
+                            old_status[key] = (t.status, t.error_message)
+
                     match_result = auto_match(self.all_stream_infos, self.root_paths)
+                    for new_task in match_result.auto_tasks:
+                        key = (new_task.video_file, new_task.audio_file)
+                        if key in old_status:
+                            new_task.status, new_task.error_message = old_status[key]
+
                     self.tasks = match_result.auto_tasks
                     self.pending_videos = match_result.pending_videos
                     self.pending_audios = match_result.pending_audios
@@ -882,6 +944,15 @@ class UIBridge:
         s = int(seconds % 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
 
+    def _make_tool_progress_callback(self, tool: str):
+        """创建工具进度回调闭包（convert/extract/compress/trim 共用）"""
+        def callback(txt, pct=None, eta=None, speed=None):
+            self._evaluate_js_safe(
+                f"window.updateToolProgress && window.updateToolProgress('{tool}', "
+                f"{json.dumps(txt)}, {pct if pct is not None else 'null'})"
+            )
+        return callback
+
     def convert_file(self, input_file: str, output_format: str, mode: str, output_dir: str = "") -> Dict:
         """格式转换 API"""
         if not os.path.exists(input_file):
@@ -892,11 +963,7 @@ class UIBridge:
         name = os.path.splitext(os.path.basename(input_file))[0]
         output_path = os.path.join(output_dir, f"{name}.{output_format}")
         output_path = self._resolve_output_conflict(output_path)
-
-        def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
-
-        success, err = convert_single(input_file, output_path, mode, progress_callback)
+        success, err = convert_single(input_file, output_path, mode, self._make_tool_progress_callback('convert'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str, output_dir: str = "", output_name: str = "") -> Dict:
@@ -914,12 +981,8 @@ class UIBridge:
         ext = "m4a" if audio_format == "aac" else audio_format
         output_path = os.path.join(output_dir, f"{name}.{ext}")
         output_path = self._resolve_output_conflict(output_path)
-
-        def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
-
         try:
-            success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, progress_callback)
+            success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, self._make_tool_progress_callback('extract'))
             return {"status": "success" if success else "error", "output_path": output_path, "message": err}
         except Exception as e:
             logger.error(f"提取音频异常: {e}")
@@ -936,11 +999,7 @@ class UIBridge:
         ext = os.path.splitext(input_file)[1]
         output_path = os.path.join(output_dir, f"{name}_compressed{ext}")
         output_path = self._resolve_output_conflict(output_path)
-
-        def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
-
-        success, err = compress_video_fn(input_file, output_path, preset, resolution, progress_callback)
+        success, err = compress_video_fn(input_file, output_path, preset, resolution, self._make_tool_progress_callback('compress'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str, output_dir: str = "") -> Dict:
@@ -954,24 +1013,25 @@ class UIBridge:
         ext = os.path.splitext(input_file)[1]
         output_path = os.path.join(output_dir, f"{name}_trimmed{ext}")
         output_path = self._resolve_output_conflict(output_path)
-
-        def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
-
-        success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
+        success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=self._make_tool_progress_callback('trim'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def get_video_preview(self, filepath: str) -> Dict:
-        """获取视频预览信息（截图 + 元数据）"""
+        """获取视频预览信息（截图 + 元数据，并行执行）"""
         import base64
+        from concurrent.futures import ThreadPoolExecutor as TPE
         from fisheep_video_merger.utils.ffprobe import get_video_detail, extract_screenshot
 
         if not os.path.exists(filepath):
             return {"status": "error", "message": "文件不存在"}
 
-        detail = get_video_detail(filepath)
+        with TPE(max_workers=2) as pool:
+            detail_future = pool.submit(get_video_detail, filepath)
+            screenshot_future = pool.submit(extract_screenshot, filepath)
+            detail = detail_future.result()
+            tmp_path = screenshot_future.result()
+
         screenshot_b64 = None
-        tmp_path = extract_screenshot(filepath)
         if tmp_path:
             try:
                 with open(tmp_path, "rb") as f:
