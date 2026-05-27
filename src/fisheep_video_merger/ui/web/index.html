@@ -125,7 +125,7 @@
                                 </thead>
                                 <tbody id="queue-tbody">
                                     <!-- Alpine x-for: 合并队列 -->
-                                    <template x-for="(task, index) in $store.app.tasks" :key="task.name + index">
+                                    <template x-for="(task, index) in $store.app.tasks" :key="index">
                                         <tr :id="'queue-row-' + index"
                                             :class="{ 'active-row': $store.app.selectedTaskIndex === index, 'selected': task.status === 'completed' }"
                                             @click="selectQueueRow(index, $event)">
