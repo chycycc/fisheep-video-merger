@@ -33,6 +33,7 @@ def run_ffmpeg(
     output_path: str,
     progress_callback: Optional[Callable] = None,
     op_name: str = "处理",
+    process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     通用 FFmpeg 执行器，支持实时进度解析和回调
@@ -73,6 +74,9 @@ def run_ffmpeg(
             encoding="utf-8",
             errors="replace",
         )
+
+        if process_callback:
+            process_callback(process)
 
         # 缓冲读取 stderr，按 \r 和 \n 分割
         buffer = ""

@@ -10,6 +10,7 @@ import json
 import time
 import logging
 import threading
+import subprocess
 from typing import Optional, List, Dict
 from concurrent.futures import ThreadPoolExecutor
 
@@ -22,8 +23,7 @@ from fisheep_video_merger.core.matcher import (
     create_manual_task,
 )
 from fisheep_video_merger.core.scanner import scan_multiple_directories
-from fisheep_video_merger.core.path_utils import generate_output_path
-from fisheep_video_merger.core.merger import merge_single, remux_single, ConflictStrategy
+from fisheep_video_merger.core.merger import merge_single
 from fisheep_video_merger.core.converter import convert_single
 from fisheep_video_merger.core.extractor import extract_audio as extract_audio_fn
 from fisheep_video_merger.core.compressor import compress_video as compress_video_fn
@@ -396,7 +396,6 @@ class UIBridge:
         """在系统文件管理器中定位该文件"""
         if os.path.exists(filepath):
             try:
-                import subprocess
                 subprocess.Popen(f'explorer /select,"{os.path.abspath(filepath)}"')
                 return {"status": "success"}
             except Exception as e:
@@ -815,7 +814,6 @@ class UIBridge:
     def copy_to_clipboard(self, text: str) -> Dict:
         """复制文字到系统剪贴板"""
         try:
-            import subprocess
             subprocess.run(['clip'], input=text.encode('utf-8'), check=True, timeout=5)
             return {"status": "success"}
         except Exception as e:
@@ -846,7 +844,6 @@ class UIBridge:
             # 获取时长
             duration = None
             try:
-                import subprocess
                 ffprobe_path = "ffprobe"
                 result = subprocess.run(
                     [ffprobe_path, "-v", "quiet", "-show_entries", "format=duration",

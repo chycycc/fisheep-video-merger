@@ -84,8 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebarToggle();
     initTabs();
     initDragAndDrop();
-    initDashboardToggle();
-    initConfigPanelToggle();
     initMockOrBridge();
     initSettingsListeners();
     initContextMenu();
@@ -295,7 +293,7 @@ function initDragAndDrop() {
 }
 
 /* === 4. 合并状态条: 自动控制 === */
-function initDashboardToggle() {}
+// initDashboardToggle: 已由 Alpine 声明式绑定替代
 
 /* === 5. 双线渲染支持与跨端 Bridge 检测 === */
 function initMockOrBridge() {
@@ -358,7 +356,7 @@ function callPython(methodName, ...args) {
 
 // A. 渲染合并队列数据表格
 // renderQueue: Alpine x-for 自动渲染，此函数保留兼容
-function renderQueue(tasks) {}
+// renderQueue: Alpine x-for 自动渲染
 
 // A2. 单击列表行，更新右侧的预计输出路径预览
 window.selectQueueRow = function(index, event) {
@@ -644,12 +642,10 @@ function handleBackendResponse(res) {
 
     if (res.tasks) {
         store.tasks = res.tasks;
-        renderQueue(res.tasks);
     }
 
     if (res.pending) {
         store.pending = res.pending;
-        renderPending(res.pending);
     }
 
     if (res.muxed) {
@@ -658,9 +654,7 @@ function handleBackendResponse(res) {
     }
 }
 
-// renderPending / renderMuxed: Alpine x-for 自动渲染，保留兼容
-function renderPending(pending) {}
-function renderMuxed(muxed) {}
+// renderPending / renderMuxed: Alpine x-for 自动渲染
 
 // E4. 跨端系统级操作的全局 JS 包装器
 window.deletePendingFile = function(filepath) {
@@ -1018,8 +1012,7 @@ function bindRowSelectionListeners() {
     });
 }
 
-/* === 12. 配置面板: Alpine 控制 === */
-function initConfigPanelToggle() {}
+// initConfigPanelToggle: Alpine 声明式绑定替代
 
 /* === 13. 通用视频工具前端逻辑 (Convert / Extract / Compress / Trim) === */
 

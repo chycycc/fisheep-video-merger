@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Callable, Optional
 
 from fisheep_video_merger.utils.logger import get_logger
+from fisheep_video_merger.core.ffmpeg_runner import get_ffmpeg_path, run_ffmpeg, ensure_output_dir
 
 logger = get_logger()
 
@@ -38,15 +39,6 @@ class MergeResult:
         self.success = success
         self.error_message = error_message
         self.actual_path = actual_path or output_path
-
-
-def get_ffmpeg_path() -> str:
-    """获取 ffmpeg 可执行文件路径"""
-    import shutil
-    path = shutil.which("ffmpeg")
-    if path:
-        return path
-    return "ffmpeg"
 
 
 def build_ffmpeg_command(
@@ -171,156 +163,6 @@ def build_remux_command(
     ]
 
 
-def _run_ffmpeg_with_progress(
-    cmd: list[str],
-    output_path: str,
-    progress_callback: Optional[Callable[[str], None]],
-    op_name: str = "合并",
-    process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
-) -> tuple[bool, Optional[str]]:
-    """
-    在后台运行 ffmpeg 并实时解析输出生成带百分比的进度
-
-    Args:
-        cmd: ffmpeg 命令参数列表
-        output_path: 输出路径
-        progress_callback: 进度回调
-        op_name: 操作名称，如 "合并" 或 "转封装"
-
-    Returns:
-        (成功标志, 错误信息)
-    """
-    import re
-    filename = os.path.basename(output_path)
-    # 正则表达式匹配 Duration 和 time= 进度
-    duration_regex = re.compile(r"Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
-    time_regex = re.compile(r"time=\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
-
-    def to_seconds(match) -> float:
-        h, m, s, ms = match.groups()
-        return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 100.0
-
-    total_seconds = 0.0
-    full_stderr = []
-    
-    # 进度防抖节流锁 (C-3.1.2)
-    import time
-    last_emit_time = 0.0
-    last_pct = -1.0
-
-    start_time = time.time()
-    logger.info(f"开始执行 ffmpeg {op_name}: {' '.join(cmd)}")
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-
-        if process_callback:
-            process_callback(process)
-
-        # 缓冲读取 stderr，按 \r 和 \n 分割处理 ffmpeg 进度输出
-        buffer = ""
-        while True:
-            chunk = process.stderr.read(4096)
-            if not chunk:
-                break
-            buffer += chunk
-            # 按 \r 或 \n 分割，保留最后不完整的部分
-            while "\r" in buffer or "\n" in buffer:
-                # 找到第一个分隔符
-                cr_pos = buffer.find("\r")
-                nl_pos = buffer.find("\n")
-                if cr_pos == -1:
-                    sep_pos = nl_pos
-                elif nl_pos == -1:
-                    sep_pos = cr_pos
-                else:
-                    sep_pos = min(cr_pos, nl_pos)
-
-                line = buffer[:sep_pos].strip()
-                # 跳过分隔符
-                sep_end = sep_pos + 1
-                # 处理 \r\n 的情况
-                if sep_pos < len(buffer) - 1 and buffer[sep_pos:sep_pos+2] == "\r\n":
-                    sep_end = sep_pos + 2
-                buffer = buffer[sep_end:]
-
-                if not line:
-                    continue
-
-                full_stderr.append(line)
-
-                # 1. 从最初的控制台流信息中匹配视频/音频时长
-                if total_seconds == 0.0:
-                    dur_match = duration_regex.search(line)
-                    if dur_match:
-                        total_seconds = to_seconds(dur_match)
-
-                # 2. 实时流复制进程中解析 time=，推送百分比进度
-                if total_seconds > 0.0:
-                    t_match = time_regex.search(line)
-                    if t_match:
-                        curr = to_seconds(t_match)
-                        pct = min(99.9, (curr / total_seconds) * 100.0)
-                        now = time.time()
-
-                        elapsed = now - start_time
-                        speed_mult = (curr / elapsed) if elapsed > 0 else 1.0
-                        eta_sec = max(0.0, total_seconds - curr) / speed_mult if speed_mult > 0 else 0.0
-
-                        # 节流条件：距离上次发送超过 300ms，或到达临界点（防止过多 COM 消息淹没 GUI 线程导致无响应）
-                        if (now - last_emit_time >= 0.3) or pct >= 99.9:
-                            if progress_callback:
-                                txt_prog = f"正在{op_name}: {filename} ({pct:.1f}%)"
-                                try:
-                                    progress_callback(txt_prog, pct, eta_sec, speed_mult)
-                                except TypeError:
-                                    try:
-                                        progress_callback(txt_prog)
-                                    except Exception:
-                                        pass
-                            last_emit_time = now
-                            last_pct = pct
-
-        # 处理 buffer 中剩余的最后不完整行
-        if buffer.strip():
-            full_stderr.append(buffer.strip())
-
-        # 等待进程优雅退出
-        process.wait(timeout=30)
-        
-        if process.returncode == 0:
-            logger.info(f"{op_name}成功: {output_path}")
-            return True, None
-        else:
-            # 回退几行 stderr 寻找具体的 FFmpeg 错误反馈
-            tail = "\n".join(full_stderr[-5:])
-            logger.error(f"{op_name}失败: {output_path}\n{tail}")
-            return False, tail[:500]
-
-    except subprocess.TimeoutExpired:
-        try:
-            process.kill()
-            process.wait(timeout=10)
-        except Exception:
-            pass
-        return False, "ffmpeg 进程执行超时"
-    except Exception as e:
-        logger.error(f"{op_name}执行时发生异常: {e}")
-        try:
-            process.kill()
-            process.wait(timeout=10)
-        except Exception:
-            pass
-        return False, str(e)
-
-
 def remux_single(
     input_file: str,
     output_path: str,
@@ -338,18 +180,16 @@ def remux_single(
     Returns:
         (成功标志, 错误信息)
     """
-    output_dir = os.path.dirname(output_path)
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-    except OSError as e:
-        return False, f"创建输出目录失败: {e}"
+    err = ensure_output_dir(output_path)
+    if err:
+        return False, err
 
     cmd = build_remux_command(input_file, output_path)
     
     if progress_callback:
         progress_callback(f"正在准备转封装: {os.path.basename(output_path)}")
 
-    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "转封装", process_callback)
+    return run_ffmpeg(cmd, output_path, progress_callback, "转封装", process_callback)
 
 
 def merge_single(
@@ -371,18 +211,16 @@ def merge_single(
     Returns:
         (成功标志, 错误信息)
     """
-    output_dir = os.path.dirname(output_path)
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-    except OSError as e:
-        return False, f"创建输出目录失败: {e}"
+    err = ensure_output_dir(output_path)
+    if err:
+        return False, err
 
     cmd = build_ffmpeg_command(video_file, audio_file, output_path)
 
     if progress_callback:
         progress_callback(f"正在准备合并: {os.path.basename(output_path)}")
 
-    return _run_ffmpeg_with_progress(cmd, output_path, progress_callback, "合并", process_callback)
+    return run_ffmpeg(cmd, output_path, progress_callback, "合并", process_callback)
 
 
 import threading
