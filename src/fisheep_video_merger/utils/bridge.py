@@ -265,6 +265,14 @@ class UIBridge:
             "version": version
         }
 
+    def update_task_status(self, index: int, status: str) -> Dict:
+        """更新指定任务的状态"""
+        if 0 <= index < len(self.tasks):
+            self.tasks[index].status = status
+            self.tasks[index].error_message = None
+            return self._get_queue_data()
+        return {"status": "error", "message": "Invalid index"}
+
     def get_logs(self) -> Dict:
         """获取最近的日志记录"""
         from fisheep_video_merger.utils.logger import get_logs

@@ -509,18 +509,40 @@ window.toggleSelectAll = function(checked) {
 window.batchDeleteSelected = function() {
     const checkboxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
     if (checkboxes.length === 0) { showToast('请先勾选要删除的任务', 'warning'); return; }
-    checkboxes.forEach(cb => {
-        const index = parseInt(cb.getAttribute('data-index'), 10);
-        if (!isNaN(index)) callPython('delete_task', index);
-    });
-    showToast(`已删除 ${checkboxes.length} 个任务`, 'info');
+    // 收集索引并倒序排列，避免删除时索引错位
+    const indexes = Array.from(checkboxes)
+        .map(cb => parseInt(cb.getAttribute('data-index'), 10))
+        .filter(i => !isNaN(i))
+        .sort((a, b) => b - a);
+    let deleted = 0;
+    const doDelete = () => {
+        if (indexes.length === 0) {
+            showToast(`已删除 ${deleted} 个任务`, 'info');
+            return;
+        }
+        const idx = indexes.shift();
+        callPython('delete_task', idx).then(res => {
+            if (res) handleBackendResponse(res);
+            deleted++;
+            doDelete();
+        });
+    };
+    doDelete();
 };
 
 window.batchRetryFailed = function() {
     const tasks = Alpine.store('app').tasks;
-    tasks.forEach((t, i) => { if (t.status === 'failed') t.status = 'pending'; });
-    callPython('start_merging');
-    showToast('正在重试失败任务...', 'info');
+    const failedIndexes = [];
+    tasks.forEach((t, i) => { if (t.status === 'failed') failedIndexes.push(i); });
+    if (failedIndexes.length === 0) { showToast('没有失败的任务', 'warning'); return; }
+    // 通过后端重置状态
+    failedIndexes.forEach(i => {
+        callPython('update_task_status', i, 'pending').then(res => {
+            if (res) handleBackendResponse(res);
+        });
+    });
+    showToast(`正在重试 ${failedIndexes.length} 个失败任务...`, 'info');
+    setTimeout(() => callPython('start_merging'), 500);
 };
 
 window.cancelMerging = function() {
