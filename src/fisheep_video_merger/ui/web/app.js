@@ -90,6 +90,25 @@ document.addEventListener('DOMContentLoaded', () => {
     initSettingsListeners();
     initContextMenu();
     bindRowSelectionListeners();
+
+    // 快捷键
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+O: 导入文件
+        if (e.ctrlKey && e.key === 'o') {
+            e.preventDefault();
+            const addFilesBtn = document.getElementById('add-files-btn');
+            if (addFilesBtn) addFilesBtn.click();
+        }
+        // Delete: 删除选中任务
+        if (e.key === 'Delete' && !e.target.matches('input, textarea, select')) {
+            e.preventDefault();
+            window.batchDeleteSelected();
+        }
+        // Escape: 关闭配置面板
+        if (e.key === 'Escape') {
+            Alpine.store('app').configPanelOpen = false;
+        }
+    });
 });
 
 /* === 1. 主题自适应配置 (Dark/Light/Auto) === */
@@ -683,6 +702,16 @@ function showToast(message, type = 'info') {
             container.removeChild(toast);
         }, 300);
     }, 3500);
+}
+
+function showToastWithAction(message, actionLabel, actionFn) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-success';
+    toast.innerHTML = `<span>🎉</span><span>${message}</span><button onclick="this.parentElement.remove(); (${actionFn.toString()})()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px 8px; color: white; cursor: pointer; font-size: 11px; margin-left: 8px;">${actionLabel}</button>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => container.removeChild(toast), 300); }, 8000);
 }
 
 /* === 9. 监听配置面板中表单控件的值变化并更新到 Python === */

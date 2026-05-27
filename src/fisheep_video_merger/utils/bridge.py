@@ -265,6 +265,12 @@ class UIBridge:
             "version": version
         }
 
+    def get_logs(self) -> Dict:
+        """获取最近的日志记录"""
+        from fisheep_video_merger.utils.logger import get_logs
+        logs = get_logs()
+        return {"logs": logs[-200:]}  # 最近 200 条
+
     def update_tool_setting(self, tool: str, key: str, value) -> Dict:
         """更新工具设置（convert/extract/compress/trim）"""
         if tool in self.settings.get("tool_settings", {}):
@@ -490,7 +496,11 @@ class UIBridge:
         if self._cancel_event.is_set():
             self._evaluate_js_safe("showToast('⚠️ 合并已取消', 'warning')")
         else:
-            self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
+            output_dir = self.settings.get("output_dir", "")
+            if output_dir:
+                self._evaluate_js_safe(f"showToastWithAction('🎉 所有任务已合并完成！', '📂 打开文件夹', () => window.openFileFolder('{output_dir.replace(chr(92), chr(92)+chr(92))}'))")
+            else:
+                self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
 
     def cancel_merging(self) -> Dict:
         """取消所有正在运行的合并任务"""

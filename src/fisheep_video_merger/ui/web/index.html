@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐑 Fisheep 视频工具箱 v0.5.0</title>
+    <title>🐑 Fisheep 视频工具箱 v0.5.1</title>
     <!-- 引入本地高阶字体，实现 100% 离线可用 -->
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
@@ -337,6 +337,13 @@
                 </aside>
 
                 </div> <!-- 关闭水平 flex 容器 -->
+
+                <!-- 队列统计信息 -->
+                <div x-show="$store.app.tasks.length > 0" style="display: flex; gap: 16px; align-items: center; padding: 6px 0; font-size: 12px; color: var(--text-muted);">
+                    <span>📊 队列: <strong x-text="$store.app.tasks.length"></strong> 个任务</span>
+                    <span x-show="$store.app.tasks.filter(t => t.status === 'completed').length > 0">✅ 完成: <strong x-text="$store.app.tasks.filter(t => t.status === 'completed').length"></strong></span>
+                    <span x-show="$store.app.tasks.filter(t => t.status === 'failed').length > 0">❌ 失败: <strong x-text="$store.app.tasks.filter(t => t.status === 'failed').length"></strong></span>
+                </div>
 
                 <!-- 合并状态条（仅合并运行时显示） -->
                 <div id="merge-status-bar" class="merge-status-bar hidden">
@@ -732,11 +739,30 @@
                         </div>
                     </div>
 
+                    <!-- 日志查看器 -->
+                    <div class="config-card" x-data="{ logs: [], expanded: false }">
+                        <h4 style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+                            @click="expanded = !expanded; if(expanded) callPython('get_logs').then(r => logs = r.logs || [])">
+                            <span>📋 运行日志</span>
+                            <span x-text="expanded ? '▼' : '▶'" style="font-size: 10px;"></span>
+                        </h4>
+                        <div x-show="expanded" x-transition style="margin-top: 8px;">
+                            <div style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 11px; line-height: 1.6; background: var(--window-bg); border-radius: 6px; padding: 8px;">
+                                <template x-for="(line, i) in logs" :key="i">
+                                    <div x-text="line" style="white-space: pre-wrap; word-break: break-all;"></div>
+                                </template>
+                                <div x-show="logs.length === 0" style="color: var(--text-muted);">暂无日志</div>
+                            </div>
+                            <button class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;"
+                                    @click="callPython('get_logs').then(r => logs = r.logs || [])">🔄 刷新</button>
+                        </div>
+                    </div>
+
                     <!-- 关于 -->
                     <div class="config-card">
                         <h4>ℹ️ 关于</h4>
                         <div style="font-size: 12px; color: var(--text-muted); line-height: 1.8;">
-                            <div>Fisheep 视频工具箱 v0.5.0</div>
+                            <div>Fisheep 视频工具箱 v0.5.1</div>
                             <div>基于 Python + pywebview + FFmpeg</div>
                             <div>主题: 蓝色系 / 暗色 + 亮色双模式</div>
                         </div>
