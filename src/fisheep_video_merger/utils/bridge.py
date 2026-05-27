@@ -894,7 +894,7 @@ class UIBridge:
         output_path = self._resolve_output_conflict(output_path)
 
         def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)}, {pct or 'null'})")
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('convert', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
 
         success, err = convert_single(input_file, output_path, mode, progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
@@ -916,7 +916,7 @@ class UIBridge:
         output_path = self._resolve_output_conflict(output_path)
 
         def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)}, {pct or 'null'})")
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('extract', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
 
         try:
             success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, progress_callback)
@@ -938,7 +938,7 @@ class UIBridge:
         output_path = self._resolve_output_conflict(output_path)
 
         def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)}, {pct or 'null'})")
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('compress', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
 
         success, err = compress_video_fn(input_file, output_path, preset, resolution, progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
@@ -956,7 +956,7 @@ class UIBridge:
         output_path = self._resolve_output_conflict(output_path)
 
         def progress_callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)}, {pct or 'null'})")
+            self._evaluate_js_safe(f"window.updateToolProgress && window.updateToolProgress('trim', {json.dumps(txt)}, {pct if pct is not None else 'null'})")
 
         success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
@@ -991,7 +991,8 @@ class UIBridge:
         resolution = f"{detail.width}x{detail.height}" if detail.width else "未知"
 
         return {
-            "status": "success",
+            "status": "success" if not detail.error else "error",
+            "message": detail.error,
             "screenshot": screenshot_b64,
             "resolution": resolution,
             "video_codec": detail.video_codec or "未知",

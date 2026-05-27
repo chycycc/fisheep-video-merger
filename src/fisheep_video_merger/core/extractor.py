@@ -21,8 +21,8 @@ _FORMAT_CODEC = {
     "wav": "pcm_s16le",
 }
 
-# 支持码率设置的格式
-_BITRATE_FORMATS = {"mp3", "aac"}
+# 支持码率设置的格式（AAC 走独立路径，不在此列）
+_BITRATE_FORMATS = {"mp3"}
 
 
 def extract_audio(

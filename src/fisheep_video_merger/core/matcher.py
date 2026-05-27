@@ -52,8 +52,11 @@ def suggest_output_name(video_filepath: str, source_dir: str, root_path: str) ->
             # 清理标题中的非法文件名字符
             series_title = re.sub(r'[\\/:*?"<>|]', "", series_title).strip()
             if ep_index:
-                return f"{series_title}_{int(ep_index):02d}"
-            elif ep_title:
+                try:
+                    return f"{series_title}_{int(ep_index):02d}"
+                except (ValueError, TypeError):
+                    pass
+            if ep_title:
                 ep_title = re.sub(r'[\\/:*?"<>|]', "", ep_title).strip()
                 return f"{series_title}_{ep_title}"
             else:
@@ -68,7 +71,15 @@ def suggest_output_name(video_filepath: str, source_dir: str, root_path: str) ->
         if gp_name and not re.match(r"^\d+$", gp_name) and gp_name != os.path.basename(root_path):
             parent_name = gp_name
 
-    # 3. 使用文件名（现有逻辑）
+    # 3. 父目录名 + 文件集数
+    ep = extract_episode_number(os.path.basename(video_filepath))
+    if ep is not None:
+        parent_clean = re.sub(r'[\\/:*?"<>|]', "", parent_name).strip()
+        if parent_clean and not re.match(r"^\d+$", parent_clean):
+            return f"{parent_clean}_{ep:02d}"
+        return f"E{ep:02d}"
+
+    # 4. 兜底：纯文件名
     return normalize_episode_name(video_filepath)
 
 # 中文数字映射
