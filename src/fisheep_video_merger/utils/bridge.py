@@ -73,6 +73,8 @@ class UIBridge:
             "concurrency": 2,
             "overwrite": True,
             "naming_template": "",
+            "output_dir_template": "",
+            "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
             # 工具输出目录
             "tool_output_dirs": {
                 "convert": "",
@@ -325,6 +327,95 @@ class UIBridge:
                 self.tasks[idx].output_name = name
                 count += 1
         return {"status": "success", "renamed": count}
+
+    def export_config(self) -> Dict:
+        """导出当前队列配对为 JSON"""
+        try:
+            tasks_data = []
+            for t in self.tasks:
+                tasks_data.append({
+                    "output_name": t.output_name,
+                    "video_file": t.video_file,
+                    "audio_file": t.audio_file,
+                    "source_dir": t.source_dir,
+                })
+            config = {
+                "version": "1.0",
+                "tasks": tasks_data,
+                "settings": {
+                    "output_format": self.settings.get("output_format", "mp4"),
+                    "naming_template": self.settings.get("naming_template", ""),
+                }
+            }
+            return {"status": "success", "config": config}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def import_config(self, config: Dict) -> Dict:
+        """导入配对配置"""
+        try:
+            from fisheep_video_merger.core.matcher import MergeTask
+            tasks_data = config.get("tasks", [])
+            imported = 0
+            for td in tasks_data:
+                if not os.path.exists(td.get("video_file", "")):
+                    continue
+                task = MergeTask(
+                    output_name=td["output_name"],
+                    video_file=td["video_file"],
+                    audio_file=td.get("audio_file", ""),
+                    source_dir=td.get("source_dir", ""),
+                    root_path=td.get("source_dir", ""),
+                )
+                # 去重
+                if not any(t.video_file == task.video_file and t.audio_file == task.audio_file for t in self.tasks):
+                    self.tasks.append(task)
+                    imported += 1
+            # 应用导入的设置
+            imported_settings = config.get("settings", {})
+            if imported_settings.get("naming_template"):
+                self.settings["naming_template"] = imported_settings["naming_template"]
+            self._save_workspace_state()
+            return {"status": "success", "imported": imported}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def import_config_file(self) -> Dict:
+        """通过文件对话框导入配置"""
+        if not self._window:
+            return {"status": "error", "message": "Window not ready"}
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=False,
+            file_types=('JSON 配置 (*.json)', '所有文件 (*.*)')
+        )
+        if not result:
+            return {"status": "cancelled"}
+        try:
+            with open(result[0], "r", encoding="utf-8") as f:
+                config = json.load(f)
+            return self.import_config(config)
+        except Exception as e:
+            return {"status": "error", "message": f"读取配置失败: {e}"}
+
+    def export_config_file(self) -> Dict:
+        """通过文件对话框导出配置"""
+        if not self._window:
+            return {"status": "error", "message": "Window not ready"}
+        result = self._window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename="fisheep_config.json",
+            file_types=('JSON 配置 (*.json)',)
+        )
+        if not result:
+            return {"status": "cancelled"}
+        try:
+            config = self.export_config().get("config", {})
+            with open(result, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            return {"status": "success", "path": result}
+        except Exception as e:
+            return {"status": "error", "message": f"导出失败: {e}"}
 
     def update_tool_setting(self, tool: str, key: str, value) -> Dict:
         """更新工具设置（convert/extract/compress/trim）"""
@@ -590,6 +681,15 @@ class UIBridge:
         # 构建输出路径
         output_dir = self.settings.get("output_dir") or task.source_dir
         output_format = self.settings.get("output_format", "mp4")
+
+        # 应用输出目录模板（按系列名创建子目录）
+        dir_template = self.settings.get("output_dir_template", "").strip()
+        if dir_template:
+            from fisheep_video_merger.core.matcher import apply_naming_template
+            sub_dir = apply_naming_template(dir_template, task.video_file, task.source_dir, task.root_path, index)
+            if sub_dir:
+                output_dir = os.path.join(output_dir, sub_dir)
+                os.makedirs(output_dir, exist_ok=True)
         
         output_filename = f"{task.output_name}.{output_format}"
         output_path = os.path.join(output_dir, output_filename)

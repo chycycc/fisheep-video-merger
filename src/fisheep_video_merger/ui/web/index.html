@@ -714,6 +714,13 @@
                                 <option value="mkv">MKV</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>输出子目录模板</label>
+                            <input type="text" id="settings-output-dir-template" placeholder="{series}（留空则不创建子目录）">
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                按系列名自动创建子目录，如 <code>{series}</code> → 输出目录/系列名/文件.mp4
+                            </p>
+                        </div>
                     </div>
 
                     <!-- 命名模板 -->
@@ -726,6 +733,34 @@
                                 可用变量：<code>{series}</code> 系列名 · <code>{ep}</code> 集数 · <code>{original}</code> 原文件名 · <code>{index}</code> 序号
                             </p>
                         </div>
+                    </div>
+
+                    <!-- 支持格式 -->
+                    <div class="config-card">
+                        <h4>📋 支持格式</h4>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">启用/禁用扫描和导入时识别的文件格式</p>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px;">
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".m4s" checked> .m4s (B站)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".webm" checked> .webm (YouTube)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".mp4" checked> .mp4 (通用)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".ts" checked> .ts (直播录制)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".flv" checked> .flv (Flash)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".m4a" checked> .m4a (Apple)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".aac" checked> .aac (通用)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".mp3" checked> .mp3 (通用)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".flac" checked> .flac (无损)</label>
+                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".wav" checked> .wav (无损)</label>
+                        </div>
+                    </div>
+
+                    <!-- 配置管理 -->
+                    <div class="config-card">
+                        <h4>💾 配置管理</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="exportConfig()" style="flex:1;">📤 导出配置</button>
+                            <button class="btn btn-secondary" onclick="importConfig()" style="flex:1;">📥 导入配置</button>
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">导出/导入队列配对为 JSON 文件，跨机器复用</p>
                     </div>
 
                     <!-- 合并设置 -->

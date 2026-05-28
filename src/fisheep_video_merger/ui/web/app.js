@@ -612,6 +612,31 @@ window.batchRetryFailed = function() {
     setTimeout(() => callPython('start_merging'), 500);
 };
 
+window.exportConfig = function() {
+    callPython('export_config_file').then(res => {
+        if (res && res.status === 'success') {
+            showToast(`配置已导出到 ${res.path}`, 'success');
+        } else if (res && res.status === 'cancelled') {
+            // 用户取消
+        } else {
+            showToast(`导出失败: ${res?.message || '未知错误'}`, 'error');
+        }
+    });
+};
+
+window.importConfig = function() {
+    callPython('import_config_file').then(res => {
+        if (res && res.status === 'success') {
+            showToast(`已导入 ${res.imported} 个任务`, 'success');
+            callPython('get_current_state').then(state => handleBackendResponse(state));
+        } else if (res && res.status === 'cancelled') {
+            // 用户取消
+        } else {
+            showToast(`导入失败: ${res?.message || '未知错误'}`, 'error');
+        }
+    });
+};
+
 window.showBatchRenameDialog = function() {
     const checkboxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
     const indexes = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-index'), 10));
@@ -691,6 +716,10 @@ function syncSettingsFromPython() {
             const tplInput = document.getElementById('settings-naming-template');
             if (tplInput) tplInput.value = settings.naming_template || '';
 
+            // 同步输出目录模板
+            const dirTplInput = document.getElementById('settings-output-dir-template');
+            if (dirTplInput) dirTplInput.value = settings.output_dir_template || '';
+
             // 同步工具输出目录
             if (settings.tool_output_dirs) {
                 Object.assign(store.toolOutputDirs, settings.tool_output_dirs);
@@ -727,6 +756,13 @@ function syncSettingsFromPython() {
                     const mode = document.getElementById('trim-mode');
                     if (mode) mode.value = ts.trim.mode || 'reencode';
                 }
+            }
+
+            // 同步格式配置
+            if (settings.enabled_formats) {
+                document.querySelectorAll('.format-cb').forEach(cb => {
+                    cb.checked = settings.enabled_formats.includes(cb.dataset.ext);
+                });
             }
 
             // 同步应用从后端载入的界面主题
@@ -886,6 +922,22 @@ function initSettingsListeners() {
             callPython('update_setting', 'naming_template', e.target.value.trim());
         });
     }
+
+    // 输出目录模板输入
+    const dirTplInput = document.getElementById('settings-output-dir-template');
+    if (dirTplInput) {
+        dirTplInput.addEventListener('change', (e) => {
+            callPython('update_setting', 'output_dir_template', e.target.value.trim());
+        });
+    }
+
+    // 格式配置复选框
+    document.querySelectorAll('.format-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const enabled = Array.from(document.querySelectorAll('.format-cb:checked')).map(c => c.dataset.ext);
+            callPython('update_setting', 'enabled_formats', enabled);
+        });
+    });
 }
 
 /* === 10. 全局自定义上下文菜单 (右键菜单) === */
