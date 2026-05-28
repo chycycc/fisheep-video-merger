@@ -612,6 +612,37 @@ window.batchRetryFailed = function() {
     setTimeout(() => callPython('start_merging'), 500);
 };
 
+window.showBatchRenameDialog = function() {
+    const checkboxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+    const indexes = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-index'), 10));
+    if (indexes.length === 0) {
+        showToast('请先勾选要重命名的任务', 'warning');
+        return;
+    }
+    // 简单 prompt 对话框
+    const prefix = prompt('前缀（留空不加）：', '');
+    if (prefix === null) return;
+    const suffix = prompt('后缀（留空不加）：', '');
+    if (suffix === null) return;
+    const replaceFrom = prompt('替换：将此字符串替换为（留空不替换）：', '');
+    if (replaceFrom === null) return;
+    let replaceTo = '';
+    if (replaceFrom) {
+        replaceTo = prompt('替换为：', '');
+        if (replaceTo === null) return;
+    }
+    if (!prefix && !suffix && !replaceFrom) {
+        showToast('未输入任何重命名规则', 'warning');
+        return;
+    }
+    callPython('batch_rename', indexes, prefix || '', suffix || '', replaceFrom || '', replaceTo || '').then(res => {
+        if (res && res.status === 'success') {
+            showToast(`已重命名 ${res.renamed} 个任务`, 'success');
+            callPython('get_current_state').then(state => handleBackendResponse(state));
+        }
+    });
+};
+
 window.cancelMerging = function() {
     callPython('cancel_merging').then(res => {
         if (res && res.status === 'success') {

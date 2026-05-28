@@ -309,6 +309,23 @@ class UIBridge:
             return self._get_queue_data()
         return {"status": "error", "message": "Invalid index"}
 
+    def batch_rename(self, indexes: List[int], prefix: str = "", suffix: str = "",
+                     replace_from: str = "", replace_to: str = "") -> Dict:
+        """批量重命名任务输出文件名"""
+        count = 0
+        for idx in indexes:
+            if 0 <= idx < len(self.tasks):
+                name = self.tasks[idx].output_name
+                if replace_from:
+                    name = name.replace(replace_from, replace_to)
+                if prefix:
+                    name = prefix + name
+                if suffix:
+                    name = name + suffix
+                self.tasks[idx].output_name = name
+                count += 1
+        return {"status": "success", "renamed": count}
+
     def update_tool_setting(self, tool: str, key: str, value) -> Dict:
         """更新工具设置（convert/extract/compress/trim）"""
         if tool in self.settings.get("tool_settings", {}):
