@@ -74,6 +74,7 @@ class UIBridge:
             "overwrite": True,
             "naming_template": "",
             "output_dir_template": "",
+            "path_depth": 0,
             "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
             # 工具输出目录
             "tool_output_dirs": {
@@ -711,7 +712,22 @@ class UIBridge:
             if sub_dir:
                 output_dir = os.path.join(output_dir, sub_dir)
                 os.makedirs(output_dir, exist_ok=True)
-        
+
+        # 路径镜像：从源路径保留指定层级目录结构
+        path_depth = self.settings.get("path_depth", 0)
+        if path_depth > 0 and task.root_path:
+            try:
+                rel = os.path.relpath(task.source_dir, task.root_path)
+                parts = rel.split(os.sep)
+                # 过滤掉 ".." 和 "." 等无效部分
+                valid_parts = [p for p in parts if p not in ("..", ".", "")]
+                if valid_parts:
+                    mirror_parts = valid_parts[:path_depth]
+                    output_dir = os.path.join(output_dir, *mirror_parts)
+                    os.makedirs(output_dir, exist_ok=True)
+            except ValueError:
+                pass  # 跨驱动器时 relpath 会报错
+
         output_filename = f"{task.output_name}.{output_format}"
         output_path = os.path.join(output_dir, output_filename)
 

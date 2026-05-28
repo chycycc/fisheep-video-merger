@@ -751,6 +751,10 @@ function syncSettingsFromPython() {
             const dirTplInput = document.getElementById('settings-output-dir-template');
             if (dirTplInput) dirTplInput.value = settings.output_dir_template || '';
 
+            // 同步路径层级
+            const depthSelect = document.getElementById('settings-path-depth');
+            if (depthSelect) depthSelect.value = String(settings.path_depth || 0);
+
             // 同步工具输出目录
             if (settings.tool_output_dirs) {
                 Object.assign(store.toolOutputDirs, settings.tool_output_dirs);
@@ -962,6 +966,14 @@ function initSettingsListeners() {
     if (dirTplInput) {
         dirTplInput.addEventListener('change', (e) => {
             callPython('update_setting', 'output_dir_template', e.target.value.trim());
+        });
+    }
+
+    // 路径层级
+    const depthSelect = document.getElementById('settings-path-depth');
+    if (depthSelect) {
+        depthSelect.addEventListener('change', (e) => {
+            callPython('update_setting', 'path_depth', parseInt(e.target.value, 10));
         });
     }
 

@@ -725,6 +725,18 @@
                                 按系列名自动创建子目录，如 <code>{series}</code> → 输出目录/系列名/文件.mp4
                             </p>
                         </div>
+                        <div class="form-group">
+                            <label>保留源路径层级</label>
+                            <select id="settings-path-depth">
+                                <option value="0">不保留（全部平铺）</option>
+                                <option value="1">保留 1 级目录</option>
+                                <option value="2">保留 2 级目录</option>
+                                <option value="3">保留 3 级目录</option>
+                            </select>
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                从源文件路径中保留指定层级的目录结构到输出路径
+                            </p>
+                        </div>
                     </div>
 
                     <!-- 命名模板 -->
