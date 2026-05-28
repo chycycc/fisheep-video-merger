@@ -130,7 +130,11 @@
                                     <template x-for="(task, index) in $store.app.tasks" :key="index">
                                         <tr :id="'queue-row-' + index"
                                             :class="{ 'active-row': $store.app.selectedTaskIndex === index, 'selected': task.status === 'completed' }"
-                                            @click="selectQueueRow(index, $event)">
+                                            @click="selectQueueRow(index, $event)"
+                                            draggable="true"
+                                            @dragstart="onTaskDragStart(index, $event)"
+                                            @dragover.prevent="onTaskDragOver($event)"
+                                            @drop="onTaskDrop(index, $event)">
                                             <td><input type="checkbox" class="row-checkbox" :data-index="index"></td>
                                             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px;" :title="task.source_name" x-text="task.source_name || '-'"></td>
                                             <td style="font-weight: 600; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;" :title="task.name" @dblclick="editOutputName(index, $event)" x-text="task.name"></td>
@@ -750,6 +754,14 @@
                             <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".mp3" checked> .mp3 (通用)</label>
                             <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".flac" checked> .flac (无损)</label>
                             <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".wav" checked> .wav (无损)</label>
+                        </div>
+                    </div>
+
+                    <!-- 平台统计 -->
+                    <div class="config-card">
+                        <h4>📊 平台统计</h4>
+                        <div id="platform-stats" style="font-size: 12px; color: var(--text-muted);">
+                            <span>加载中...</span>
                         </div>
                     </div>
 

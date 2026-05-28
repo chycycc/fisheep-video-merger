@@ -612,6 +612,37 @@ window.batchRetryFailed = function() {
     setTimeout(() => callPython('start_merging'), 500);
 };
 
+// 拖拽排序
+window._dragFromIndex = null;
+window.onTaskDragStart = function(index, event) {
+    window._dragFromIndex = index;
+    event.dataTransfer.effectAllowed = 'move';
+    event.target.style.opacity = '0.5';
+};
+window.onTaskDragOver = function(event) {
+    event.dataTransfer.dropEffect = 'move';
+};
+window.onTaskDrop = function(toIndex, event) {
+    event.preventDefault();
+    const fromIndex = window._dragFromIndex;
+    if (fromIndex === null || fromIndex === toIndex) return;
+    callPython('reorder_tasks', fromIndex, toIndex).then(res => {
+        if (res) handleBackendResponse(res);
+    });
+    window._dragFromIndex = null;
+    // 恢复所有行透明度
+    document.querySelectorAll('#queue-tbody tr').forEach(tr => tr.style.opacity = '1');
+};
+
+window.loadPlatformStats = function() {
+    callPython('get_platform_stats').then(res => {
+        const el = document.getElementById('platform-stats');
+        if (!el || !res || res.status !== 'success') return;
+        const s = res.stats;
+        el.innerHTML = `共 <strong>${res.total}</strong> 个文件 · B站: ${s['B站']} · YouTube: ${s['YouTube']} · 通用: ${s['通用']}`;
+    });
+};
+
 window.exportConfig = function() {
     callPython('export_config_file').then(res => {
         if (res && res.status === 'success') {
@@ -757,6 +788,9 @@ function syncSettingsFromPython() {
                     if (mode) mode.value = ts.trim.mode || 'reencode';
                 }
             }
+
+            // 加载平台统计
+            if (window.loadPlatformStats) window.loadPlatformStats();
 
             // 同步格式配置
             if (settings.enabled_formats) {

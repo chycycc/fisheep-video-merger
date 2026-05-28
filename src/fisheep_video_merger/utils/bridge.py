@@ -328,6 +328,27 @@ class UIBridge:
                 count += 1
         return {"status": "success", "renamed": count}
 
+    def reorder_tasks(self, from_idx: int, to_idx: int) -> Dict:
+        """调整任务顺序"""
+        if 0 <= from_idx < len(self.tasks) and 0 <= to_idx < len(self.tasks):
+            task = self.tasks.pop(from_idx)
+            self.tasks.insert(to_idx, task)
+            return self._get_queue_data()
+        return {"status": "error", "message": "Invalid index"}
+
+    def get_platform_stats(self) -> Dict:
+        """获取已导入文件的平台分布统计"""
+        stats = {"B站": 0, "YouTube": 0, "通用": 0}
+        for info in self.all_stream_infos:
+            fp = info.filepath.lower()
+            if fp.endswith(".m4s"):
+                stats["B站"] += 1
+            elif fp.endswith(".webm"):
+                stats["YouTube"] += 1
+            else:
+                stats["通用"] += 1
+        return {"status": "success", "stats": stats, "total": len(self.all_stream_infos)}
+
     def export_config(self) -> Dict:
         """导出当前队列配对为 JSON"""
         try:
