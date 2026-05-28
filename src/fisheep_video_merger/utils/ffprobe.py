@@ -1,6 +1,6 @@
 """
 ffprobe 封装模块
-负责调用 ffprobe 解析 m4s 文件的流类型
+负责调用 ffprobe 解析音视频文件的流类型与元数据
 """
 
 import json
@@ -77,13 +77,12 @@ def check_ffmpeg_available() -> bool:
 
 def analyze_file(filepath: str) -> StreamInfo:
     """
-    分析单个 m4s 文件的流类型
+    分析单个音视频文件的流类型
 
     调用 ffprobe 获取文件的流信息，判断是纯视频、纯音频还是混合流。
-    若 ffprobe 不可用则回退使用 ffmpeg。
 
     Args:
-        filepath: m4s 文件的绝对路径
+        filepath: 音视频文件的绝对路径
 
     Returns:
         StreamInfo 对象，包含流类型分析结果

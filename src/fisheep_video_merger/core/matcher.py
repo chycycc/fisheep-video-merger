@@ -17,8 +17,8 @@ logger = get_logger()
 
 def read_bilibili_meta(source_dir: str) -> Optional[dict]:
     """
-    读取 B站缓存目录的 entry.json 元数据
-    向上查找最多 3 级目录
+    读取 B站缓存目录的 entry.json 元数据（可选增强）
+    向上查找最多 3 级目录，非 B站目录返回 None
     """
     for _ in range(3):
         entry_path = os.path.join(source_dir, "entry.json")
@@ -38,9 +38,9 @@ def read_bilibili_meta(source_dir: str) -> Optional[dict]:
 def suggest_output_name(video_filepath: str, source_dir: str, root_path: str) -> str:
     """
     智能生成输出文件名
-    优先级：B站 entry.json > 父目录名 > 文件名
+    优先级：平台元数据（如 B站 entry.json）> 父目录名 + 集数 > 文件名
     """
-    # 1. 尝试读取 B站元数据
+    # 1. 尝试读取平台元数据
     meta = read_bilibili_meta(source_dir)
     if meta:
         series_title = meta.get("title", "")
@@ -81,6 +81,69 @@ def suggest_output_name(video_filepath: str, source_dir: str, root_path: str) ->
 
     # 4. 兜底：纯文件名
     return normalize_episode_name(video_filepath)
+
+
+def apply_naming_template(template: str, video_filepath: str, source_dir: str, root_path: str, index: int = 0) -> str:
+    """
+    应用命名模板生成输出文件名
+
+    支持变量：
+        {series} — 系列名（从 B站元数据或父目录提取）
+        {ep} — 集数（2位补零）
+        {original} — 原始文件名（不含扩展名）
+        {index} — 序号（从1开始）
+
+    Args:
+        template: 模板字符串，如 "{series}_{ep}"
+        video_filepath: 视频文件路径
+        source_dir: 源目录
+        root_path: 根目录
+        index: 任务序号
+
+    Returns:
+        格式化后的输出文件名（不含扩展名）
+    """
+    if not template or not template.strip():
+        return suggest_output_name(video_filepath, source_dir, root_path)
+
+    # 提取变量值
+    meta = read_bilibili_meta(source_dir)
+    series = ""
+    ep = ""
+    if meta:
+        series = re.sub(r'[\\/:*?"<>|]', "", meta.get("title", "")).strip()
+        ep_info = meta.get("ep", {})
+        ep_raw = ep_info.get("index", "")
+        if ep_raw:
+            try:
+                ep = f"{int(ep_raw):02d}"
+            except (ValueError, TypeError):
+                ep = str(ep_raw)
+
+    if not series:
+        parent_name = os.path.basename(source_dir)
+        if re.match(r"^\d+$", parent_name):
+            grandparent = os.path.dirname(source_dir)
+            gp_name = os.path.basename(grandparent)
+            if gp_name and not re.match(r"^\d+$", gp_name) and gp_name != os.path.basename(root_path):
+                parent_name = gp_name
+        series = re.sub(r'[\\/:*?"<>|]', "", parent_name).strip()
+
+    if not ep:
+        ep_num = extract_episode_number(os.path.basename(video_filepath))
+        ep = f"{ep_num:02d}" if ep_num is not None else ""
+
+    original = os.path.splitext(os.path.basename(video_filepath))[0]
+
+    result = template.replace("{series}", series)
+    result = result.replace("{ep}", ep)
+    result = result.replace("{original}", original)
+    result = result.replace("{index}", str(index + 1))
+
+    # 清理连续分隔符和首尾
+    result = re.sub(r"[_\s]+", "_", result).strip("_- .")
+    return result if result else normalize_episode_name(video_filepath)
+
 
 # 中文数字映射
 _CN_NUM_MAP = {

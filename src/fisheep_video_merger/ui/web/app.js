@@ -411,6 +411,32 @@ window.loadVideoPreview = function(index) {
     }, 200);
 };
 
+// 双击输出名单元格，内联编辑
+window.editOutputName = function(index, event) {
+    const td = event.target;
+    if (td.querySelector('input')) return; // 已经在编辑中
+    const oldName = td.textContent.trim();
+    td.innerHTML = `<input type="text" value="${oldName}" style="width:100%;font-size:inherit;font-weight:inherit;border:1px solid var(--primary-color);border-radius:3px;padding:1px 4px;background:var(--card-bg);color:var(--text-primary);">`;
+    const input = td.querySelector('input');
+    input.focus();
+    input.select();
+    const commit = () => {
+        const newName = input.value.trim();
+        if (newName && newName !== oldName) {
+            callPython('rename_task', index, newName).then(res => {
+                if (res) handleBackendResponse(res);
+            });
+        } else {
+            td.textContent = oldName;
+        }
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { td.textContent = oldName; }
+    });
+};
+
 window.updatePathPreview = function() {
     const label = document.getElementById('detail-path-label');
     const filenameInput = document.getElementById('output-filename-input');
@@ -628,6 +654,10 @@ function syncSettingsFromPython() {
             store.overwrite = !!settings.overwrite;
             store.deleteSource = !!settings.delete_allowed;
 
+            // 同步命名模板
+            const tplInput = document.getElementById('settings-naming-template');
+            if (tplInput) tplInput.value = settings.naming_template || '';
+
             // 同步工具输出目录
             if (settings.tool_output_dirs) {
                 Object.assign(store.toolOutputDirs, settings.tool_output_dirs);
@@ -815,6 +845,14 @@ function initSettingsListeners() {
             }
         });
     }
+
+    // 命名模板输入
+    const tplInput = document.getElementById('settings-naming-template');
+    if (tplInput) {
+        tplInput.addEventListener('change', (e) => {
+            callPython('update_setting', 'naming_template', e.target.value.trim());
+        });
+    }
 }
 
 /* === 10. 全局自定义上下文菜单 (右键菜单) === */
@@ -917,8 +955,8 @@ function initContextMenu() {
             }
             
             menuItems = [
-                { label: '📂 导入 B站 缓存文件夹', action: () => document.getElementById('add-folder-btn').click() },
-                { label: '📄 导入 .m4s 单文件', action: () => document.getElementById('add-files-btn').click() },
+                { label: '📂 导入文件夹', action: () => document.getElementById('add-folder-btn').click() },
+                { label: '📄 导入音视频文件', action: () => document.getElementById('add-files-btn').click() },
                 { separator: true },
                 { label: '🌓 切换主题配色', action: () => document.getElementById('theme-switch-btn').click() },
                 { separator: true },

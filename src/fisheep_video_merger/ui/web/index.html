@@ -78,7 +78,7 @@
                 <header class="tool-header">
                     <div>
                         <h2>音视频合并</h2>
-                        <p class="subtitle">拖入B站缓存文件夹或导入 .m4s 音视频即可开始并行合并</p>
+                        <p class="subtitle">拖入视频缓存文件夹或导入音视频文件即可开始并行合并</p>
                     </div>
                     <div class="header-actions">
                         <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
@@ -115,7 +115,8 @@
                                 <thead>
                                     <tr>
                                         <th width="40"><input type="checkbox" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
-                                        <th>视频名称</th>
+                                        <th>源文件</th>
+                                        <th>输出名</th>
                                         <th>格式</th>
                                         <th>分辨率</th>
                                         <th>大小</th>
@@ -130,7 +131,8 @@
                                             :class="{ 'active-row': $store.app.selectedTaskIndex === index, 'selected': task.status === 'completed' }"
                                             @click="selectQueueRow(index, $event)">
                                             <td><input type="checkbox" class="row-checkbox" :data-index="index"></td>
-                                            <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" x-text="task.name"></td>
+                                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px;" :title="task.source_name" x-text="task.source_name || '-'"></td>
+                                            <td style="font-weight: 600; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;" :title="task.name" @dblclick="editOutputName(index, $event)" x-text="task.name"></td>
                                             <td><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;" x-text="task.format"></span></td>
                                             <td x-text="task.resolution || '未知'"></td>
                                             <td x-text="task.size || '未知'"></td>
@@ -154,7 +156,7 @@
                                             <div class="empty-state">
                                                 <div class="empty-icon">🐑</div>
                                                 <h3>目前队列空空如也</h3>
-                                                <p>直接拖入B站手机/电脑版缓存目录，或点击上方导入文件夹</p>
+                                                <p>直接拖入视频缓存目录，或点击上方导入文件夹</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -708,6 +710,18 @@
                                 <option value="mp4">MP4</option>
                                 <option value="mkv">MKV</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- 命名模板 -->
+                    <div class="config-card">
+                        <h4>📝 命名模板</h4>
+                        <div class="form-group">
+                            <label>输出文件名模板</label>
+                            <input type="text" id="settings-naming-template" placeholder="{series}_{ep}（留空则自动命名）">
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                可用变量：<code>{series}</code> 系列名 · <code>{ep}</code> 集数 · <code>{original}</code> 原文件名 · <code>{index}</code> 序号
+                            </p>
                         </div>
                     </div>
 

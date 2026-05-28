@@ -1,7 +1,7 @@
 """
-🐑 B站 m4s 视频合并工具 v0.4.0 - PyWebview 桌面窗口主入口
-100% 剥离 PySide 依赖，使用系统级原生 Chromium (Edge WebView2) 核心渲染 Web 视觉
-与原有业务逻辑、日志系统以及工作区状态文件无缝衔接
+🐑 Fisheep 视频工具箱 - PyWebview 桌面窗口主入口
+使用系统级原生 Chromium (Edge WebView2) 核心渲染 Web 视觉
+与业务逻辑、日志系统以及工作区状态文件无缝衔接
 """
 
 import sys

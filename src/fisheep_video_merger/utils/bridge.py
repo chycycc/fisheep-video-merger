@@ -1,7 +1,7 @@
 """
-🐑 B站 m4s 视频合并工具 v0.4.0 - Python-JS 桥接模块 (Bridge)
+🐑 Fisheep 视频工具箱 - Python-JS 桥接模块 (Bridge)
 提供纯 Python 实现的桌面操作系统级交互（文件/目录选择）与多线程高并发合并控制
-100% 剥离 PySide 依赖，包体极致压缩，保证与历史工作区状态的无缝兼容
+支持 B站/YouTube/通用音视频文件的扫描、配对、合并及工具操作
 """
 
 import os
@@ -72,6 +72,7 @@ class UIBridge:
             "theme": "auto",
             "concurrency": 2,
             "overwrite": True,
+            "naming_template": "",
             # 工具输出目录
             "tool_output_dirs": {
                 "convert": "",
@@ -348,7 +349,7 @@ class UIBridge:
         result = self._window.create_file_dialog(
             webview.OPEN_DIALOG,
             allow_multiple=True,
-            file_types=('音视频文件 (*.m4s;*.webm;*.mp4;*.ts;*.m4a;*.aac;*.mp3;*.flac)', '所有文件 (*.*)')
+            file_types=('音视频文件 (*.m4s;*.webm;*.mp4;*.ts;*.m4a;*.aac;*.mp3;*.flac;*.mkv;*.flv;*.mov)', '所有文件 (*.*)')
         )
         if result and len(result) > 0:
             self._add_files(result)
@@ -674,7 +675,7 @@ class UIBridge:
         if not new_directories:
             return
 
-        # 在异步后台线程开始文件夹 m4s 文件搜索，保证 JS 线程秒级响应
+        # 在异步后台线程开始文件夹音视频文件搜索，保证 JS 线程秒级响应
         def scan_worker():
             try:
                 results = scan_multiple_directories(new_directories)
@@ -704,7 +705,8 @@ class UIBridge:
                     self.tasks = match_result.auto_tasks
                     self.pending_videos = match_result.pending_videos
                     self.pending_audios = match_result.pending_audios
-                
+                    self._apply_naming_template()
+
                 if match_result.muxed_files:
                     for m in match_result.muxed_files:
                         if not any(x.filepath == m.filepath for x in self.muxed_files):
@@ -781,7 +783,8 @@ class UIBridge:
                     self.tasks = match_result.auto_tasks
                     self.pending_videos = match_result.pending_videos
                     self.pending_audios = match_result.pending_audios
-                    
+                    self._apply_naming_template()
+
                     # 对于已完整视频（通常不需要智能配对，但保险起见还是把新增加的合并进去）
                     # 也可以直接以 auto_match 的 muxed_files 为准
                     if new_muxed:
@@ -822,8 +825,12 @@ class UIBridge:
                     a_size = os.path.getsize(t.audio_file) if getattr(t, "audio_file", None) and os.path.exists(t.audio_file) else 0
                     size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
 
+            # 源文件名（不含路径）
+            source_name = os.path.basename(t.video_file) if getattr(t, "video_file", None) else ""
+
             tasks_list.append({
                 "name": t.output_name,
+                "source_name": source_name,
                 "format": fmt,
                 "resolution": "1080P" if "1080" in t.output_name else "自动识别",
                 "size": size_str,
@@ -1062,6 +1069,17 @@ class UIBridge:
             "fps": f"{detail.fps:.0f}" if detail.fps > 0 else "未知",
             "error": detail.error,
         }
+
+    def _apply_naming_template(self):
+        """如果有命名模板设置，重新生成所有任务的输出名"""
+        template = self.settings.get("naming_template", "").strip()
+        if not template:
+            return
+        from fisheep_video_merger.core.matcher import apply_naming_template
+        for i, task in enumerate(self.tasks):
+            task.output_name = apply_naming_template(
+                template, task.video_file, task.source_dir, task.root_path, i
+            )
 
     def _resolve_output_conflict(self, output_path: str) -> str:
         """检查输出文件是否存在，若存在则自动重命名避免覆盖"""
