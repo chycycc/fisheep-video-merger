@@ -23,6 +23,32 @@ _FORMAT_CODEC = {
 # 支持码率设置的格式
 _BITRATE_FORMATS = {"mp3", "aac"}
 
+# 源编码到目标格式的流复制兼容映射
+_STREAM_COPY_COMPAT = {
+    "mp3": {"mp3"},
+    "aac": {"aac"},
+    "flac": {"flac"},
+    "wav": {"wav", "pcm_s16le", "pcm_s24le", "pcm_f32le"},
+}
+
+
+def _can_use_stream_copy(input_file: str, audio_format: str,
+                         channels: str, sample_rate: str, volume: float) -> bool:
+    """判断是否可用流复制（源编码匹配 + 无滤镜修改）"""
+    # 有滤镜/声道/采样率修改时必须重编码
+    if channels != "original" or sample_rate != "original" or (volume != 1.0 and volume > 0):
+        return False
+    # 检测源音频编码
+    try:
+        from fisheep_video_merger.utils.ffprobe import get_video_detail
+        detail = get_video_detail(input_file)
+        src_codec = detail.audio_codec.lower() if detail.audio_codec else ""
+        compat = _STREAM_COPY_COMPAT.get(audio_format, set())
+        return src_codec in compat
+    except Exception:
+        return False
+
+
 # 编码质量预设
 PRESETS = {
     "high":     {"bitrate": "320k", "sample_rate": "48000", "channels": "stereo"},
@@ -63,43 +89,52 @@ def extract_audio(
     if err:
         return False, err
 
+    # 检测源音频编码，判断是否可用流复制（10-100x 快于重编码）
+    can_stream_copy = _can_use_stream_copy(input_file, audio_format, channels, sample_rate, volume)
+
     cmd = [get_ffmpeg_path(), "-i", input_file, "-vn"]
 
-    # 声道设置
-    if channels == "mono":
-        cmd.extend(["-ac", "1"])
-    elif channels == "stereo":
-        cmd.extend(["-ac", "2"])
-    # "original" 不加参数，保持原始声道
-
-    # 采样率设置
-    if sample_rate != "original":
-        cmd.extend(["-ar", sample_rate])
-
-    # 音频滤镜（音量调节）
-    filters = []
-    if volume != 1.0 and volume > 0:
-        filters.append(f"volume={volume}")
-
-    if filters:
-        cmd.extend(["-af", ",".join(filters)])
-
-    # 编码器和码率
-    if audio_format == "aac":
-        cmd.extend(["-c:a", "aac"])
-        if bitrate_mode == "vbr":
-            cmd.extend(["-q:a", "2"])
-        else:
-            cmd.extend(["-b:a", bitrate])
-        cmd.extend(["-f", "mp4"])
+    if can_stream_copy:
+        # 流复制模式：不重编码，直接复制音频流
+        cmd.extend(["-c:a", "copy"])
+        if audio_format == "aac":
+            cmd.extend(["-f", "mp4"])
+        logger.info(f"音频流复制模式（跳过重编码）: {os.path.basename(input_file)}")
     else:
-        codec = _FORMAT_CODEC.get(audio_format, "aac")
-        cmd.extend(["-c:a", codec])
-        if audio_format in _BITRATE_FORMATS:
-            if bitrate_mode == "vbr" and audio_format == "mp3":
+        # 重编码模式
+        # 声道设置
+        if channels == "mono":
+            cmd.extend(["-ac", "1"])
+        elif channels == "stereo":
+            cmd.extend(["-ac", "2"])
+
+        # 采样率设置
+        if sample_rate != "original":
+            cmd.extend(["-ar", sample_rate])
+
+        # 音频滤镜（音量调节）
+        filters = []
+        if volume != 1.0 and volume > 0:
+            filters.append(f"volume={volume}")
+        if filters:
+            cmd.extend(["-af", ",".join(filters)])
+
+        # 编码器和码率
+        if audio_format == "aac":
+            cmd.extend(["-c:a", "aac"])
+            if bitrate_mode == "vbr":
                 cmd.extend(["-q:a", "2"])
             else:
                 cmd.extend(["-b:a", bitrate])
+            cmd.extend(["-f", "mp4"])
+        else:
+            codec = _FORMAT_CODEC.get(audio_format, "aac")
+            cmd.extend(["-c:a", codec])
+            if audio_format in _BITRATE_FORMATS:
+                if bitrate_mode == "vbr" and audio_format == "mp3":
+                    cmd.extend(["-q:a", "2"])
+                else:
+                    cmd.extend(["-b:a", bitrate])
 
     cmd.extend(["-y", output_path])
 

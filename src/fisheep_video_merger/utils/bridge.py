@@ -588,13 +588,41 @@ class UIBridge:
     # ⚡ 3. 核心多线程并发合并总线 (Pure Python Multi-threading Merge Controller)
     # ====================================================================
 
+    def get_merge_estimate(self) -> Dict:
+        """预估合并耗时"""
+        total_size = 0
+        pending_count = 0
+        for t in self.tasks:
+            if t.status != "completed":
+                pending_count += 1
+                for f in [t.video_file, t.audio_file]:
+                    if f and os.path.exists(f):
+                        total_size += os.path.getsize(f)
+        if pending_count == 0:
+            return {"status": "success", "estimate": "无待合并任务", "seconds": 0}
+        # 流复制约 500MB/s，重编码约 50MB/s，合并默认流复制
+        concurrency = int(self.settings.get("concurrency", 2))
+        speed_mbps = 500  # 流复制速度
+        estimated_sec = (total_size / (1024 * 1024)) / speed_mbps * 60 / concurrency
+        if estimated_sec < 60:
+            time_str = f"约 {max(1, int(estimated_sec))} 秒"
+        else:
+            time_str = f"约 {int(estimated_sec // 60)} 分 {int(estimated_sec % 60)} 秒"
+        return {"status": "success", "estimate": time_str, "seconds": int(estimated_sec), "tasks": pending_count, "size_mb": round(total_size / (1024*1024), 1)}
+
     def start_merging(self) -> Dict:
         """拉起纯 Python 高并发合并任务队列"""
         if self.is_merging:
             return {"status": "error", "message": "Merge process already running"}
-        
+
         if not self.tasks:
             return {"status": "error", "message": "No tasks in queue"}
+
+        # 显示预估时间
+        est = self.get_merge_estimate()
+        if est.get("estimate"):
+            est_msg = f"⏱️ {est['estimate']}（{est['tasks']} 个任务，{est['size_mb']} MB）"
+            self._evaluate_js_safe(f"showToast('{est_msg}', 'info')")
 
         # 启动后台合并总线线程以避免卡死 UI
         merge_thread = threading.Thread(target=self._run_merge_loop, daemon=True)
