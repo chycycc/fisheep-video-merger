@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Fisheep Video Merger — Windows 桌面应用，用于合并 Bilibili 缓存的 m4s 分离式音视频文件。当前版本 v0.5.1。
+Fisheep Video Merger — Windows 桌面应用，用于合并 Bilibili 缓存的 m4s 分离式音视频文件。当前版本 v0.5.3。
 
 ## 常用命令
 
