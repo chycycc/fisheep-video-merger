@@ -6,7 +6,7 @@
 import os
 from typing import Callable, Optional
 
-from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path
+from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path, get_hw_encoder
 
 # 压缩预设 CRF 值
 _PRESET_CRF = {
@@ -51,14 +51,27 @@ def compress_video(
     crf = _PRESET_CRF.get(preset, 26)
     scale = _RESOLUTION_SCALE.get(resolution)
 
-    cmd = [
-        get_ffmpeg_path(),
-        "-i", input_file,
-        "-c:v", "libx264",
-        "-crf", str(crf),
-        "-c:a", "aac",
-        "-b:a", "128k",
-    ]
+    # 优先使用硬件加速编码器
+    hw_encoder = get_hw_encoder()
+    if hw_encoder:
+        # 硬件编码器使用 -cq 参数（质量模式）
+        cmd = [
+            get_ffmpeg_path(),
+            "-i", input_file,
+            "-c:v", hw_encoder,
+            "-cq", str(crf),
+            "-c:a", "aac",
+            "-b:a", "128k",
+        ]
+    else:
+        cmd = [
+            get_ffmpeg_path(),
+            "-i", input_file,
+            "-c:v", "libx264",
+            "-crf", str(crf),
+            "-c:a", "aac",
+            "-b:a", "128k",
+        ]
 
     if scale:
         cmd.extend(["-vf", f"scale={scale}"])

@@ -634,6 +634,18 @@ window.onTaskDrop = function(toIndex, event) {
     document.querySelectorAll('#queue-tbody tr').forEach(tr => tr.style.opacity = '1');
 };
 
+window.loadHwAccelInfo = function() {
+    callPython('get_hw_accel_info').then(res => {
+        const el = document.getElementById('hw-accel-info');
+        if (!el || !res || res.status !== 'success') return;
+        if (res.encoder) {
+            el.innerHTML = `<span style="color: var(--primary-color);">✅ ${res.desc}</span>（${res.encoder}）`;
+        } else {
+            el.innerHTML = `<span>软编码</span>（未检测到 GPU 加速）`;
+        }
+    });
+};
+
 window.loadPlatformStats = function() {
     callPython('get_platform_stats').then(res => {
         const el = document.getElementById('platform-stats');
@@ -793,8 +805,9 @@ function syncSettingsFromPython() {
                 }
             }
 
-            // 加载平台统计
+            // 加载平台统计和硬件加速信息
             if (window.loadPlatformStats) window.loadPlatformStats();
+            if (window.loadHwAccelInfo) window.loadHwAccelInfo();
 
             // 同步格式配置
             if (settings.enabled_formats) {

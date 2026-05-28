@@ -14,6 +14,57 @@ from fisheep_video_merger.utils.logger import get_logger
 
 logger = get_logger()
 
+# 硬件加速编码器检测结果缓存
+_hw_accel_info: Optional[dict] = None
+
+
+def detect_hw_accel() -> dict:
+    """
+    检测可用的硬件加速编码器
+    返回 {"encoder": str, "type": str} 或 {"encoder": None, "type": "software"}
+    """
+    global _hw_accel_info
+    if _hw_accel_info is not None:
+        return _hw_accel_info
+
+    # 检测顺序：NVENC（NVIDIA）→ QSV（Intel）→ AMF（AMD）
+    hw_encoders = [
+        ("h264_nvenc", "NVENC", "NVIDIA GPU"),
+        ("h264_qsv", "QSV", "Intel Quick Sync"),
+        ("h264_amf", "AMF", "AMD GPU"),
+    ]
+
+    ffmpeg = get_ffmpeg_path()
+    for encoder, hw_type, desc in hw_encoders:
+        try:
+            result = subprocess.run(
+                [ffmpeg, "-hide_banner", "-encoders"],
+                capture_output=True, text=True, timeout=5
+            )
+            if encoder in result.stdout:
+                # 进一步验证编码器实际可用
+                test_result = subprocess.run(
+                    [ffmpeg, "-hide_banner", "-f", "lavfi", "-i",
+                     "testsrc=duration=1:size=320x240:rate=1",
+                     "-c:v", encoder, "-f", "null", "-"],
+                    capture_output=True, timeout=10
+                )
+                if test_result.returncode == 0:
+                    _hw_accel_info = {"encoder": encoder, "type": hw_type, "desc": desc}
+                    logger.info(f"检测到硬件加速: {desc} ({encoder})")
+                    return _hw_accel_info
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+            continue
+
+    _hw_accel_info = {"encoder": None, "type": "software", "desc": "软编码"}
+    logger.info("未检测到硬件加速，使用软编码")
+    return _hw_accel_info
+
+
+def get_hw_encoder() -> Optional[str]:
+    """获取可用的硬件加速编码器名称，无则返回 None"""
+    return detect_hw_accel().get("encoder")
+
 # 进度回调节流间隔（秒）
 PROGRESS_THROTTLE_SECONDS = 0.3
 # 进度显示最大百分比

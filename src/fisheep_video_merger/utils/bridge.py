@@ -588,6 +588,12 @@ class UIBridge:
     # ⚡ 3. 核心多线程并发合并总线 (Pure Python Multi-threading Merge Controller)
     # ====================================================================
 
+    def get_hw_accel_info(self) -> Dict:
+        """获取硬件加速信息"""
+        from fisheep_video_merger.core.ffmpeg_runner import detect_hw_accel
+        info = detect_hw_accel()
+        return {"status": "success", **info}
+
     def get_merge_estimate(self) -> Dict:
         """预估合并耗时"""
         total_size = 0
