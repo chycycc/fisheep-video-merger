@@ -459,7 +459,8 @@
                     </div>
                 </header>
 
-                <div class="tool-options">
+                <div class="tool-options" style="flex-wrap: wrap;">
+                    <!-- 第一行：格式 + 质量预设 -->
                     <div class="tool-option-group">
                         <label>音频格式</label>
                         <select id="extract-format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
@@ -470,13 +471,60 @@
                         </select>
                     </div>
                     <div class="tool-option-group">
-                        <label>音频码率</label>
-                        <select id="extract-bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
-                            <option value="128k">128 kbps（标准）</option>
-                            <option value="192k" selected>192 kbps（高质量）</option>
-                            <option value="320k">320 kbps（极高品质）</option>
+                        <label>质量预设</label>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-secondary preset-btn" data-preset="high" onclick="applyExtractPreset('high')" style="font-size:11px;padding:4px 8px;">高质量</button>
+                            <button class="btn btn-secondary preset-btn active" data-preset="medium" onclick="applyExtractPreset('medium')" style="font-size:11px;padding:4px 8px;">中等</button>
+                            <button class="btn btn-secondary preset-btn" data-preset="low" onclick="applyExtractPreset('low')" style="font-size:11px;padding:4px 8px;">低质量</button>
+                        </div>
+                    </div>
+                    <!-- 第二行：码率模式 + 码率 -->
+                    <div class="tool-option-group">
+                        <label>码率模式</label>
+                        <select id="extract-bitrate-mode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
+                            <option value="cbr">CBR（恒定码率）</option>
+                            <option value="vbr">VBR（可变码率）</option>
                         </select>
                     </div>
+                    <div class="tool-option-group">
+                        <label>音频码率</label>
+                        <select id="extract-bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
+                            <option value="64k">64 kbps</option>
+                            <option value="128k">128 kbps</option>
+                            <option value="192k" selected>192 kbps</option>
+                            <option value="256k">256 kbps</option>
+                            <option value="320k">320 kbps</option>
+                        </select>
+                    </div>
+                    <!-- 第三行：声道 + 采样率 -->
+                    <div class="tool-option-group">
+                        <label>声道</label>
+                        <select id="extract-channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
+                            <option value="original">保持原始</option>
+                            <option value="stereo">立体声</option>
+                            <option value="mono">单声道</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>采样率</label>
+                        <select id="extract-sample-rate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
+                            <option value="original">保持原始</option>
+                            <option value="8000">8000 Hz</option>
+                            <option value="11025">11025 Hz</option>
+                            <option value="22050">22050 Hz</option>
+                            <option value="44100">44100 Hz</option>
+                            <option value="48000">48000 Hz</option>
+                        </select>
+                    </div>
+                    <!-- 第四行：音量 -->
+                    <div class="tool-option-group" style="flex: 1; min-width: 200px;">
+                        <label>音量调节 <span id="extract-volume-label" style="color: var(--text-muted);">1.0x</span></label>
+                        <input type="range" id="extract-volume" min="0.5" max="2.0" step="0.1" value="1.0"
+                               style="width: 100%;"
+                               oninput="document.getElementById('extract-volume-label').textContent = this.value + 'x'"
+                               @change="callPython('update_tool_setting', 'extract', 'volume', parseFloat($event.target.value))">
+                    </div>
+                    <!-- 第五行：输出目录 + 输出文件名 -->
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">
@@ -496,6 +544,9 @@
                             <tr>
                                 <th width="40"><input type="checkbox" checked></th>
                                 <th>文件名</th>
+                                <th>编码</th>
+                                <th>码率</th>
+                                <th>声道</th>
                                 <th>时长</th>
                                 <th>大小</th>
                                 <th>状态</th>

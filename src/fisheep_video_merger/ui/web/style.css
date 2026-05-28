@@ -1252,6 +1252,31 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     z-index: 1;
 }
 
+/* 音频预设按钮 */
+.preset-btn.active {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* 音量滑块 */
+input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+}
+
 /* 视频预览面板 */
 .video-preview {
     margin-bottom: 12px;

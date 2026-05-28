@@ -1,6 +1,6 @@
 """
 音频提取模块
-从视频文件中提取音轨
+从视频文件中提取音轨，支持声道/采样率/音量/CBR-VBR 等高级设置
 """
 
 import os
@@ -21,7 +21,14 @@ _FORMAT_CODEC = {
 }
 
 # 支持码率设置的格式
-_BITRATE_FORMATS = {"mp3"}
+_BITRATE_FORMATS = {"mp3", "aac"}
+
+# 编码质量预设
+PRESETS = {
+    "high":     {"bitrate": "320k", "sample_rate": "48000", "channels": "stereo"},
+    "medium":   {"bitrate": "192k", "sample_rate": "44100", "channels": "stereo"},
+    "low":      {"bitrate": "128k", "sample_rate": "22050", "channels": "mono"},
+}
 
 
 def extract_audio(
@@ -29,6 +36,10 @@ def extract_audio(
     output_path: str,
     audio_format: str = "mp3",
     bitrate: str = "192k",
+    channels: str = "original",
+    sample_rate: str = "original",
+    volume: float = 1.0,
+    bitrate_mode: str = "cbr",
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
     """
@@ -38,7 +49,11 @@ def extract_audio(
         input_file: 输入文件路径
         output_path: 输出文件路径
         audio_format: 输出格式（mp3/aac/flac/wav）
-        bitrate: 音频码率（仅 mp3 有效）
+        bitrate: 音频码率（如 "192k"）
+        channels: 声道（"original"/"stereo"/"mono"）
+        sample_rate: 采样率（"original"/"44100"/"48000" 等）
+        volume: 音量增益（0.5-2.0，1.0 为原始音量）
+        bitrate_mode: 码率模式（"cbr"/"vbr"）
         progress_callback: 进度回调
 
     Returns:
@@ -50,14 +65,41 @@ def extract_audio(
 
     cmd = [get_ffmpeg_path(), "-i", input_file, "-vn"]
 
-    # AAC 格式：直接输出到 M4A 容器（MP4 容器记录精确时长，ADTS 不准）
+    # 声道设置
+    if channels == "mono":
+        cmd.extend(["-ac", "1"])
+    elif channels == "stereo":
+        cmd.extend(["-ac", "2"])
+    # "original" 不加参数，保持原始声道
+
+    # 采样率设置
+    if sample_rate != "original":
+        cmd.extend(["-ar", sample_rate])
+
+    # 音频滤镜（音量调节）
+    filters = []
+    if volume != 1.0 and volume > 0:
+        filters.append(f"volume={volume}")
+
+    if filters:
+        cmd.extend(["-af", ",".join(filters)])
+
+    # 编码器和码率
     if audio_format == "aac":
-        cmd.extend(["-c:a", "aac", "-b:a", bitrate, "-f", "mp4"])
+        cmd.extend(["-c:a", "aac"])
+        if bitrate_mode == "vbr":
+            cmd.extend(["-q:a", "2"])
+        else:
+            cmd.extend(["-b:a", bitrate])
+        cmd.extend(["-f", "mp4"])
     else:
         codec = _FORMAT_CODEC.get(audio_format, "aac")
         cmd.extend(["-c:a", codec])
         if audio_format in _BITRATE_FORMATS:
-            cmd.extend(["-b:a", bitrate])
+            if bitrate_mode == "vbr" and audio_format == "mp3":
+                cmd.extend(["-q:a", "2"])
+            else:
+                cmd.extend(["-b:a", bitrate])
 
     cmd.extend(["-y", output_path])
 

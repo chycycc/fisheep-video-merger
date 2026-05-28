@@ -1105,6 +1105,35 @@ class UIBridge:
         s = int(seconds % 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
 
+    def get_file_info(self, filepath: str) -> Dict:
+        """获取音频文件详细信息（编码/码率/声道/采样率/时长）"""
+        from fisheep_video_merger.utils.ffprobe import get_video_detail
+        if not os.path.exists(filepath):
+            return {"status": "error", "message": "文件不存在"}
+        detail = get_video_detail(filepath)
+        # 从 ffprobe 获取更详细的音频信息
+        import subprocess
+        try:
+            probe = get_ffmpeg_path().replace("ffmpeg", "ffprobe") if "ffprobe" not in get_ffmpeg_path() else "ffprobe"
+            cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams", filepath]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=True)
+            data = __import__("json").loads(result.stdout)
+            audio_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "audio"]
+            if audio_streams:
+                a = audio_streams[0]
+                return {
+                    "status": "success",
+                    "codec": a.get("codec_name", "未知"),
+                    "bitrate": int(a.get("bit_rate", 0)) // 1000 if a.get("bit_rate") else 0,
+                    "channels": a.get("channels", 0),
+                    "channel_layout": a.get("channel_layout", "未知"),
+                    "sample_rate": a.get("sample_rate", "未知"),
+                    "duration": float(a.get("duration", 0)),
+                }
+        except Exception:
+            pass
+        return {"status": "success", "codec": "未知", "bitrate": 0, "channels": 0, "sample_rate": "未知", "duration": 0}
+
     def _make_tool_progress_callback(self, tool: str):
         """创建工具进度回调闭包（convert/extract/compress/trim 共用）"""
         def callback(txt, pct=None, eta=None, speed=None):
@@ -1127,7 +1156,10 @@ class UIBridge:
         success, err = convert_single(input_file, output_path, mode, self._make_tool_progress_callback('convert'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
-    def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str, output_dir: str = "", output_name: str = "") -> Dict:
+    def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str,
+                          output_dir: str = "", output_name: str = "",
+                          channels: str = "original", sample_rate: str = "original",
+                          volume: float = 1.0, bitrate_mode: str = "cbr") -> Dict:
         """音频提取 API"""
         if not os.path.exists(input_file):
             return {"status": "error", "message": "文件不存在"}
@@ -1143,7 +1175,12 @@ class UIBridge:
         output_path = os.path.join(output_dir, f"{name}.{ext}")
         output_path = self._resolve_output_conflict(output_path)
         try:
-            success, err = extract_audio_fn(input_file, output_path, audio_format, bitrate, self._make_tool_progress_callback('extract'))
+            success, err = extract_audio_fn(
+                input_file, output_path, audio_format, bitrate,
+                channels=channels, sample_rate=sample_rate,
+                volume=volume, bitrate_mode=bitrate_mode,
+                progress_callback=self._make_tool_progress_callback('extract')
+            )
             return {"status": "success" if success else "error", "output_path": output_path, "message": err}
         except Exception as e:
             logger.error(f"提取音频异常: {e}")

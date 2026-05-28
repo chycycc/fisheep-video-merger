@@ -1647,6 +1647,26 @@ window.selectToolOutputDir = function(tool) {
     }
 };
 
+// 音频提取质量预设
+window.applyExtractPreset = function(preset) {
+    const presets = {
+        high:   { bitrate: '320k', sampleRate: '48000', channels: 'stereo' },
+        medium: { bitrate: '192k', sampleRate: '44100', channels: 'stereo' },
+        low:    { bitrate: '128k', sampleRate: '22050', channels: 'mono' },
+    };
+    const p = presets[preset] || presets.medium;
+    const br = document.getElementById('extract-bitrate');
+    const sr = document.getElementById('extract-sample-rate');
+    const ch = document.getElementById('extract-channels');
+    if (br) br.value = p.bitrate;
+    if (sr) sr.value = p.sampleRate;
+    if (ch) ch.value = p.channels;
+    // 更新按钮状态
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === preset);
+    });
+};
+
 function initToolStartButtons() {
     // 格式转换
     const convertBtn = document.getElementById('convert-start-btn');
@@ -1667,15 +1687,21 @@ function initToolStartButtons() {
         extractBtn.addEventListener('click', () => {
             const format = document.getElementById('extract-format').value;
             const bitrate = document.getElementById('extract-bitrate').value;
+            const bitrateMode = document.getElementById('extract-bitrate-mode')?.value || 'cbr';
+            const channels = document.getElementById('extract-channels')?.value || 'original';
+            const sampleRate = document.getElementById('extract-sample-rate')?.value || 'original';
+            const volume = parseFloat(document.getElementById('extract-volume')?.value || '1.0');
             const outputDir = document.getElementById('extract-output-dir')?.value || '';
             const outputName = document.getElementById('extract-output-name')?.value?.trim() || '';
             const checkedCount = document.querySelectorAll('#extract-tbody .tool-row-cb:checked').length;
             const totalCount = toolFiles.extract.length;
             const selCount = checkedCount || totalCount;
-            // 仅单文件时使用自定义文件名，多文件时自动用源文件名
             const nameForBatch = selCount === 1 ? outputName : '';
             runToolTask('extract', (file) => {
-                return window.pywebview.api.extract_audio_api(file.filepath, format, bitrate, outputDir, nameForBatch);
+                return window.pywebview.api.extract_audio_api(
+                    file.filepath, format, bitrate, outputDir, nameForBatch,
+                    channels, sampleRate, volume, bitrateMode
+                );
             });
         });
     }
