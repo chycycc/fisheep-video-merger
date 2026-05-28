@@ -12,6 +12,11 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
 
+# ffprobe 结果缓存 {(filepath, mtime): StreamInfo}
+_probe_cache: dict[tuple, object] = {}
+_probe_cache_lock = threading.Lock()
+_CACHE_MAX_SIZE = 500
+
 
 class StreamType(Enum):
     """流类型枚举"""
@@ -87,6 +92,16 @@ def analyze_file(filepath: str) -> StreamInfo:
     Returns:
         StreamInfo 对象，包含流类型分析结果
     """
+    # 检查缓存（基于文件路径和修改时间）
+    try:
+        mtime = os.path.getmtime(filepath)
+        cache_key = (filepath, mtime)
+        with _probe_cache_lock:
+            if cache_key in _probe_cache:
+                return _probe_cache[cache_key]
+    except OSError:
+        cache_key = None
+
     try:
         data = _probe_file(filepath)
         if data is None:
@@ -119,7 +134,7 @@ def analyze_file(filepath: str) -> StreamInfo:
         else:
             stream_type = StreamType.UNKNOWN
 
-        return StreamInfo(
+        result = StreamInfo(
             filepath=filepath,
             stream_type=stream_type,
             has_video=has_video,
@@ -127,6 +142,16 @@ def analyze_file(filepath: str) -> StreamInfo:
             video_codec=video_codec,
             audio_codec=audio_codec,
         )
+        # 存入缓存
+        if cache_key:
+            with _probe_cache_lock:
+                if len(_probe_cache) >= _CACHE_MAX_SIZE:
+                    # 清理最旧的一半缓存
+                    keys = list(_probe_cache.keys())[:_CACHE_MAX_SIZE // 2]
+                    for k in keys:
+                        del _probe_cache[k]
+                _probe_cache[cache_key] = result
+        return result
 
     except subprocess.TimeoutExpired:
         return StreamInfo(
