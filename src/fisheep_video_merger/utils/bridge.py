@@ -1057,6 +1057,24 @@ class UIBridge:
         dur_str = f"{dur_m:02d}:{dur_s:02d}" if detail.duration > 0 else "未知"
         resolution = f"{detail.width}x{detail.height}" if detail.width else "未知"
 
+        # 集数检测
+        from fisheep_video_merger.core.matcher import extract_episode_number
+        ep = extract_episode_number(os.path.basename(filepath))
+        ep_str = f"第{ep}集" if ep else None
+
+        # 来源平台检测
+        platform = "通用"
+        source_dir = os.path.dirname(filepath)
+        from fisheep_video_merger.core.matcher import read_bilibili_meta
+        if read_bilibili_meta(source_dir):
+            platform = "B站"
+        elif any(os.path.exists(os.path.join(source_dir, f)) for f in ["entry.json", "danmaku.xml"]):
+            platform = "B站"
+        elif filepath.lower().endswith(".webm"):
+            platform = "YouTube"
+        elif filepath.lower().endswith(".m4s"):
+            platform = "B站"
+
         return {
             "status": "success" if not detail.error else "error",
             "message": detail.error,
@@ -1067,6 +1085,8 @@ class UIBridge:
             "bitrate": bitrate_str,
             "duration": dur_str,
             "fps": f"{detail.fps:.0f}" if detail.fps > 0 else "未知",
+            "episode": ep_str,
+            "platform": platform,
             "error": detail.error,
         }
 

@@ -407,6 +407,8 @@ window.loadVideoPreview = function(index) {
             set('preview-bitrate', res.bitrate);
             set('preview-duration', res.duration);
             set('preview-fps', res.fps ? res.fps + ' fps' : '-');
+            set('preview-episode', res.episode);
+            set('preview-platform', res.platform);
         });
     }, 200);
 };
