@@ -14,6 +14,7 @@ logger = get_logger()
 
 # 格式到编码器的映射
 _FORMAT_CODEC = {
+    "mp3": "libmp3lame",
     "aac": "aac",
     "flac": "flac",
     "wav": "pcm_s16le",
