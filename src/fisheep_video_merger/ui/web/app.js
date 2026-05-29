@@ -1407,7 +1407,9 @@ function renderToolTable(tool) {
                     <td>${file.size || '未知'}</td>
                     <td class="tool-status">⏳ 待处理</td>
                     <td>
-                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="打开文件">📂</button>
+                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开文件夹">📁</button>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="移除">🗑️</button>
                     </td>
                 </tr>`;
         }).join('');
@@ -1424,12 +1426,28 @@ function renderToolTable(tool) {
                     <td>${col3}</td>
                     <td class="tool-status">⏳ 待处理</td>
                     <td>
-                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="打开文件">📂</button>
+                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开文件夹">📁</button>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="移除">🗑️</button>
                     </td>
                 </tr>`;
         }).join('');
     }
 }
+
+window.openToolFile = function(tool, index) {
+    const file = toolFiles[tool][index];
+    if (file && file.filepath) {
+        callPython('play_video', file.filepath);
+    }
+};
+
+window.openToolFileFolder = function(tool, index) {
+    const file = toolFiles[tool][index];
+    if (file && file.filepath) {
+        callPython('open_file_folder', file.filepath);
+    }
+};
 
 window.removeToolFile = function(tool, index) {
     toolFiles[tool].splice(index, 1);
@@ -1837,6 +1855,7 @@ function runToolTask(tool, taskFn) {
         const file = selectedFiles[i];
         const idx = toolFiles[tool].indexOf(file);
         if (allRows[idx]) {
+            allRows[idx].classList.add('tool-processing');
             const statusCell = allRows[idx].querySelector('.tool-status');
             if (statusCell) statusCell.textContent = '⚡ 处理中...';
         }
@@ -1846,6 +1865,7 @@ function runToolTask(tool, taskFn) {
             if (result && result.status === 'success') {
                 completed++;
                 if (allRows[idx]) {
+                    allRows[idx].classList.remove('tool-processing');
                     const statusCell = allRows[idx].querySelector('.tool-status');
                     if (statusCell) statusCell.textContent = '✅ 完成';
                 }
@@ -1853,6 +1873,7 @@ function runToolTask(tool, taskFn) {
                 failed++;
                 const errMsg = result?.error || result?.message || '失败';
                 if (allRows[idx]) {
+                    allRows[idx].classList.remove('tool-processing');
                     const statusCell = allRows[idx].querySelector('.tool-status');
                     if (statusCell) statusCell.textContent = `❌ ${errMsg}`;
                 }
@@ -1861,6 +1882,7 @@ function runToolTask(tool, taskFn) {
         } catch (e) {
             failed++;
             if (allRows[idx]) {
+                allRows[idx].classList.remove('tool-processing');
                 const statusCell = allRows[idx].querySelector('.tool-status');
                 if (statusCell) statusCell.textContent = `❌ ${e}`;
             }
