@@ -176,32 +176,24 @@ function initTheme() {
 /* === 1.5 侧栏折叠/展开切换 (Sidebar Toggle) === */
 function initSidebarToggle() {
     const store = Alpine.store('app');
-    let lastWidth = window.innerWidth;
+    let userManuallyToggled = false;
 
     // 小屏幕下默认收起
     if (window.innerWidth <= 900) {
         store.sidebarCollapsed = true;
     }
 
-    // 窗口缩放时自动收起/展开
+    // 窗口缩放时自动收起/展开（仅在用户未手动操作时生效）
     window.addEventListener('resize', () => {
-        const w = window.innerWidth;
-        // 从小屏变大屏 → 自动展开
-        if (lastWidth <= 900 && w > 900) {
-            store.sidebarCollapsed = false;
-        }
-        // 从大屏变小屏 → 自动收起
-        if (lastWidth > 900 && w <= 900) {
-            store.sidebarCollapsed = true;
-        }
-        lastWidth = w;
+        if (userManuallyToggled) return;
+        store.sidebarCollapsed = window.innerWidth <= 900;
     });
 
     // 用户手动点击折叠按钮时标记
     const logoArea = document.getElementById('logo-area-toggle');
     if (logoArea) {
         logoArea.addEventListener('click', () => {
-            userToggled = true;
+            userManuallyToggled = true;
         });
     }
 }
