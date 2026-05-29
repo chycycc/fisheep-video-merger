@@ -182,12 +182,26 @@ function initSidebarToggle() {
         store.sidebarCollapsed = true;
     }
 
+    // 记录用户手动操作
+    let userToggled = false;
+
     // 窗口缩放时自动收起/展开
     window.addEventListener('resize', () => {
         if (window.innerWidth <= 900) {
             store.sidebarCollapsed = true;
+            userToggled = false; // 重置，放大后恢复
+        } else if (!userToggled && window.innerWidth > 900) {
+            store.sidebarCollapsed = false;
         }
     });
+
+    // 用户手动点击折叠按钮时标记
+    const logoArea = document.getElementById('logo-area-toggle');
+    if (logoArea) {
+        logoArea.addEventListener('click', () => {
+            userToggled = true;
+        });
+    }
 }
 
 function notifyPythonTheme(theme) {
@@ -365,10 +379,60 @@ window.selectQueueRow = function(index, event) {
     }
 
     // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
-    Alpine.store('app').selectedTaskIndex = index;
+    const store = Alpine.store('app');
+    // 再次点击同一行则取消选中
+    if (store.selectedTaskIndex === index) {
+        store.selectedTaskIndex = -1;
+        window.hideVideoPreview();
+        window.updatePathPreview();
+        return;
+    }
+    store.selectedTaskIndex = index;
 
     window.updatePathPreview();
     window.loadVideoPreview(index);
+};
+
+// 通用预览加载（供 pending/muxed 标签页使用）
+window.loadPreviewForFile = function(filepath) {
+    if (!filepath) return;
+    const panel = document.getElementById('video-preview');
+    if (panel) panel.style.display = 'block';
+    const reqId = ++window._previewRequestId;
+    callPython('get_video_preview', filepath).then(res => {
+        if (reqId !== window._previewRequestId) return;
+        if (!res || res.status !== 'success') {
+            window.hideVideoPreview();
+            return;
+        }
+        const img = document.getElementById('preview-img');
+        if (img && res.screenshot) {
+            img.src = `data:image/png;base64,${res.screenshot}`;
+        } else if (img) {
+            img.src = '';
+        }
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '-'; };
+        set('preview-resolution', res.resolution);
+        set('preview-vcodec', res.video_codec);
+        set('preview-acodec', res.audio_codec);
+        set('preview-bitrate', res.bitrate);
+        set('preview-duration', res.duration);
+        set('preview-fps', res.fps ? res.fps + ' fps' : '-');
+        set('preview-episode', res.episode);
+        set('preview-platform', res.platform);
+    });
+};
+
+// 隐藏预览面板
+window.hideVideoPreview = function() {
+    const panel = document.getElementById('video-preview');
+    if (panel) panel.style.display = 'none';
+    const img = document.getElementById('preview-img');
+    if (img) img.src = '';
+    ['resolution','vcodec','acodec','bitrate','duration','fps','episode','platform'].forEach(id => {
+        const el = document.getElementById('preview-' + id);
+        if (el) el.textContent = '-';
+    });
 };
 
 // 加载视频预览（截图 + 元数据），带请求计数器防竞态
@@ -379,9 +443,15 @@ window.loadVideoPreview = function(index) {
     window._previewDebounce = setTimeout(() => {
         const tasks = Alpine.store('app').tasks;
         const task = tasks[index];
-        if (!task) return;
+        if (!task) {
+            window.hideVideoPreview();
+            return;
+        }
         const filepath = task.video_file || task.audio_file;
-        if (!filepath) return;
+        if (!filepath) {
+            window.hideVideoPreview();
+            return;
+        }
 
         const panel = document.getElementById('video-preview');
         if (panel) panel.style.display = 'block';
@@ -390,8 +460,7 @@ window.loadVideoPreview = function(index) {
         callPython('get_video_preview', filepath).then(res => {
             if (reqId !== window._previewRequestId) return; // 已过时，丢弃
             if (!res || res.status !== 'success') {
-                const img = document.getElementById('preview-img');
-                if (img) img.src = '';
+                window.hideVideoPreview();
                 return;
             }
             const img = document.getElementById('preview-img');

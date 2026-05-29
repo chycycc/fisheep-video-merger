@@ -150,8 +150,10 @@
                                                 <span x-show="task.status === 'completed'" style="color: var(--primary-color);">✅ 完成</span>
                                                 <span x-show="task.status === 'failed'" style="color: #EF4444;" :title="task.error || ''">❌ 失败</span>
                                             </td>
-                                            <td>
-                                                <button class="mini-action-btn" @click.stop="deleteTask(index)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                                            <td style="white-space: nowrap;">
+                                                <button class="mini-action-btn" @click.stop="playVideo(task.video_file || task.audio_file)" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="mini-action-btn" @click.stop="openFileFolder(task.video_file || task.audio_file)" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="mini-action-btn" @click.stop="deleteTask(index)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -186,7 +188,7 @@
                                 <tbody id="pending-tbody">
                                     <!-- Alpine x-for: 待整理文件列表 -->
                                     <template x-for="(item, index) in $store.app.pending" :key="item.filepath">
-                                        <tr>
+                                        <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
                                             <td><input type="checkbox" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
                                             <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
                                                 <span x-text="item.name"></span>
@@ -231,7 +233,7 @@
                                 <tbody id="muxed-tbody">
                                     <!-- Alpine x-for: 已完整文件列表 -->
                                     <template x-for="(item, index) in $store.app.muxed" :key="item.filepath">
-                                        <tr>
+                                        <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
                                             <td><input type="checkbox" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
                                             <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
                                                 <span x-text="item.name"></span>

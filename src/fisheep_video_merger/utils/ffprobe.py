@@ -257,7 +257,7 @@ def extract_screenshot(filepath: str) -> Optional[str]:
         ffmpeg = get_ffmpeg_path()
         fd, tmp_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
-        cmd = [ffmpeg, "-i", filepath, "-vframes", "1", "-y", tmp_path]
+        cmd = [ffmpeg, "-ss", "1", "-i", filepath, "-vframes", "1", "-y", tmp_path]
         result = subprocess.run(cmd, capture_output=True, timeout=10)
         if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
             return tmp_path
