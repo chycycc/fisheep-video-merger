@@ -60,7 +60,7 @@ def main():
     # 从设置中恢复窗口位置
     s = bridge.settings
     window = webview.create_window(
-        title=f"{__appname__} v{__version__} - 极速美化 WebView2 版 🐑",
+        title=f"{__appname__} v{__version__} 🐑",
         url=url,
         js_api=bridge,
         width=s.get("window_width", 1100),
