@@ -1019,6 +1019,8 @@ class UIBridge:
             tasks_list.append({
                 "name": t.output_name,
                 "source_name": source_name,
+                "video_file": getattr(t, "video_file", "") or "",
+                "audio_file": getattr(t, "audio_file", "") or "",
                 "format": fmt,
                 "resolution": "1080P" if "1080" in t.output_name else "自动识别",
                 "size": size_str,
