@@ -415,6 +415,10 @@
                             <button class="mini-action-btn" onclick="selectToolOutputDir('convert')">📂</button>
                         </div>
                     </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
+                        <input type="text" id="convert-output-name" placeholder="例如: 转换后的视频">
+                    </div>
                 </div>
 
                 <div class="table-container">
@@ -700,6 +704,10 @@
                             <input type="text" id="trim-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
                             <button class="mini-action-btn" onclick="selectToolOutputDir('trim')">📂</button>
                         </div>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
+                        <input type="text" id="trim-output-name" placeholder="例如: 裁剪后的视频">
                     </div>
                 </div>
 

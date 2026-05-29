@@ -1393,11 +1393,19 @@ function renderToolTable(tool) {
         return;
     }
 
+    function getStatusHtml(file) {
+        const s = file._status || 'pending';
+        if (s === 'completed') return '✅ 完成';
+        if (s === 'failed') return `❌ ${file._error || '失败'}`;
+        if (s === 'processing') return '⚡ 处理中...';
+        return '⏳ 待处理';
+    }
+
     if (tool === 'extract') {
         // 音频提取：显示 编码/码率/声道/时长/大小
         tbody.innerHTML = files.map((file, index) => {
             return `
-                <tr>
+                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
                     <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
                     <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${file.codec || '未知'}</td>
@@ -1405,7 +1413,7 @@ function renderToolTable(tool) {
                     <td>${file.channels === 1 ? '单声道' : file.channels === 2 ? '立体声' : file.channel_layout || '未知'}</td>
                     <td>${file.duration_str || '未知'}</td>
                     <td>${file.size || '未知'}</td>
-                    <td class="tool-status">⏳ 待处理</td>
+                    <td class="tool-status">${getStatusHtml(file)}</td>
                     <td style="white-space: nowrap;">
                         <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
                         <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
@@ -1419,12 +1427,12 @@ function renderToolTable(tool) {
             const col2 = file.duration_str || file.size || '未知';
             const col3 = file.size || '未知';
             return `
-                <tr>
+                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
                     <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
                     <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${col2}</td>
                     <td>${col3}</td>
-                    <td class="tool-status">⏳ 待处理</td>
+                    <td class="tool-status">${getStatusHtml(file)}</td>
                     <td style="white-space: nowrap;">
                         <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
                         <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
@@ -1734,8 +1742,12 @@ function initToolStartButtons() {
             const format = document.getElementById('convert-format').value;
             const mode = document.getElementById('convert-mode').value;
             const outputDir = document.getElementById('convert-output-dir')?.value || '';
+            const outputName = document.getElementById('convert-output-name')?.value?.trim() || '';
+            const checkedCount = document.querySelectorAll('#convert-tbody .tool-row-cb:checked').length;
+            const selCount = checkedCount || toolFiles.convert.length;
+            const nameForBatch = selCount === 1 ? outputName : '';
             runToolTask('convert', (file) => {
-                return window.pywebview.api.convert_file(file.filepath, format, mode, outputDir);
+                return window.pywebview.api.convert_file(file.filepath, format, mode, outputDir, nameForBatch);
             });
         });
     }
@@ -1791,12 +1803,16 @@ function initToolStartButtons() {
             const end = document.getElementById('trim-end').value;
             const mode = document.getElementById('trim-mode').value;
             const outputDir = document.getElementById('trim-output-dir')?.value || '';
+            const outputName = document.getElementById('trim-output-name')?.value?.trim() || '';
+            const checkedCount = document.querySelectorAll('#trim-tbody .tool-row-cb:checked').length;
+            const selCount = checkedCount || toolFiles.trim.length;
+            const nameForBatch = selCount === 1 ? outputName : '';
             if (!end) {
                 showToast('请填写结束时间', 'warning');
                 return;
             }
             runToolTask('trim', (file) => {
-                return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir);
+                return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir, nameForBatch);
             });
         });
     }
@@ -1836,16 +1852,11 @@ function runToolTask(tool, taskFn) {
     let failed = 0;
     const total = selectedFiles.length;
 
-    // 标记选中行为处理中
-    const tbody = document.getElementById(`${tool}-tbody`);
-    const allRows = tbody ? Array.from(tbody.querySelectorAll('tr:not(.empty-state-row)')) : [];
+    // 标记选中行为等待中
     selectedFiles.forEach(file => {
-        const idx = toolFiles[tool].indexOf(file);
-        if (allRows[idx]) {
-            const statusCell = allRows[idx].querySelector('.tool-status');
-            if (statusCell) statusCell.textContent = '⏳ 等待中...';
-        }
+        file._status = 'waiting';
     });
+    renderToolTable(tool);
 
     async function processNext(i) {
         if (i >= selectedFiles.length) {
@@ -1858,39 +1869,27 @@ function runToolTask(tool, taskFn) {
         }
 
         const file = selectedFiles[i];
-        const idx = toolFiles[tool].indexOf(file);
-        if (allRows[idx]) {
-            allRows[idx].classList.add('tool-processing');
-            const statusCell = allRows[idx].querySelector('.tool-status');
-            if (statusCell) statusCell.textContent = '⚡ 处理中...';
-        }
+        file._status = 'processing';
+        renderToolTable(tool);
 
         try {
             const result = await taskFn(file);
             if (result && result.status === 'success') {
                 completed++;
-                if (allRows[idx]) {
-                    allRows[idx].classList.remove('tool-processing');
-                    const statusCell = allRows[idx].querySelector('.tool-status');
-                    if (statusCell) statusCell.textContent = '✅ 完成';
-                }
+                file._status = 'completed';
+                renderToolTable(tool);
             } else {
                 failed++;
-                const errMsg = result?.error || result?.message || '失败';
-                if (allRows[idx]) {
-                    allRows[idx].classList.remove('tool-processing');
-                    const statusCell = allRows[idx].querySelector('.tool-status');
-                    if (statusCell) statusCell.textContent = `❌ ${errMsg}`;
-                }
-                console.error(`[${tool}] 失败:`, errMsg);
+                file._status = 'failed';
+                file._error = result?.error || result?.message || '失败';
+                renderToolTable(tool);
+                console.error(`[${tool}] 失败:`, file._error);
             }
         } catch (e) {
             failed++;
-            if (allRows[idx]) {
-                allRows[idx].classList.remove('tool-processing');
-                const statusCell = allRows[idx].querySelector('.tool-status');
-                if (statusCell) statusCell.textContent = `❌ ${e}`;
-            }
+            file._status = 'failed';
+            file._error = String(e);
+            renderToolTable(tool);
             console.error(`[${tool}] 异常:`, e);
         }
 

@@ -1187,14 +1187,17 @@ class UIBridge:
             )
         return callback
 
-    def convert_file(self, input_file: str, output_format: str, mode: str, output_dir: str = "") -> Dict:
+    def convert_file(self, input_file: str, output_format: str, mode: str, output_dir: str = "", output_name: str = "") -> Dict:
         """格式转换 API"""
         if not os.path.exists(input_file):
             return {"status": "error", "message": "文件不存在"}
 
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
-        name = os.path.splitext(os.path.basename(input_file))[0]
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0]
         output_path = os.path.join(output_dir, f"{name}.{output_format}")
         output_path = self._resolve_output_conflict(output_path)
         success, err = convert_single(input_file, output_path, mode, self._make_tool_progress_callback('convert'))
@@ -1247,16 +1250,19 @@ class UIBridge:
         success, err = compress_video_fn(input_file, output_path, preset, resolution, self._make_tool_progress_callback('compress'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
-    def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str, output_dir: str = "") -> Dict:
+    def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str, output_dir: str = "", output_name: str = "") -> Dict:
         """视频裁剪 API"""
         if not os.path.exists(input_file):
             return {"status": "error", "message": "文件不存在"}
 
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
-        name = os.path.splitext(os.path.basename(input_file))[0]
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0] + "_trimmed"
         ext = os.path.splitext(input_file)[1]
-        output_path = os.path.join(output_dir, f"{name}_trimmed{ext}")
+        output_path = os.path.join(output_dir, f"{name}{ext}")
         output_path = self._resolve_output_conflict(output_path)
         success, err = trim_video_fn(input_file, output_path, start_time, end_time, mode=mode, progress_callback=self._make_tool_progress_callback('trim'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
