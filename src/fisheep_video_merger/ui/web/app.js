@@ -1347,14 +1347,14 @@ function addFilesToTool(tool, paths) {
                   }).catch(() => ({ filepath: path, name: baseName, status: 'success' }))
                 : window.pywebview.api.get_video_info(path);
             apiCall.then(info => {
-                if (info) {
-                    // 确保基础字段存在
-                    if (!info.name) info.name = baseName;
-                    if (!info.filepath) info.filepath = path;
-                    toolFiles[tool].push(info);
-                    renderToolTable(tool);
-                    updateToolStartButton(tool);
-                    showToast(`已添加: ${baseName}`, 'success');
+                // 始终添加文件，即使信息获取失败
+                const fileData = { filepath: path, name: baseName, ...(info || {}) };
+                if (!fileData.name) fileData.name = baseName;
+                if (!fileData.filepath) fileData.filepath = path;
+                toolFiles[tool].push(fileData);
+                renderToolTable(tool);
+                updateToolStartButton(tool);
+                showToast(`已添加: ${baseName}`, 'success');
 
                     // 裁剪工具：激活时间轴滑块
                     if (tool === 'trim' && info.duration && window.setTrimDuration) {

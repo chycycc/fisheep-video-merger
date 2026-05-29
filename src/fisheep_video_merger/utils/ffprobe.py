@@ -206,7 +206,7 @@ def _probe_file(filepath: str, extra_args: list = None) -> Optional[dict]:
         cmd.extend(extra_args)
     cmd.append(filepath)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=True)
         return json.loads(result.stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError, subprocess.TimeoutExpired, FileNotFoundError):
         return None
