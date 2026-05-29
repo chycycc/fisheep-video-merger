@@ -1406,10 +1406,10 @@ function renderToolTable(tool) {
                     <td>${file.duration_str || '未知'}</td>
                     <td>${file.size || '未知'}</td>
                     <td class="tool-status">⏳ 待处理</td>
-                    <td>
-                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="打开文件">📂</button>
-                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开文件夹">📁</button>
-                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="移除">🗑️</button>
+                    <td style="white-space: nowrap;">
+                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
+                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444;" title="移除">✕</button>
                     </td>
                 </tr>`;
         }).join('');
@@ -1425,10 +1425,10 @@ function renderToolTable(tool) {
                     <td>${col2}</td>
                     <td>${col3}</td>
                     <td class="tool-status">⏳ 待处理</td>
-                    <td>
-                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="打开文件">📂</button>
-                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开文件夹">📁</button>
-                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="移除">🗑️</button>
+                    <td style="white-space: nowrap;">
+                        <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
+                        <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444;" title="移除">✕</button>
                     </td>
                 </tr>`;
         }).join('');
