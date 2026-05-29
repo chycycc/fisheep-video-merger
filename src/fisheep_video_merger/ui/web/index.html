@@ -88,7 +88,7 @@
                         <button class="btn btn-secondary" @click="batchRetryFailed()" title="重试所有失败的任务">🔄 重试失败</button>
                         <button class="btn btn-secondary" @click="showBatchRenameDialog()" title="批量重命名选中任务">✏️ 批量重命名</button>
                         <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板"
-                                @click="$store.app.configPanelOpen = !$store.app.configPanelOpen">🎛️ 配置</button>
+                                @click="toggleConfigPanel()">🎛️ 配置</button>
                     </div>
                 </header>
 

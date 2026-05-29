@@ -366,6 +366,16 @@ function callPython(methodName, ...args) {
 // renderQueue: Alpine x-for 自动渲染，此函数保留兼容
 // renderQueue: Alpine x-for 自动渲染
 
+// 配置面板开关（打开时如果有选中文件则加载预览）
+window.toggleConfigPanel = function() {
+    const store = Alpine.store('app');
+    store.configPanelOpen = !store.configPanelOpen;
+    // 打开面板时，如果有选中的文件，加载预览
+    if (store.configPanelOpen && store.selectedTaskIndex >= 0) {
+        window.loadVideoPreview(store.selectedTaskIndex);
+    }
+};
+
 // A2. 单击列表行，更新右侧的预计输出路径预览 + 视频预览
 window.selectQueueRow = function(index, event) {
     if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
@@ -1251,17 +1261,6 @@ function initContextMenu() {
 
 /* === 11. 绑定行点击高亮及多选联动 (Delegated Event Handlers) === */
 function bindRowSelectionListeners() {
-    // 点击空白区域隐藏预览面板
-    document.addEventListener('click', (e) => {
-        // 如果点击的不是表格行、按钮、输入框，则隐藏预览
-        if (!e.target.closest('tr') && !e.target.closest('button') && !e.target.closest('input') && !e.target.closest('.config-panel')) {
-            if (window.hideVideoPreview) {
-                window.hideVideoPreview();
-                Alpine.store('app').selectedTaskIndex = -1;
-            }
-        }
-    });
-
     // 监听表格内所有非空行的点击事件
     document.querySelectorAll('.data-table tbody').forEach(tbody => {
         tbody.addEventListener('click', (e) => {
