@@ -24,7 +24,7 @@ def clean_build():
                 print(f"[Warning] Could not delete {file}: {e}")
 
 def build_app():
-    print("--- Starting PyInstaller Build Process for v0.4.0 (PyWebview Hybrid) ---")
+    print("--- Starting PyInstaller Build Process for v0.5.3 (PyWebview Hybrid) ---")
     
     # 静态 Web 资源源路径与包内目标路径
     web_src = os.path.join("src", "fisheep_video_merger", "ui", "web")
