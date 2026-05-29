@@ -1336,11 +1336,18 @@ function addFilesToTool(tool, paths) {
         return;
     }
 
-    // 获取文件信息
+    // 获取文件信息（提取音频用 get_file_info 获取详细音频信息）
     validPaths.forEach(path => {
         if (window.pywebview && window.pywebview.api) {
-            window.pywebview.api.get_video_info(path).then(info => {
-                if (info && info.status === 'success') {
+            const apiCall = tool === 'extract'
+                ? window.pywebview.api.get_file_info(path).then(info => {
+                    // get_file_info 返回音频详情，补充基础信息
+                    const stat_info = { filepath: path, name: path.split(/[\\/]/).pop() };
+                    return { ...stat_info, ...info };
+                  })
+                : window.pywebview.api.get_video_info(path);
+            apiCall.then(info => {
+                if (info && (info.status === 'success' || info.codec)) {
                     toolFiles[tool].push(info);
                     renderToolTable(tool);
                     updateToolStartButton(tool);
@@ -1384,21 +1391,42 @@ function renderToolTable(tool) {
         return;
     }
 
-    tbody.innerHTML = files.map((file, index) => {
-        const col2 = file.duration_str || file.size || '未知';
-        const col3 = file.size || '未知';
-        return `
-            <tr>
-                <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
-                <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
-                <td>${col2}</td>
-                <td>${col3}</td>
-                <td class="tool-status">⏳ 待处理</td>
-                <td>
-                    <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
-                </td>
-            </tr>`;
-    }).join('');
+    if (tool === 'extract') {
+        // 音频提取：显示 编码/码率/声道/时长/大小
+        tbody.innerHTML = files.map((file, index) => {
+            return `
+                <tr>
+                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
+                    <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
+                    <td>${file.codec || '未知'}</td>
+                    <td>${file.bitrate ? file.bitrate + ' kbps' : '未知'}</td>
+                    <td>${file.channels === 1 ? '单声道' : file.channels === 2 ? '立体声' : file.channel_layout || '未知'}</td>
+                    <td>${file.duration_str || '未知'}</td>
+                    <td>${file.size || '未知'}</td>
+                    <td class="tool-status">⏳ 待处理</td>
+                    <td>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                    </td>
+                </tr>`;
+        }).join('');
+    } else {
+        // 其他工具：标准列
+        tbody.innerHTML = files.map((file, index) => {
+            const col2 = file.duration_str || file.size || '未知';
+            const col3 = file.size || '未知';
+            return `
+                <tr>
+                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
+                    <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
+                    <td>${col2}</td>
+                    <td>${col3}</td>
+                    <td class="tool-status">⏳ 待处理</td>
+                    <td>
+                        <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                    </td>
+                </tr>`;
+        }).join('');
+    }
 }
 
 window.removeToolFile = function(tool, index) {
