@@ -7,7 +7,7 @@ import os
 import re
 from typing import Callable, Optional
 
-from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path
+from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path, get_hw_encoder
 
 
 def parse_time(time_str: str) -> float:
@@ -88,7 +88,9 @@ def trim_video(
     if mode == "copy":
         cmd.extend(["-c", "copy"])
     else:
-        cmd.extend(["-c:v", "libx264", "-c:a", "aac"])
+        hw_encoder = get_hw_encoder()
+        video_codec = hw_encoder if hw_encoder else "libx264"
+        cmd.extend(["-c:v", video_codec, "-c:a", "aac"])
 
     cmd.extend(["-y", output_path])
 
