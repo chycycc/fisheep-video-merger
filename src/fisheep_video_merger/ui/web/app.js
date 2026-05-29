@@ -1356,10 +1356,9 @@ function addFilesToTool(tool, paths) {
                 updateToolStartButton(tool);
                 showToast(`已添加: ${baseName}`, 'success');
 
-                    // 裁剪工具：激活时间轴滑块
-                    if (tool === 'trim' && info.duration && window.setTrimDuration) {
-                        window.setTrimDuration(info.duration);
-                    }
+                // 裁剪工具：激活时间轴滑块
+                if (tool === 'trim' && fileData.duration && window.setTrimDuration) {
+                    window.setTrimDuration(fileData.duration);
                 }
             });
         } else {
@@ -1596,8 +1595,6 @@ function initSettingsPanel() {
             if (deleteSource) deleteSource.checked = !!settings.delete_allowed;
         });
 
-        // 检测 FFmpeg
-        window.pywebview.api.get_video_info('/dev/null').catch(() => {});
     }
 
     // FFmpeg 路径检测
