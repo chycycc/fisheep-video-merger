@@ -198,8 +198,10 @@
                                             </td>
                                             <td x-text="item.size || '未知'"></td>
                                             <td x-text="item.mtime || '未知'"></td>
-                                            <td>
-                                                <button class="mini-action-btn" @click="deletePendingFile(item.filepath)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);">🗑️</button>
+                                            <td style="white-space: nowrap;">
+                                                <button class="mini-action-btn" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="mini-action-btn" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="mini-action-btn" @click.stop="deletePendingFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -242,12 +244,10 @@
                                             <td x-text="item.resolution || '自动'"></td>
                                             <td x-text="item.size || '未知'"></td>
                                             <td x-text="item.mtime || '未知'"></td>
-                                            <td>
-                                                <div style="display: flex; gap: 6px;">
-                                                    <button class="mini-action-btn" @click="playVideo(item.filepath)" style="color: var(--primary-color); border-color: rgba(16,185,129,0.2);" title="使用系统播放器播放">▶️</button>
-                                                    <button class="mini-action-btn" @click="openFileFolder(item.filepath)" style="color: var(--text-color); border-color: var(--border-color);" title="在资源管理器中定位">📂</button>
-                                                    <button class="mini-action-btn" @click="deleteMuxedFile(item.filepath)" style="color: #EF4444; border-color: rgba(239,68,68,0.2);" title="从列表中移除">🗑️</button>
-                                                </div>
+                                            <td style="white-space: nowrap;">
+                                                <button class="mini-action-btn" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="mini-action-btn" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="mini-action-btn" @click.stop="deleteMuxedFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>

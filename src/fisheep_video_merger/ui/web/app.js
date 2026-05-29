@@ -176,23 +176,25 @@ function initTheme() {
 /* === 1.5 侧栏折叠/展开切换 (Sidebar Toggle) === */
 function initSidebarToggle() {
     const store = Alpine.store('app');
+    let lastWidth = window.innerWidth;
 
     // 小屏幕下默认收起
     if (window.innerWidth <= 900) {
         store.sidebarCollapsed = true;
     }
 
-    // 记录用户手动操作
-    let userToggled = false;
-
     // 窗口缩放时自动收起/展开
     window.addEventListener('resize', () => {
-        if (window.innerWidth <= 900) {
-            store.sidebarCollapsed = true;
-            userToggled = false; // 重置，放大后恢复
-        } else if (!userToggled && window.innerWidth > 900) {
+        const w = window.innerWidth;
+        // 从小屏变大屏 → 自动展开
+        if (lastWidth <= 900 && w > 900) {
             store.sidebarCollapsed = false;
         }
+        // 从大屏变小屏 → 自动收起
+        if (lastWidth > 900 && w <= 900) {
+            store.sidebarCollapsed = true;
+        }
+        lastWidth = w;
     });
 
     // 用户手动点击折叠按钮时标记
@@ -1257,20 +1259,40 @@ function initContextMenu() {
 
 /* === 11. 绑定行点击高亮及多选联动 (Delegated Event Handlers) === */
 function bindRowSelectionListeners() {
+    // 点击空白区域隐藏预览面板
+    document.addEventListener('click', (e) => {
+        // 如果点击的不是表格行、按钮、输入框，则隐藏预览
+        if (!e.target.closest('tr') && !e.target.closest('button') && !e.target.closest('input') && !e.target.closest('.config-panel')) {
+            if (window.hideVideoPreview) {
+                window.hideVideoPreview();
+                Alpine.store('app').selectedTaskIndex = -1;
+            }
+        }
+    });
+
     // 监听表格内所有非空行的点击事件
     document.querySelectorAll('.data-table tbody').forEach(tbody => {
         tbody.addEventListener('click', (e) => {
             if (e.target.closest('button') || e.target.closest('input[type="checkbox"]') || e.target.closest('a')) {
                 return;
             }
-            
+
             const tr = e.target.closest('tr');
             if (tr && !tr.classList.contains('empty-state-row')) {
                 const cb = tr.querySelector('input[type="checkbox"]');
-                if (cb) {
+                if (!cb) return;
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl/Cmd + 点击：切换当前行
                     cb.checked = !cb.checked;
-                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    // 普通点击：仅选中当前行，取消其他
+                    tbody.querySelectorAll('.tool-row-cb, .row-checkbox, .row-checkbox-pending, .row-checkbox-muxed').forEach(other => {
+                        if (other !== cb) other.checked = false;
+                    });
+                    cb.checked = true;
                 }
+                cb.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
         
@@ -1446,6 +1468,13 @@ function renderToolTable(tool) {
     const tbody = document.getElementById(`${tool}-tbody`);
     if (!tbody) return;
 
+    // 保存当前 checkbox 选中状态（用 filepath 作为 key）
+    const checkedPaths = new Set();
+    tbody.querySelectorAll('.tool-row-cb:checked').forEach(cb => {
+        const idx = parseInt(cb.getAttribute('data-index'), 10);
+        if (toolFiles[tool][idx]) checkedPaths.add(toolFiles[tool][idx].filepath);
+    });
+
     const files = toolFiles[tool];
     if (files.length === 0) {
         const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️' };
@@ -1475,7 +1504,7 @@ function renderToolTable(tool) {
         tbody.innerHTML = files.map((file, index) => {
             return `
                 <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
-                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
+                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
                     <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${file.codec || '未知'}</td>
                     <td>${file.bitrate ? file.bitrate + ' kbps' : '未知'}</td>
@@ -1497,7 +1526,7 @@ function renderToolTable(tool) {
             const col3 = file.size || '未知';
             return `
                 <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
-                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" checked></td>
+                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
                     <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${col2}</td>
                     <td>${col3}</td>
