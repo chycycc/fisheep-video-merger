@@ -591,11 +591,11 @@
 
                 <div class="tool-options">
                     <div class="tool-option-group">
-                        <label>压缩预设</label>
+                        <label>压缩模式</label>
                         <select id="compress-preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
-                            <option value="high">高质量（CRF 20）</option>
-                            <option value="balanced" selected>均衡（CRF 26）</option>
-                            <option value="small">极限压缩（CRF 32）</option>
+                            <option value="fast">⚡ 快速（文件较大，速度最快）</option>
+                            <option value="balanced" selected>🎯 均衡（推荐）</option>
+                            <option value="quality">💎 高质量（文件最小，速度最慢）</option>
                         </select>
                     </div>
                     <div class="tool-option-group">

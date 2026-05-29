@@ -8,11 +8,11 @@ from typing import Callable, Optional
 
 from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path, get_hw_encoder
 
-# 压缩预设 CRF 值
-_PRESET_CRF = {
-    "high": 20,
-    "balanced": 26,
-    "small": 32,
+# 压缩预设：(CRF值, FFmpeg预设速度)
+_PRESETS = {
+    "fast":     (28, "ultrafast"),   # 快速：文件较大，速度最快
+    "balanced": (23, "medium"),       # 均衡：推荐
+    "quality":  (20, "slow"),         # 高质量：文件最小，速度最慢
 }
 
 # 分辨率缩放
@@ -37,7 +37,7 @@ def compress_video(
     Args:
         input_file: 输入文件路径
         output_path: 输出文件路径
-        preset: 压缩预设（high/balanced/small）
+        preset: 压缩预设（fast/balanced/quality）
         resolution: 分辨率缩放（original/1080p/720p/480p）
         progress_callback: 进度回调
 
@@ -48,13 +48,12 @@ def compress_video(
     if err:
         return False, err
 
-    crf = _PRESET_CRF.get(preset, 26)
+    crf, ffmpeg_preset = _PRESETS.get(preset, _PRESETS["balanced"])
     scale = _RESOLUTION_SCALE.get(resolution)
 
     # 优先使用硬件加速编码器
     hw_encoder = get_hw_encoder()
     if hw_encoder:
-        # 硬件编码器使用 -cq 参数（质量模式）
         cmd = [
             get_ffmpeg_path(),
             "-i", input_file,
@@ -68,6 +67,7 @@ def compress_video(
             get_ffmpeg_path(),
             "-i", input_file,
             "-c:v", "libx264",
+            "-preset", ffmpeg_preset,
             "-crf", str(crf),
             "-c:a", "aac",
             "-b:a", "128k",

@@ -64,7 +64,7 @@ class UIBridge:
             "tool_settings": {
                 "convert": {"format": "mp4", "mode": "copy"},
                 "extract": {"format": "aac", "bitrate": "192k"},
-                "compress": {"preset": "medium", "resolution": "720p"},
+                "compress": {"preset": "balanced", "resolution": "720p"},
                 "trim": {"mode": "reencode"}
             },
             "window_x": None,
