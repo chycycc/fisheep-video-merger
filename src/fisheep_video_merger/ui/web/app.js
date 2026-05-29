@@ -1772,8 +1772,13 @@ function initToolStartButtons() {
             const preset = document.getElementById('compress-preset').value;
             const resolution = document.getElementById('compress-resolution').value;
             const outputDir = document.getElementById('compress-output-dir')?.value || '';
+            const outputName = document.getElementById('compress-output-name')?.value?.trim() || '';
+            const checkedCount = document.querySelectorAll('#compress-tbody .tool-row-cb:checked').length;
+            const totalCount = toolFiles.compress.length;
+            const selCount = checkedCount || totalCount;
+            const nameForBatch = selCount === 1 ? outputName : '';
             runToolTask('compress', (file) => {
-                return window.pywebview.api.compress_video_api(file.filepath, preset, resolution, outputDir);
+                return window.pywebview.api.compress_video_api(file.filepath, preset, resolution, outputDir, nameForBatch);
             });
         });
     }

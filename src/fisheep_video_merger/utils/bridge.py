@@ -1230,16 +1230,19 @@ class UIBridge:
             logger.error(f"提取音频异常: {e}")
             return {"status": "error", "message": str(e)}
 
-    def compress_video_api(self, input_file: str, preset: str, resolution: str, output_dir: str = "") -> Dict:
+    def compress_video_api(self, input_file: str, preset: str, resolution: str, output_dir: str = "", output_name: str = "") -> Dict:
         """视频压缩 API"""
         if not os.path.exists(input_file):
             return {"status": "error", "message": "文件不存在"}
 
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
-        name = os.path.splitext(os.path.basename(input_file))[0]
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0] + "_compressed"
         ext = os.path.splitext(input_file)[1]
-        output_path = os.path.join(output_dir, f"{name}_compressed{ext}")
+        output_path = os.path.join(output_dir, f"{name}{ext}")
         output_path = self._resolve_output_conflict(output_path)
         success, err = compress_video_fn(input_file, output_path, preset, resolution, self._make_tool_progress_callback('compress'))
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
