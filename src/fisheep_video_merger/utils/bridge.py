@@ -1141,30 +1141,38 @@ class UIBridge:
 
     def get_file_info(self, filepath: str) -> Dict:
         """获取音频文件详细信息（编码/码率/声道/采样率/时长）"""
-        from fisheep_video_merger.utils.ffprobe import get_video_detail
         if not os.path.exists(filepath):
             return {"status": "error", "message": "文件不存在"}
-        detail = get_video_detail(filepath)
-        # 从 ffprobe 获取更详细的音频信息
-        import subprocess
         try:
-            probe = get_ffmpeg_path().replace("ffmpeg", "ffprobe") if "ffprobe" not in get_ffmpeg_path() else "ffprobe"
-            cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams", filepath]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=True)
-            data = __import__("json").loads(result.stdout)
+            from fisheep_video_merger.utils.ffprobe import get_ffprobe_path, _probe_file
+            # 使用共享的 ffprobe 函数获取流信息
+            data = _probe_file(filepath, extra_args=["-show_format"])
+            if data is None:
+                return {"status": "error", "message": "ffprobe 调用失败"}
+
             audio_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "audio"]
+            fmt = data.get("format", {})
+
             if audio_streams:
                 a = audio_streams[0]
+                duration = float(a.get("duration", 0) or fmt.get("duration", 0) or 0)
+                bitrate_raw = a.get("bit_rate") or fmt.get("bit_rate") or 0
                 return {
                     "status": "success",
                     "codec": a.get("codec_name", "未知"),
-                    "bitrate": int(a.get("bit_rate", 0)) // 1000 if a.get("bit_rate") else 0,
+                    "bitrate": int(bitrate_raw) // 1000 if bitrate_raw else 0,
                     "channels": a.get("channels", 0),
                     "channel_layout": a.get("channel_layout", "未知"),
                     "sample_rate": a.get("sample_rate", "未知"),
-                    "duration": float(a.get("duration", 0)),
+                    "duration": duration,
+                    "duration_str": self._format_duration(duration) if duration > 0 else None,
+                    "name": os.path.basename(filepath),
+                    "filepath": filepath,
+                    "size": f"{os.path.getsize(filepath) / (1024*1024):.1f} MB",
                 }
-        except Exception:
+            return {"status": "error", "message": "未找到音频流"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
             pass
         return {"status": "success", "codec": "未知", "bitrate": 0, "channels": 0, "sample_rate": "未知", "duration": 0}
 
