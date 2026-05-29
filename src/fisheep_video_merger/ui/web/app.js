@@ -17,6 +17,7 @@ document.addEventListener('alpine:init', () => {
         subtab: 'merge-queue',
         sidebarCollapsed: false,
         configPanelOpen: true,
+        settingsExpanded: true,
         theme: localStorage.getItem('theme') || 'dark',
     });
 
@@ -366,14 +367,10 @@ function callPython(methodName, ...args) {
 // renderQueue: Alpine x-for 自动渲染，此函数保留兼容
 // renderQueue: Alpine x-for 自动渲染
 
-// 配置面板开关（打开时如果有选中文件则加载预览）
+// 配置面板开关
 window.toggleConfigPanel = function() {
     const store = Alpine.store('app');
     store.configPanelOpen = !store.configPanelOpen;
-    // 打开面板时，如果有选中的文件，加载预览
-    if (store.configPanelOpen && store.selectedTaskIndex >= 0) {
-        window.loadVideoPreview(store.selectedTaskIndex);
-    }
 };
 
 // A2. 单击列表行，更新右侧的预计输出路径预览 + 视频预览
@@ -392,6 +389,8 @@ window.selectQueueRow = function(index, event) {
         return;
     }
     store.selectedTaskIndex = index;
+    // 自动展开配置面板显示预览
+    store.configPanelOpen = true;
 
     window.updatePathPreview();
     window.loadVideoPreview(index);
@@ -400,6 +399,8 @@ window.selectQueueRow = function(index, event) {
 // 通用预览加载（供 pending/muxed 标签页使用）
 window.loadPreviewForFile = function(filepath) {
     if (!filepath) return;
+    // 自动展开配置面板
+    Alpine.store('app').configPanelOpen = true;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'block';
     const reqId = ++window._previewRequestId;

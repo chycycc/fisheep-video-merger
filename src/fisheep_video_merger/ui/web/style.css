@@ -537,6 +537,33 @@ body {
     pointer-events: none;
 }
 
+/* 设置区折叠开关 */
+.config-toggle-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    transition: background-color 0.2s;
+    user-select: none;
+}
+
+.config-toggle-bar:hover {
+    background-color: var(--alt-base-bg, rgba(255,255,255,0.04));
+}
+
+.config-toggle-arrow {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.config-toggle-arrow.expanded {
+    transform: rotate(90deg);
+}
+
 .config-backdrop {
     position: fixed;
     inset: 0;

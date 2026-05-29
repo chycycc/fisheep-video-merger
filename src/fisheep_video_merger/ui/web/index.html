@@ -268,14 +268,7 @@
 
                 <!-- 右侧配置面板（仅合并工具） -->
                 <aside class="config-panel" id="config-panel" :class="{ 'collapsed': !$store.app.configPanelOpen }">
-                    <div class="config-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3>🎛️ 任务配置</h3>
-                        <button id="config-close-btn" class="icon-toggle" title="隐藏配置面板"
-                                @click="$store.app.configPanelOpen = false"
-                                style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px 8px; transition: color 0.2s ease;">✕</button>
-                    </div>
-
-                    <!-- 视频预览面板 -->
+                    <!-- 预览区：选中文件时自动显示 -->
                     <div id="video-preview" class="video-preview" style="display: none;">
                         <div class="preview-screenshot">
                             <img id="preview-img" src="" alt="视频截图">
@@ -292,7 +285,13 @@
                         </div>
                     </div>
 
-                    <div class="config-sections">
+                    <!-- 设置区折叠开关 -->
+                    <div class="config-toggle-bar" @click="$store.app.settingsExpanded = !$store.app.settingsExpanded">
+                        <span class="config-toggle-arrow" :class="{ 'expanded': $store.app.settingsExpanded }">▶</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">⚙️ 任务配置</span>
+                    </div>
+
+                    <div class="config-sections" x-show="$store.app.settingsExpanded" x-transition>
                         <div class="config-card">
                             <h4>📂 输出设置</h4>
                             <div class="form-group">
