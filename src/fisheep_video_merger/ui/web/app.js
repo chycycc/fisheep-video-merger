@@ -1338,20 +1338,23 @@ function addFilesToTool(tool, paths) {
 
     // 获取文件信息（提取音频用 get_file_info 获取详细音频信息）
     validPaths.forEach(path => {
+        const baseName = path.split(/[\\/]/).pop();
         if (window.pywebview && window.pywebview.api) {
             const apiCall = tool === 'extract'
                 ? window.pywebview.api.get_file_info(path).then(info => {
                     // get_file_info 返回音频详情，补充基础信息
-                    const stat_info = { filepath: path, name: path.split(/[\\/]/).pop() };
-                    return { ...stat_info, ...info };
-                  })
+                    return { filepath: path, name: baseName, ...info };
+                  }).catch(() => ({ filepath: path, name: baseName, status: 'success' }))
                 : window.pywebview.api.get_video_info(path);
             apiCall.then(info => {
-                if (info && (info.status === 'success' || info.codec)) {
+                if (info) {
+                    // 确保基础字段存在
+                    if (!info.name) info.name = baseName;
+                    if (!info.filepath) info.filepath = path;
                     toolFiles[tool].push(info);
                     renderToolTable(tool);
                     updateToolStartButton(tool);
-                    showToast(`已添加: ${info.name}`, 'success');
+                    showToast(`已添加: ${baseName}`, 'success');
 
                     // 裁剪工具：激活时间轴滑块
                     if (tool === 'trim' && info.duration && window.setTrimDuration) {

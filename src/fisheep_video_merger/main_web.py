@@ -93,7 +93,7 @@ def main():
     window.events.closed += on_window_closed
 
     # 6. 运行 webview 主循环
-    webview.start(debug=False)
+    webview.start(debug=True)  # 开发模式，右键可审查元素
 
 
 if __name__ == "__main__":
