@@ -595,6 +595,11 @@
                 
                 <div class="panel-content" x-show="!$store.app.configPanelCollapsed" x-transition>
                     
+                    
+                    <div class="profile-actions" style="display:flex; gap:8px; margin: 12px 16px;">
+                        <button class="btn btn-secondary" style="flex:1; border: 1px dashed var(--border);" onclick="exportProfile()">💾 导出模板</button>
+                        <button class="btn btn-secondary" style="flex:1; border: 1px dashed var(--border);" onclick="importProfile()">📂 导入模板</button>
+                    </div>
                     <div class="accordion" x-data="{ openCard: 'base' }">
                         <!-- Card: 基础输出 -->
                         <div class="accordion-card">

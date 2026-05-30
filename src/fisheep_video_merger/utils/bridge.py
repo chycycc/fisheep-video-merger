@@ -588,10 +588,7 @@ class UIBridge:
             config = {
                 "version": "1.0",
                 "tasks": tasks_data,
-                "settings": {
-                    "output_format": self.settings.get("output_format", "mp4"),
-                    "naming_template": self.settings.get("naming_template", ""),
-                }
+                "settings": self.settings.copy()
             }
             return {"status": "success", "config": config}
         except Exception as e:
@@ -615,8 +612,10 @@ class UIBridge:
                     self.tasks.append(task)
                     imported += 1
             imported_settings = config.get("settings", {})
-            if imported_settings.get("naming_template"):
-                self.settings["naming_template"] = imported_settings["naming_template"]
+            if imported_settings:
+                # Merge settings deeply or update
+                self.settings.update(imported_settings)
+            
             self._save_workspace_state()
             return {"status": "success", "imported": imported}
         except Exception as e:
@@ -631,6 +630,35 @@ class UIBridge:
         if result.get("status") == "success":
             return self.import_config(result["config"])
         return result
+
+    def update_settings(self, new_settings: Dict) -> Dict:
+        try:
+            self.settings.update(new_settings)
+            self._save_workspace_state()
+            return {"status": "success"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def export_profile_file(self) -> Dict:
+        try:
+            profile_data = {"version": "1.0", "settings": self.settings.copy()}
+            return self._dialog_svc.export_config_file(profile_data)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def import_profile_file(self) -> Dict:
+        try:
+            result = self._dialog_svc.import_config_file()
+            if result.get("status") == "success":
+                profile_settings = result.get("config", {}).get("settings", {})
+                if profile_settings:
+                    self.settings.update(profile_settings)
+                    self._save_workspace_state()
+                    # Return the new settings so JS can update Alpine
+                    return {"status": "success", "settings": self.settings}
+            return result
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     # ====================================================================
     # 🔧 私有辅助

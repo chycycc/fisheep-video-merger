@@ -2054,3 +2054,100 @@ function runToolTask(tool, taskFn) {
 
     processNext(0);
 }
+
+
+// ==========================================
+// Phase 5: Profile Export/Import Logic
+// ==========================================
+function gatherCurrentSettings() {
+    return {
+        output_format: Alpine.store('settings').outputFormat,
+        concurrency: Alpine.store('settings').concurrency,
+        overwrite: Alpine.store('settings').overwrite,
+        delete_source: Alpine.store('settings').deleteSource,
+        output_dir: document.getElementById('global-output-dir')?.value || '',
+        naming_template: document.getElementById('global-output-name')?.value || '',
+        tool_settings: {
+            convert: {
+                format: document.getElementById('convert-format')?.value || 'mp4',
+                mode: document.getElementById('convert-mode')?.value || 'copy',
+                crf: document.getElementById('convert-crf')?.value || '23'
+            },
+            extract: {
+                format: document.getElementById('extract-format')?.value || 'mp3',
+                volume: document.getElementById('extract-volume')?.value || 'original'
+            },
+            compress: {
+                mode: document.getElementById('compress-mode')?.value || 'crf',
+                target_size: document.getElementById('compress-target-size')?.value || '50'
+            },
+            trim: {
+                start: document.getElementById('trim-start')?.value || '00:00:00',
+                end: document.getElementById('trim-end')?.value || '',
+                accurate: document.getElementById('trim-accurate-mode')?.checked || false
+            }
+        }
+    };
+}
+
+function applyLoadedSettings(settings) {
+    if (!settings) return;
+    const store = Alpine.store('settings');
+    if (settings.output_format) store.outputFormat = settings.output_format;
+    if (settings.concurrency) store.concurrency = settings.concurrency;
+    if (settings.overwrite !== undefined) store.overwrite = settings.overwrite;
+    if (settings.delete_source !== undefined) store.deleteSource = settings.delete_source;
+    
+    if (settings.output_dir && document.getElementById('global-output-dir')) {
+        document.getElementById('global-output-dir').value = settings.output_dir;
+    }
+    if (settings.naming_template && document.getElementById('global-output-name')) {
+        document.getElementById('global-output-name').value = settings.naming_template;
+    }
+
+    if (settings.tool_settings) {
+        const ts = settings.tool_settings;
+        if (ts.convert) {
+            if (ts.convert.format) document.getElementById('convert-format').value = ts.convert.format;
+            if (ts.convert.mode) document.getElementById('convert-mode').value = ts.convert.mode;
+            if (ts.convert.crf) document.getElementById('convert-crf').value = ts.convert.crf;
+        }
+        if (ts.extract) {
+            if (ts.extract.format) document.getElementById('extract-format').value = ts.extract.format;
+            if (ts.extract.volume) document.getElementById('extract-volume').value = ts.extract.volume;
+        }
+        if (ts.compress) {
+            if (ts.compress.mode) document.getElementById('compress-mode').value = ts.compress.mode;
+            if (ts.compress.target_size) document.getElementById('compress-target-size').value = ts.compress.target_size;
+        }
+        if (ts.trim) {
+            if (ts.trim.start) document.getElementById('trim-start').value = ts.trim.start;
+            if (ts.trim.end) document.getElementById('trim-end').value = ts.trim.end;
+            if (ts.trim.accurate !== undefined) document.getElementById('trim-accurate-mode').checked = ts.trim.accurate;
+        }
+    }
+}
+
+window.exportProfile = function() {
+    const currentSettings = gatherCurrentSettings();
+    callPython('update_settings', currentSettings).then(() => {
+        callPython('export_profile_file').then(res => {
+            if (res && res.status === 'success') {
+                showToast('配置模板导出成功！', 'success');
+            } else if (res && res.status === 'error') {
+                showToast(res.message, 'warning');
+            }
+        });
+    });
+};
+
+window.importProfile = function() {
+    callPython('import_profile_file').then(res => {
+        if (res && res.status === 'success' && res.settings) {
+            applyLoadedSettings(res.settings);
+            showToast('配置模板加载成功！', 'success');
+        } else if (res && res.status === 'error') {
+            showToast(res.message, 'warning');
+        }
+    });
+};
