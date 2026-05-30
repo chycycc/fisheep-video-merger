@@ -16,7 +16,8 @@ document.addEventListener('alpine:init', () => {
         currentTool: 'merge',
         subtab: 'merge-queue',
         sidebarCollapsed: false,
-        configPanelOpen: true,
+        configPanelCollapsed: false,
+        openAccordion: 'base',
         settingsExpanded: true,
         theme: localStorage.getItem('theme') || 'dark',
     });
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Escape: 关闭配置面板
         if (e.key === 'Escape') {
-            Alpine.store('app').configPanelOpen = false;
+            Alpine.store('app').configPanelCollapsed = true;
         }
     });
 });
@@ -340,11 +341,45 @@ function initMockOrBridge() {
         });
     });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-        callPython('start_merging').then(res => {
-            showToast('后台合并任务已拉起！', 'success');
+    const globalStartBtn = document.getElementById('global-start-btn');
+    if (globalStartBtn) {
+        globalStartBtn.addEventListener('click', () => {
+            const tool = Alpine.store('app').currentTool;
+            // Collect dynamic advanced settings
+            let settings = {};
+            // Global base settings
+            settings.output_name_template = document.getElementById('global-output-name')?.value || '';
+            settings.output_dir_template = document.getElementById('global-output-dir-template')?.value || '';
+            settings.path_depth = parseInt(document.getElementById('global-path-depth')?.value || '0', 10);
+            settings.overwrite = Alpine.store('settings').overwrite;
+            settings.delete_source = Alpine.store('settings').deleteSource;
+            
+            if (tool === 'merge') {
+                settings.output_format = Alpine.store('settings').outputFormat;
+                settings.concurrency = Alpine.store('settings').concurrency;
+            } else if (tool === 'convert') {
+                settings.target_format = document.getElementById('convert-format')?.value || 'mp4';
+                settings.convert_mode = document.getElementById('convert-mode')?.value || 'copy';
+                settings.crf = parseInt(document.getElementById('convert-crf')?.value || '23', 10);
+            } else if (tool === 'extract') {
+                settings.audio_format = document.getElementById('extract-format')?.value || 'mp3';
+                settings.volume_mode = document.getElementById('extract-volume')?.value || 'original';
+            } else if (tool === 'compress') {
+                settings.compress_mode = document.getElementById('compress-mode')?.value || 'crf';
+                settings.target_size = parseInt(document.getElementById('compress-target-size')?.value || '50', 10);
+            } else if (tool === 'trim') {
+                settings.start_time = document.getElementById('trim-start')?.value || '00:00:00';
+                settings.end_time = document.getElementById('trim-end')?.value || '';
+                settings.accurate_mode = document.getElementById('trim-accurate-mode')?.checked || false;
+            }
+
+            callPython('start_merging', tool, settings).then(res => {
+                showToast('后台任务已拉起！', 'success');
+            }).catch(err => {
+                showToast('启动任务失败', 'error');
+            });
         });
-    });
+    }
 }
 
 /* === 6. 后端统一调度包装函数 (Safe Python Invoker) === */
@@ -370,7 +405,7 @@ function callPython(methodName, ...args) {
 // 配置面板开关
 window.toggleConfigPanel = function() {
     const store = Alpine.store('app');
-    store.configPanelOpen = !store.configPanelOpen;
+    store.configPanelCollapsed = !store.configPanelCollapsed;
 };
 
 // A2. 单击列表行，更新右侧的预计输出路径预览 + 视频预览
@@ -390,7 +425,7 @@ window.selectQueueRow = function(index, event) {
     }
     store.selectedTaskIndex = index;
     // 自动展开配置面板显示预览
-    store.configPanelOpen = true;
+    store.configPanelCollapsed = false;
 
     window.updatePathPreview();
     window.loadVideoPreview(index);
@@ -400,7 +435,7 @@ window.selectQueueRow = function(index, event) {
 window.loadPreviewForFile = function(filepath) {
     if (!filepath) return;
     // 自动展开配置面板
-    Alpine.store('app').configPanelOpen = true;
+    Alpine.store('app').configPanelCollapsed = false;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'block';
     const reqId = ++window._previewRequestId;
@@ -830,15 +865,15 @@ function syncSettingsFromPython() {
             store.deleteSource = !!settings.delete_allowed;
 
             // 同步命名模板
-            const tplInput = document.getElementById('settings-naming-template');
+            const tplInput = document.getElementById('global-output-name');
             if (tplInput) tplInput.value = settings.naming_template || '';
 
             // 同步输出目录模板
-            const dirTplInput = document.getElementById('settings-output-dir-template');
+            const dirTplInput = document.getElementById('global-output-dir-template');
             if (dirTplInput) dirTplInput.value = settings.output_dir_template || '';
 
             // 同步路径层级
-            const depthSelect = document.getElementById('settings-path-depth');
+            const depthSelect = document.getElementById('global-path-depth');
             if (depthSelect) depthSelect.value = String(settings.path_depth || 0);
 
             // 同步工具输出目录
@@ -1041,7 +1076,7 @@ function initSettingsListeners() {
     }
 
     // 命名模板输入
-    const tplInput = document.getElementById('settings-naming-template');
+    const tplInput = document.getElementById('global-output-name');
     if (tplInput) {
         tplInput.addEventListener('change', (e) => {
             callPython('update_setting', 'naming_template', e.target.value.trim());
@@ -1049,7 +1084,7 @@ function initSettingsListeners() {
     }
 
     // 输出目录模板输入
-    const dirTplInput = document.getElementById('settings-output-dir-template');
+    const dirTplInput = document.getElementById('global-output-dir-template');
     if (dirTplInput) {
         dirTplInput.addEventListener('change', (e) => {
             callPython('update_setting', 'output_dir_template', e.target.value.trim());
@@ -1057,7 +1092,7 @@ function initSettingsListeners() {
     }
 
     // 路径层级
-    const depthSelect = document.getElementById('settings-path-depth');
+    const depthSelect = document.getElementById('global-path-depth');
     if (depthSelect) {
         depthSelect.addEventListener('change', (e) => {
             callPython('update_setting', 'path_depth', parseInt(e.target.value, 10));

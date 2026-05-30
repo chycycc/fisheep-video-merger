@@ -441,11 +441,16 @@ class UIBridge:
     # ⚡ 合并 API
     # ====================================================================
 
-    def start_merging(self) -> Dict:
+    def start_merging(self, tool: str = "merge", settings: dict = None) -> Dict:
         if self.is_merging:
             return {"status": "error", "message": "Merge process already running"}
         if not self.tasks:
             return {"status": "error", "message": "No tasks in queue"}
+
+        if settings:
+            # Update global settings from frontend
+            self.settings.update(settings)
+            self._save_workspace_state()
 
         est = self._merge_ctrl.get_merge_estimate(self.tasks, int(self.settings.get("concurrency", 2)), self.settings)
         if est.get("estimate"):

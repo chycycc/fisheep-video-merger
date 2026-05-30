@@ -71,7 +71,8 @@
         </aside>
 
         <!-- 2. 右侧主工作区 (Main Work Area) -->
-        <main class="main-content">
+        <div class="workspace-grid" :class="{ 'panel-collapsed': $store.app.configPanelCollapsed }">
+            <main class="center-workspace">
 
             <!-- ========== 工具面板：音视频合并 ========== -->
             <div class="tool-panel" id="tool-merge" :class="{ 'active': $store.app.currentTool === 'merge' }">
@@ -87,8 +88,7 @@
                         <button class="btn btn-secondary" @click="batchDeleteSelected()" title="删除选中的任务">🗑️ 删除选中</button>
                         <button class="btn btn-secondary" @click="batchRetryFailed()" title="重试所有失败的任务">🔄 重试失败</button>
                         <button class="btn btn-secondary" @click="showBatchRenameDialog()" title="批量重命名选中任务">✏️ 批量重命名</button>
-                        <button id="config-toggle-btn" class="btn btn-secondary" title="显示/隐藏右侧配置面板"
-                                @click="toggleConfigPanel()">🎛️ 配置</button>
+                        
                     </div>
                 </header>
 
@@ -266,101 +266,7 @@
                     </div>
                 </section>
 
-                <!-- 右侧配置面板（仅合并工具） -->
-                <aside class="config-panel" id="config-panel" :class="{ 'collapsed': !$store.app.configPanelOpen }">
-                    <!-- 预览区：选中文件时自动显示 -->
-                    <div id="video-preview" class="video-preview" style="display: none;">
-                        <div class="preview-screenshot">
-                            <img id="preview-img" src="" alt="视频截图">
-                        </div>
-                        <div class="preview-info">
-                            <div class="preview-info-row"><span class="preview-label">分辨率</span><span id="preview-resolution">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">视频编码</span><span id="preview-vcodec">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">音频编码</span><span id="preview-acodec">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">码率</span><span id="preview-bitrate">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">时长</span><span id="preview-duration">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">帧率</span><span id="preview-fps">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">集数</span><span id="preview-episode">-</span></div>
-                            <div class="preview-info-row"><span class="preview-label">来源</span><span id="preview-platform">-</span></div>
-                        </div>
-                    </div>
-
-                    <!-- 设置区折叠开关 -->
-                    <div class="config-toggle-bar" @click="$store.app.settingsExpanded = !$store.app.settingsExpanded">
-                        <span class="config-toggle-arrow" :class="{ 'expanded': $store.app.settingsExpanded }">▶</span>
-                        <span style="font-size: 12px; color: var(--text-muted);">⚙️ 任务配置</span>
-                    </div>
-
-                    <div class="config-sections" x-show="$store.app.settingsExpanded" x-transition>
-                        <div class="config-card">
-                            <h4>📂 输出设置</h4>
-                            <div class="form-group">
-                                <label>预计输出目录</label>
-                                <div class="input-with-action">
-                                    <input type="text" id="output-dir-input" placeholder="默认与源视频同级" readonly
-                                           :value="$store.settings.outputDir">
-                                    <button id="select-output-btn" class="mini-action-btn"
-                                            @click="selectOutputDir()">📂</button>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>默认合并格式</label>
-                                <select id="output-format-select"
-                                        x-model="$store.settings.outputFormat"
-                                        @change="callPython('update_setting', 'outputFormat', $store.settings.outputFormat)">
-                                    <option value="mp4">MP4 (.mp4)</option>
-                                    <option value="mkv">MKV (.mkv)</option>
-                                </select>
-                            </div>
-                            <div class="form-group" id="output-filename-group">
-                                <label>当前选中任务输出文件名</label>
-                                <input type="text" id="output-filename-input" placeholder="未选中任务，请双击/单击列表行" disabled>
-                            </div>
-                        </div>
-
-                        <div class="config-card">
-                            <h4>⚡ 并发与流控</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>并发任务限制</label>
-                                    <input type="number" id="concurrency-input" min="1" max="8"
-                                           x-model.number="$store.settings.concurrency"
-                                           @change="callPython('update_setting', 'concurrency', $store.settings.concurrency)">
-                                </div>
-                            </div>
-                            <div class="form-group checkbox-group">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="overwrite-checkbox"
-                                           x-model="$store.settings.overwrite"
-                                           @change="callPython('update_setting', 'overwrite', $store.settings.overwrite)">
-                                    <span class="checkmark"></span>
-                                    自动覆盖同名文件
-                                </label>
-                            </div>
-                            <div class="form-group checkbox-group">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="delete-source-checkbox"
-                                           x-model="$store.settings.deleteSource"
-                                           @change="callPython('update_setting', 'deleteSource', $store.settings.deleteSource)">
-                                    <span class="checkmark"></span>
-                                    合并成功后删除源文件
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="config-card">
-                            <h4>🔗 路径预览</h4>
-                            <div id="detail-path-label" class="path-preview-box">
-                                尚未选择任何任务，请双击列表行进行高级分析...
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="control-footer">
-                        <button id="start-btn" class="btn btn-primary btn-block">🚀 开始合并队列</button>
-                        <button id="cancel-btn" class="btn btn-danger btn-block hidden" @click="cancelMerging()">⏹️ 取消合并</button>
-                    </div>
-                </aside>
+                
 
                 </div> <!-- 关闭水平 flex 容器 -->
 
@@ -393,36 +299,6 @@
                     </div>
                 </header>
 
-                <div class="tool-options">
-                    <div class="tool-option-group">
-                        <label>目标格式</label>
-                        <select id="convert-format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
-                            <option value="mp4">MP4</option>
-                            <option value="mkv">MKV</option>
-                            <option value="webm">WebM</option>
-                            <option value="avi">AVI</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group">
-                        <label>转换模式</label>
-                        <select id="convert-mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
-                            <option value="copy">快速流复制（无损，秒级）</option>
-                            <option value="recode">重编码（兼容性更好）</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出目录</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="convert-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('convert')">📂</button>
-                        </div>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="convert-output-name" placeholder="例如: 转换后的视频">
-                    </div>
-                </div>
-
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
@@ -448,9 +324,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="convert-start-btn" class="btn btn-primary" disabled>🚀 开始转换</button>
-                </div>
+                
             </div>
 
             <!-- ========== 工具面板：提取音频 ========== -->
@@ -464,85 +338,6 @@
                         <button class="btn btn-secondary" onclick="selectFilesForTool('extract')">📄 添加文件</button>
                     </div>
                 </header>
-
-                <div class="tool-options" style="flex-wrap: wrap;">
-                    <!-- 第一行：格式 + 质量预设 -->
-                    <div class="tool-option-group">
-                        <label>音频格式</label>
-                        <select id="extract-format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
-                            <option value="mp3">MP3</option>
-                            <option value="aac">AAC</option>
-                            <option value="flac">FLAC</option>
-                            <option value="wav">WAV</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group">
-                        <label>质量预设</label>
-                        <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-secondary preset-btn" data-preset="high" onclick="applyExtractPreset('high')" style="font-size:11px;padding:4px 8px;">高质量</button>
-                            <button class="btn btn-secondary preset-btn active" data-preset="medium" onclick="applyExtractPreset('medium')" style="font-size:11px;padding:4px 8px;">中等</button>
-                            <button class="btn btn-secondary preset-btn" data-preset="low" onclick="applyExtractPreset('low')" style="font-size:11px;padding:4px 8px;">低质量</button>
-                        </div>
-                    </div>
-                    <!-- 第二行：码率模式 + 码率 -->
-                    <div class="tool-option-group">
-                        <label>码率模式</label>
-                        <select id="extract-bitrate-mode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
-                            <option value="cbr">CBR（恒定码率）</option>
-                            <option value="vbr">VBR（可变码率）</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group">
-                        <label>音频码率</label>
-                        <select id="extract-bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
-                            <option value="64k">64 kbps</option>
-                            <option value="128k">128 kbps</option>
-                            <option value="192k" selected>192 kbps</option>
-                            <option value="256k">256 kbps</option>
-                            <option value="320k">320 kbps</option>
-                        </select>
-                    </div>
-                    <!-- 第三行：声道 + 采样率 -->
-                    <div class="tool-option-group">
-                        <label>声道</label>
-                        <select id="extract-channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
-                            <option value="original">保持原始</option>
-                            <option value="stereo">立体声</option>
-                            <option value="mono">单声道</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group">
-                        <label>采样率</label>
-                        <select id="extract-sample-rate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
-                            <option value="original">保持原始</option>
-                            <option value="8000">8000 Hz</option>
-                            <option value="11025">11025 Hz</option>
-                            <option value="22050">22050 Hz</option>
-                            <option value="44100">44100 Hz</option>
-                            <option value="48000">48000 Hz</option>
-                        </select>
-                    </div>
-                    <!-- 第四行：音量 -->
-                    <div class="tool-option-group" style="flex: 1; min-width: 200px;">
-                        <label>音量调节 <span id="extract-volume-label" style="color: var(--text-muted);">1.0x</span></label>
-                        <input type="range" id="extract-volume" min="0.5" max="2.0" step="0.1" value="1.0"
-                               style="width: 100%;"
-                               oninput="document.getElementById('extract-volume-label').textContent = this.value + 'x'"
-                               @change="callPython('update_tool_setting', 'extract', 'volume', parseFloat($event.target.value))">
-                    </div>
-                    <!-- 第五行：输出目录 + 输出文件名 -->
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出目录</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="extract-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('extract')">📂</button>
-                        </div>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则与源文件同名）</span></label>
-                        <input type="text" id="extract-output-name" placeholder="例如: 我的音频">
-                    </div>
-                </div>
 
                 <div class="table-container">
                     <table class="data-table">
@@ -572,9 +367,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="extract-start-btn" class="btn btn-primary" disabled>🚀 开始提取</button>
-                </div>
+                
             </div>
 
             <!-- ========== 工具面板：视频压缩 ========== -->
@@ -588,37 +381,6 @@
                         <button class="btn btn-secondary" onclick="selectFilesForTool('compress')">📄 添加文件</button>
                     </div>
                 </header>
-
-                <div class="tool-options">
-                    <div class="tool-option-group">
-                        <label>压缩模式</label>
-                        <select id="compress-preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
-                            <option value="fast">⚡ 快速（文件较大，速度最快）</option>
-                            <option value="balanced" selected>🎯 均衡（推荐）</option>
-                            <option value="quality">💎 高质量（文件最小，速度最慢）</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group">
-                        <label>分辨率缩放</label>
-                        <select id="compress-resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
-                            <option value="original" selected>原始分辨率</option>
-                            <option value="1080p">缩放到 1080p</option>
-                            <option value="720p">缩放到 720p</option>
-                            <option value="480p">缩放到 480p</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出目录</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="compress-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('compress')">📂</button>
-                        </div>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="compress-output-name" placeholder="例如: 压缩后的视频">
-                    </div>
-                </div>
 
                 <div class="table-container">
                     <table class="data-table">
@@ -645,9 +407,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="compress-start-btn" class="btn btn-primary" disabled>🚀 开始压缩</button>
-                </div>
+                
             </div>
 
             <!-- ========== 工具面板：视频裁剪 ========== -->
@@ -692,27 +452,6 @@
                 </div>
 
                 <!-- 模式与输出目录 -->
-                <div class="tool-options">
-                    <div class="tool-option-group">
-                        <label>裁剪模式</label>
-                        <select id="trim-mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
-                            <option value="copy">快速裁剪（关键帧对齐，无损）</option>
-                            <option value="recode">精确裁剪（重编码，帧级精度）</option>
-                        </select>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出目录</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="trim-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('trim')">📂</button>
-                        </div>
-                    </div>
-                    <div class="tool-option-group" style="flex: 1;">
-                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="trim-output-name" placeholder="例如: 裁剪后的视频">
-                    </div>
-                </div>
-
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
@@ -738,9 +477,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="trim-start-btn" class="btn btn-primary" disabled>🚀 开始裁剪</button>
-                </div>
+                
             </div>
 
             <!-- ========== 工具面板：设置 ========== -->
@@ -763,74 +500,6 @@
                                 <option value="dark">深色模式</option>
                                 <option value="light">浅色模式</option>
                             </select>
-                        </div>
-                    </div>
-
-                    <!-- 输出设置 -->
-                    <div class="config-card">
-                        <h4>📂 输出设置</h4>
-                        <div class="form-group">
-                            <label>默认输出目录</label>
-                            <div class="input-with-action">
-                                <input type="text" id="settings-output-dir" placeholder="默认与源文件同目录" readonly>
-                                <button class="mini-action-btn" onclick="selectSettingsOutputDir()">📂</button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>默认输出格式</label>
-                            <select id="settings-output-format">
-                                <option value="mp4">MP4</option>
-                                <option value="mkv">MKV</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>输出子目录模板</label>
-                            <input type="text" id="settings-output-dir-template" placeholder="{series}（留空则不创建子目录）">
-                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                按系列名自动创建子目录，如 <code>{series}</code> → 输出目录/系列名/文件.mp4
-                            </p>
-                        </div>
-                        <div class="form-group">
-                            <label>保留源路径层级</label>
-                            <select id="settings-path-depth">
-                                <option value="0">不保留（全部平铺）</option>
-                                <option value="1">保留 1 级目录</option>
-                                <option value="2">保留 2 级目录</option>
-                                <option value="3">保留 3 级目录</option>
-                            </select>
-                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                从源文件路径中保留指定层级的目录结构到输出路径
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- 命名模板 -->
-                    <div class="config-card">
-                        <h4>📝 命名模板</h4>
-                        <div class="form-group">
-                            <label>输出文件名模板</label>
-                            <input type="text" id="settings-naming-template" placeholder="{series}_{ep}（留空则自动命名）">
-                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                可用变量：<code>{series}</code> 系列名 · <code>{ep}</code> 集数 · <code>{original}</code> 原文件名 · <code>{index}</code> 序号
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- 支持格式 -->
-                    <div class="config-card">
-                        <h4>📋 支持格式</h4>
-                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">启用/禁用扫描和导入时识别的文件格式</p>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px;">
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".m4s" checked> .m4s (B站)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".webm" checked> .webm (YouTube)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".mp4" checked> .mp4 (通用)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".ts" checked> .ts (直播录制)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".flv" checked> .flv (Flash)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".m4a" checked> .m4a (Apple)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".aac" checked> .aac (通用)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".mp3" checked> .mp3 (通用)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".flac" checked> .flac (无损)</label>
-                            <label class="checkbox-container"><input type="checkbox" class="format-cb" data-ext=".wav" checked> .wav (无损)</label>
                         </div>
                     </div>
 
@@ -860,28 +529,7 @@
                         <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">导出/导入队列配对为 JSON 文件，跨机器复用</p>
                     </div>
 
-                    <!-- 合并设置 -->
-                    <div class="config-card">
-                        <h4>⚡ 合并设置</h4>
-                        <div class="form-group">
-                            <label>并发任务数</label>
-                            <input type="number" id="settings-concurrency" min="1" max="8" value="2">
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="settings-overwrite" checked>
-                                <span class="checkmark"></span>
-                                自动覆盖同名文件
-                            </label>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="settings-delete-source">
-                                <span class="checkmark"></span>
-                                合并成功后删除源文件
-                            </label>
-                        </div>
-                    </div>
+
 
                     <!-- 环境检测 -->
                     <div class="config-card">
@@ -937,10 +585,149 @@
                     </div>
                 </div>
             </div>
-        </main>
+            </main>
+
+            <!-- 3. 右侧全局配置手风琴面板 (40%) -->
+            <aside class="global-config-panel" :class="{ 'collapsed': $store.app.configPanelCollapsed }">
+                <div class="panel-collapser" @click="$store.app.configPanelCollapsed = !$store.app.configPanelCollapsed" title="展开/收起配置面板">
+                    <span x-text="$store.app.configPanelCollapsed ? '«' : '»'"></span>
+                </div>
+                
+                <div class="panel-content" x-show="!$store.app.configPanelCollapsed" x-transition>
+                    
+                    <div class="accordion" x-data="{ openCard: 'base' }">
+                        <!-- Card: 基础输出 -->
+                        <div class="accordion-card">
+                            <div class="accordion-header" @click="openCard = openCard === 'base' ? '' : 'base'">
+                                <h4>📂 基础输出</h4>
+                                <span x-text="openCard === 'base' ? '▼' : '▶'"></span>
+                            </div>
+                            <div class="accordion-body" x-show="openCard === 'base'" x-transition>
+                                <div class="form-group">
+                                    <label>输出目录 (留空与源文件同级)</label>
+                                    <div class="input-with-action">
+                                        <input type="text" id="global-output-dir" placeholder="默认与源视频同级" readonly :value="$store.settings.outputDir">
+                                        <button class="mini-action-btn" onclick="selectOutputDir()">📂</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>输出文件名 (支持批量模板)</label>
+                                    <input type="text" id="global-output-name" placeholder="{original}_输出">
+                                </div>
+                                <div class="form-group checkbox-group">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" x-model="$store.settings.overwrite">
+                                        <span class="checkmark"></span>自动覆盖同名文件
+                                    </label>
+                                </div>
+                                <div class="form-group checkbox-group" x-show="$store.app.currentTool === 'merge'">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" x-model="$store.settings.deleteSource">
+                                        <span class="checkmark"></span>合并成功后删除源文件
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: 任务进阶参数 -->
+                        <div class="accordion-card" x-show="$store.app.currentTool !== 'settings'">
+                            <div class="accordion-header" @click="openCard = openCard === 'adv' ? '' : 'adv'">
+                                <h4>⚙️ 进阶配置</h4>
+                                <span x-text="openCard === 'adv' ? '▼' : '▶'"></span>
+                            </div>
+                            <div class="accordion-body" x-show="openCard === 'adv'" x-transition>
+                                <!-- 合并 -->
+                                <div x-show="$store.app.currentTool === 'merge'" style="display:flex;flex-direction:column;gap:12px;">
+                                    <div class="form-group">
+                                        <label>合并输出格式</label>
+                                        <select id="merge-format" x-model="$store.settings.outputFormat">
+                                            <option value="mp4">MP4 (.mp4)</option>
+                                            <option value="mkv">MKV (.mkv)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>并发任务数</label>
+                                        <input type="number" id="merge-concurrency" min="1" max="8" x-model.number="$store.settings.concurrency">
+                                    </div>
+                                </div>
+                                <!-- 转换 -->
+                                <div x-show="$store.app.currentTool === 'convert'" style="display:flex;flex-direction:column;gap:12px;">
+                                    <div class="form-group">
+                                        <label>目标格式</label>
+                                        <select id="convert-format"><option value="mp4">MP4</option><option value="mkv">MKV</option><option value="webm">WebM</option></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>视频编码器</label>
+                                        <select id="convert-mode">
+                                            <option value="copy">流复制 (极速无损)</option>
+                                            <option value="h264">H.264 (兼容极佳)</option>
+                                            <option value="hevc">HEVC/H.265 (超高压缩)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>CRF 质量 (0-51)</label>
+                                        <input type="number" id="convert-crf" value="23" min="0" max="51">
+                                    </div>
+                                </div>
+                                <!-- 提取 -->
+                                <div x-show="$store.app.currentTool === 'extract'" style="display:flex;flex-direction:column;gap:12px;">
+                                    <div class="form-group">
+                                        <label>音频格式</label>
+                                        <select id="extract-format"><option value="mp3">MP3</option><option value="aac">AAC</option><option value="flac">FLAC</option></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>音量调节</label>
+                                        <select id="extract-volume">
+                                            <option value="original">保持原始</option>
+                                            <option value="loudnorm">广播级防爆音均衡 (Loudnorm)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <!-- 压缩 -->
+                                <div x-show="$store.app.currentTool === 'compress'" style="display:flex;flex-direction:column;gap:12px;">
+                                    <div class="form-group">
+                                        <label>压缩策略</label>
+                                        <select id="compress-mode">
+                                            <option value="crf">CRF 质量压缩 (速度快)</option>
+                                            <option value="twopass">Two-Pass 精准打靶 (目标大小)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" id="compress-target-size-group">
+                                        <label>目标大小 (MB)</label>
+                                        <input type="number" id="compress-target-size" placeholder="例如 50">
+                                    </div>
+                                </div>
+                                <!-- 裁剪 -->
+                                <div x-show="$store.app.currentTool === 'trim'" style="display:flex;flex-direction:column;gap:12px;">
+                                    <div class="form-group">
+                                        <label>开始时间</label>
+                                        <input type="text" id="trim-start" placeholder="00:00:00" value="00:00:00">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>结束时间 / 持续时长</label>
+                                        <input type="text" id="trim-end" placeholder="00:05:00 或 300(秒)">
+                                    </div>
+                                    <div class="form-group checkbox-group">
+                                        <label class="checkbox-container">
+                                            <input type="checkbox" id="trim-accurate-mode">
+                                            <span class="checkmark"></span>启用逐帧精准裁剪 (将会重编码)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-footer" style="margin-top:auto; padding-top:16px;">
+                        <button id="global-start-btn" class="btn btn-primary btn-block">🚀 开始当前队列任务</button>
+                    </div>
+
+                </div>
+            </aside>
+        </div>
     </div>
 
-    <!-- 配置面板遮罩层（Alpine 控制） -->
+    <!-- 配置面板遮罩层（Alpine 控制，旧版即将移除） -->
     <div class="config-backdrop" :class="{ 'visible': $store.app.configPanelOpen }"
          @click="$store.app.configPanelOpen = false"></div>
 
