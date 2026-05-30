@@ -345,42 +345,73 @@ function initMockOrBridge() {
     if (globalStartBtn) {
         globalStartBtn.addEventListener('click', () => {
             const tool = Alpine.store('app').currentTool;
-            // Collect dynamic advanced settings
-            let settings = {};
-            // Global base settings
-            settings.output_name_template = document.getElementById('global-output-name')?.value || '';
-            settings.output_dir_template = document.getElementById('global-output-dir-template')?.value || '';
-            settings.path_depth = parseInt(document.getElementById('global-path-depth')?.value || '0', 10);
-            settings.overwrite = Alpine.store('settings').overwrite;
-            settings.delete_source = Alpine.store('settings').deleteSource;
-            
-            if (tool === 'merge') {
-                settings.output_format = Alpine.store('settings').outputFormat;
-                settings.concurrency = Alpine.store('settings').concurrency;
-            } else if (tool === 'convert') {
-                settings.target_format = document.getElementById('convert-format')?.value || 'mp4';
-                settings.convert_mode = document.getElementById('convert-mode')?.value || 'copy';
-                settings.crf = parseInt(document.getElementById('convert-crf')?.value || '23', 10);
-            } else if (tool === 'extract') {
-                settings.audio_format = document.getElementById('extract-format')?.value || 'mp3';
-                settings.volume_mode = document.getElementById('extract-volume')?.value || 'original';
-            } else if (tool === 'compress') {
-                settings.compress_mode = document.getElementById('compress-mode')?.value || 'crf';
-                settings.target_size = parseInt(document.getElementById('compress-target-size')?.value || '50', 10);
-            } else if (tool === 'trim') {
-                settings.start_time = document.getElementById('trim-start')?.value || '00:00:00';
-                settings.end_time = document.getElementById('trim-end')?.value || '';
-                settings.accurate_mode = document.getElementById('trim-accurate-mode')?.checked || false;
-            }
+            const outputDir = document.getElementById('global-output-dir-template')?.value || '';
+            const outputName = document.getElementById('global-output-name')?.value?.trim() || '';
 
-            callPython('start_merging', tool, settings).then(res => {
-                showToast('后台任务已拉起！', 'success');
-            }).catch(err => {
-                showToast('启动任务失败', 'error');
-            });
+            if (tool === 'merge') {
+                let settings = {
+                    output_name_template: outputName,
+                    output_dir_template: outputDir,
+                    path_depth: parseInt(document.getElementById('global-path-depth')?.value || '0', 10),
+                    overwrite: Alpine.store('settings').overwrite,
+                    delete_source: Alpine.store('settings').deleteSource,
+                    output_format: Alpine.store('settings').outputFormat,
+                    concurrency: Alpine.store('settings').concurrency
+                };
+                callPython('start_merging', 'merge', settings).then(res => {
+                    if (res && res.status === 'error') {
+                        showToast(res.message, 'warning');
+                    } else {
+                        showToast('后台合并任务已拉起！', 'success');
+                    }
+                }).catch(err => {
+                    showToast('启动合并任务失败', 'error');
+                });
+            } else {
+                const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
+                const selCount = checkedCount || toolFiles[tool].length;
+                const nameForBatch = selCount === 1 ? outputName : '';
+                
+                if (toolFiles[tool].length === 0) {
+                    showToast('当前队列中没有文件', 'warning');
+                    return;
+                }
+
+                if (tool === 'convert') {
+                    const format = document.getElementById('convert-format')?.value || 'mp4';
+                    const mode = document.getElementById('convert-mode')?.value || 'copy';
+                    runToolTask('convert', (file) => {
+                        return window.pywebview.api.convert_file(file.filepath, format, mode, outputDir, nameForBatch);
+                    });
+                } else if (tool === 'extract') {
+                    const format = document.getElementById('extract-format')?.value || 'mp3';
+                    const volume = document.getElementById('extract-volume')?.value || 'original';
+                    runToolTask('extract', (file) => {
+                        return window.pywebview.api.extract_audio_api(
+                            file.filepath, format, '192k', outputDir, nameForBatch,
+                            'original', 'original', 1.0, 'cbr'
+                        );
+                    });
+                } else if (tool === 'compress') {
+                    const mode = document.getElementById('compress-mode')?.value || 'crf';
+                    const targetSize = document.getElementById('compress-target-size')?.value || '50';
+                    const preset = mode === 'twopass' ? `target:${targetSize}` : 'balanced';
+                    runToolTask('compress', (file) => {
+                        return window.pywebview.api.compress_video_api(file.filepath, preset, '1080p', outputDir, nameForBatch);
+                    });
+                } else if (tool === 'trim') {
+                    const start = document.getElementById('trim-start')?.value || '00:00:00';
+                    const end = document.getElementById('trim-end')?.value || '';
+                    const accurate = document.getElementById('trim-accurate-mode')?.checked ? 'accurate' : 'fast';
+                    runToolTask('trim', (file) => {
+                        return window.pywebview.api.trim_video_api(file.filepath, start, end, accurate, outputDir, nameForBatch);
+                    });
+                }
+            }
         });
     }
 }
+
 
 /* === 6. 后端统一调度包装函数 (Safe Python Invoker) === */
 function callPython(methodName, ...args) {
