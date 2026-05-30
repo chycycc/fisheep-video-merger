@@ -113,7 +113,8 @@ class ToolService:
         output_path = os.path.join(output_dir, f"{name}{ext}")
         output_path = self._resolve_conflict(output_path)
 
-        success, err = trim_video(input_file, output_path, start_time, end_time, mode=mode, progress_callback=progress_callback)
+        accurate_mode = (mode == "accurate")
+        success, err = trim_video(input_file, output_path, start_time, end_time, accurate_mode=accurate_mode, progress_callback=progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def get_video_preview(self, filepath: str) -> Dict:
