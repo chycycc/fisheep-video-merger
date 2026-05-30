@@ -66,6 +66,7 @@ def extract_audio(
     sample_rate: str = "original",
     volume: float = 1.0,
     bitrate_mode: str = "cbr",
+    use_loudnorm: bool = False,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
     """
@@ -89,56 +90,74 @@ def extract_audio(
     if err:
         return False, err
 
-    # 检测源音频编码，判断是否可用流复制（10-100x 快于重编码）
-    can_stream_copy = _can_use_stream_copy(input_file, audio_format, channels, sample_rate, volume)
+    # 启用 loudnorm 时绝对不能使用流复制
+    can_stream_copy = not use_loudnorm and _can_use_stream_copy(input_file, audio_format, channels, sample_rate, volume)
 
-    cmd = [get_ffmpeg_path(), "-i", input_file, "-vn"]
-
-    if can_stream_copy:
-        # 流复制模式：不重编码，直接复制音频流
-        cmd.extend(["-c:a", "copy"])
-        if audio_format == "aac":
-            cmd.extend(["-f", "mp4"])
-        logger.info(f"音频流复制模式（跳过重编码）: {os.path.basename(input_file)}")
-    else:
-        # 重编码模式
-        # 声道设置
-        if channels == "mono":
-            cmd.extend(["-ac", "1"])
-        elif channels == "stereo":
-            cmd.extend(["-ac", "2"])
-
-        # 采样率设置
-        if sample_rate != "original":
-            cmd.extend(["-ar", sample_rate])
-
-        # 音频滤镜（音量调节）
-        filters = []
-        if volume != 1.0 and volume > 0:
-            filters.append(f"volume={volume}")
-        if filters:
-            cmd.extend(["-af", ",".join(filters)])
-
-        # 编码器和码率
-        if audio_format == "aac":
-            cmd.extend(["-c:a", "aac"])
-            if bitrate_mode == "vbr":
-                cmd.extend(["-q:a", "2"])
-            else:
-                cmd.extend(["-b:a", bitrate])
-            cmd.extend(["-f", "mp4"])
+    def build_cmd(stream_copy: bool) -> list[str]:
+        cmd = [get_ffmpeg_path(), "-i", input_file, "-vn"]
+        
+        if stream_copy:
+            cmd.extend(["-c:a", "copy"])
+            if audio_format == "aac":
+                cmd.extend(["-f", "mp4"])
         else:
-            codec = _FORMAT_CODEC.get(audio_format, "aac")
-            cmd.extend(["-c:a", codec])
-            if audio_format in _BITRATE_FORMATS:
-                if bitrate_mode == "vbr" and audio_format == "mp3":
+            if channels == "mono":
+                cmd.extend(["-ac", "1"])
+            elif channels == "stereo":
+                cmd.extend(["-ac", "2"])
+
+            if sample_rate != "original":
+                cmd.extend(["-ar", sample_rate])
+
+            filters = []
+            if use_loudnorm:
+                filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+            elif volume != 1.0 and volume > 0:
+                filters.append(f"volume={volume}")
+            if filters:
+                cmd.extend(["-af", ",".join(filters)])
+
+            if audio_format == "aac":
+                cmd.extend(["-c:a", "aac"])
+                if bitrate_mode == "vbr":
                     cmd.extend(["-q:a", "2"])
                 else:
                     cmd.extend(["-b:a", bitrate])
+                cmd.extend(["-f", "mp4"])
+            else:
+                codec = _FORMAT_CODEC.get(audio_format, "aac")
+                cmd.extend(["-c:a", codec])
+                if audio_format in _BITRATE_FORMATS:
+                    if bitrate_mode == "vbr" and audio_format == "mp3":
+                        cmd.extend(["-q:a", "2"])
+                    else:
+                        cmd.extend(["-b:a", bitrate])
+                        
+        # 继承元数据
+        cmd.extend(["-map_metadata", "0"])
+        
+        # MP4/M4A 流媒体加速
+        if output_path.lower().endswith((".mp4", ".m4a")):
+            cmd.extend(["-movflags", "+faststart"])
 
-    cmd.extend(["-y", output_path])
+        cmd.extend(["-y", output_path])
+        return cmd
+
+    cmd = build_cmd(can_stream_copy)
+    if can_stream_copy:
+        logger.info(f"音频流复制模式（跳过重编码）: {os.path.basename(input_file)}")
 
     if progress_callback:
         progress_callback(f"正在提取音频: {os.path.basename(output_path)}")
 
-    return run_ffmpeg(cmd, output_path, progress_callback, "提取")
+    success, err = run_ffmpeg(cmd, output_path, progress_callback, "提取")
+    
+    # 智能无损自救 (Fallback)
+    if not success and can_stream_copy:
+        logger.warning(f"流复制失败，触发重编码降级重试: {input_file}")
+        if progress_callback:
+            progress_callback(f"流复制失败，正在降级重试: {os.path.basename(output_path)}")
+        cmd_fallback = build_cmd(stream_copy=False)
+        success, err = run_ffmpeg(cmd_fallback, output_path, progress_callback, "提取(降级)")
+        
+    return success, err

@@ -46,6 +46,13 @@ def build_ffmpeg_command(
     elif audio_file:
         cmd.extend(["-map", "0:a:0"])
 
+    # 保留元数据
+    cmd.extend(["-map_metadata", "0"])
+    
+    # MP4/M4A 流媒体加速
+    if output_path.lower().endswith((".mp4", ".m4a")):
+        cmd.extend(["-movflags", "+faststart"])
+
     cmd.extend(["-y", output_path])
     return cmd
 
