@@ -1612,3 +1612,109 @@ input[type="range"]::-webkit-slider-thumb {
     box-shadow: inset 3px 0 0 0 var(--primary-color) !important;
 }
 
+
+
+/* Master-Detail Layout (60:40) */
+.workspace-grid {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.center-workspace {
+    flex: 6; /* 60% */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+    background-color: var(--window-bg);
+    transition: flex 0.3s;
+}
+
+.workspace-grid.panel-collapsed .center-workspace {
+    flex: 10; /* Take full width */
+}
+
+.global-config-panel {
+    flex: 4; /* 40% */
+    background-color: var(--sidebar-bg);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row; /* collapser on left, content on right */
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 320px;
+    max-width: 500px;
+}
+
+.workspace-grid.panel-collapsed .global-config-panel {
+    flex: 0;
+    min-width: 0;
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    border-left: none;
+}
+
+.panel-collapser {
+    position: absolute;
+    left: -24px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border-color);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    z-index: 10;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+}
+.panel-collapser:hover {
+    color: var(--primary-color);
+    background-color: var(--hover-bg);
+}
+
+.panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* Accordion */
+.accordion-card {
+    background-color: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.accordion-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background-color: var(--alt-base-bg);
+    font-weight: 600;
+    font-size: 13px;
+    user-select: none;
+}
+.accordion-header:hover {
+    background-color: var(--hover-bg);
+}
+.accordion-body {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
