@@ -13,42 +13,49 @@ def convert_single(
     input_file: str,
     output_path: str,
     mode: str = "copy",
+    crf: int = 23,
+    preset: str = "medium",
+    scale: str = "original",
+    fps: str = "original",
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     转换单个视频文件格式
-
-    Args:
-        input_file: 输入文件路径
-        output_path: 输出文件路径
-        mode: "copy"（流复制，快速无损）或 "recode"（重编码）
-        progress_callback: 进度回调
-
-    Returns:
-        (成功标志, 错误信息)
     """
     err = ensure_output_dir(output_path)
     if err:
         return False, err
 
+    cmd = [get_ffmpeg_path(), "-i", input_file]
+
+    if fps != "original" and fps:
+        cmd.extend(["-r", fps])
+
+    if scale != "original" and scale:
+        scale_map = {"1080p": "1920:-2", "720p": "1280:-2", "480p": "854:-2"}
+        scale_val = scale_map.get(scale, scale)
+        cmd.extend(["-vf", f"scale={scale_val}"])
+
     if mode == "copy":
-        cmd = [
-            get_ffmpeg_path(),
-            "-i", input_file,
-            "-c", "copy",
-            "-y", output_path,
-        ]
+        cmd.extend(["-c", "copy"])
     else:
-        # 优先使用硬件加速编码器
+        # H.264 or HEVC (H.265)
+        vcodec = "libx265" if mode == "hevc" else "libx264"
         hw_encoder = get_hw_encoder()
-        video_codec = hw_encoder if hw_encoder else "libx264"
-        cmd = [
-            get_ffmpeg_path(),
-            "-i", input_file,
-            "-c:v", video_codec,
+        
+        # 仅当使用 h264 且存在硬件加速时使用硬编（暂不引入复杂的 h265 硬编检测）
+        if mode == "h264" and hw_encoder:
+            vcodec = hw_encoder
+
+        cmd.extend([
+            "-c:v", vcodec,
+            "-preset", preset,
+            "-crf", str(crf),
             "-c:a", "aac",
-            "-y", output_path,
-        ]
+            "-b:a", "192k"
+        ])
+
+    cmd.extend(["-y", output_path])
 
     if progress_callback:
         progress_callback(f"正在转换: {os.path.basename(output_path)}")

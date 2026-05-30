@@ -16,20 +16,10 @@ def build_ffmpeg_command(
     video_file: str,
     audio_file: str,
     output_path: str,
+    shortest: bool = False,
+    audio_recode: bool = False,
 ) -> list[str]:
-    """
-    构建 ffmpeg 合并命令
-
-    使用流复制模式，保留原始质量。
-
-    Args:
-        video_file: 视频文件路径
-        audio_file: 音频文件路径
-        output_path: 输出文件路径
-
-    Returns:
-        ffmpeg 命令参数列表
-    """
+    """构建 ffmpeg 合并命令"""
     cmd = [get_ffmpeg_path()]
 
     if video_file:
@@ -37,10 +27,17 @@ def build_ffmpeg_command(
     if audio_file:
         cmd.extend(["-i", audio_file])
 
-    cmd.extend(["-c", "copy"])
+    if audio_recode:
+        # Fallback 容错模式：复制视频流，重编码音频流
+        cmd.extend(["-c:v", "copy", "-c:a", "aac", "-b:a", "192k"])
+    else:
+        # 默认极致流复制
+        cmd.extend(["-c", "copy"])
 
     if video_file and audio_file:
         cmd.extend(["-map", "0:v:0", "-map", "1:a:0"])
+        if shortest:
+            cmd.extend(["-shortest"])
     elif video_file:
         cmd.extend(["-map", "0:v:0"])
     elif audio_file:
@@ -61,28 +58,28 @@ def merge_single(
     video_file: str,
     audio_file: str,
     output_path: str,
+    shortest: bool = False,
     progress_callback: Optional[Callable[[str], None]] = None,
     process_callback=None,
 ) -> tuple[bool, Optional[str]]:
-    """
-    执行单个合并任务
-
-    Args:
-        video_file: 视频文件路径
-        audio_file: 音频文件路径
-        output_path: 输出文件路径
-        progress_callback: 进度回调
-
-    Returns:
-        (成功标志, 错误信息)
-    """
+    """执行单个合并任务"""
     err = ensure_output_dir(output_path)
     if err:
         return False, err
 
-    cmd = build_ffmpeg_command(video_file, audio_file, output_path)
+    cmd = build_ffmpeg_command(video_file, audio_file, output_path, shortest=shortest, audio_recode=False)
 
     if progress_callback:
-        progress_callback(f"正在准备合并: {os.path.basename(output_path)}")
+        progress_callback(f"正在合并: {os.path.basename(output_path)}")
 
-    return run_ffmpeg(cmd, output_path, progress_callback, "合并", process_callback)
+    success, err_msg = run_ffmpeg(cmd, output_path, progress_callback, "合并", process_callback)
+
+    # 智能无损自救 (Fallback): 如果因为容器不兼容导致 copy 报错，触发降级转码
+    if not success:
+        logger.warning(f"合并流复制失败，触发音频重编码降级重试: {output_path}")
+        if progress_callback:
+            progress_callback(f"流复制失败，正在进行兼容模式重试: {os.path.basename(output_path)}")
+        cmd_fallback = build_ffmpeg_command(video_file, audio_file, output_path, shortest=shortest, audio_recode=True)
+        success, err_msg = run_ffmpeg(cmd_fallback, output_path, progress_callback, "合并(降级)", process_callback)
+
+    return success, err_msg

@@ -29,56 +29,101 @@ def compress_video(
     output_path: str,
     preset: str = "balanced",
     resolution: str = "original",
+    target_size_mb: Optional[float] = None,
+    audio_copy: bool = True,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
-    """
-    压缩视频文件
-
-    Args:
-        input_file: 输入文件路径
-        output_path: 输出文件路径
-        preset: 压缩预设（fast/balanced/quality）
-        resolution: 分辨率缩放（original/1080p/720p/480p）
-        progress_callback: 进度回调
-
-    Returns:
-        (成功标志, 错误信息)
-    """
+    """压缩视频文件（支持快速 CRF 与精准 Two-Pass）"""
     err = ensure_output_dir(output_path)
     if err:
         return False, err
 
     crf, ffmpeg_preset = _PRESETS.get(preset, _PRESETS["balanced"])
     scale = _RESOLUTION_SCALE.get(resolution)
-
-    # 优先使用硬件加速编码器
-    hw_encoder = get_hw_encoder()
-    if hw_encoder:
-        cmd = [
-            get_ffmpeg_path(),
-            "-i", input_file,
-            "-c:v", hw_encoder,
-            "-cq", str(crf),
-            "-c:a", "aac",
-            "-b:a", "128k",
-        ]
-    else:
-        cmd = [
-            get_ffmpeg_path(),
-            "-i", input_file,
-            "-c:v", "libx264",
-            "-preset", ffmpeg_preset,
-            "-crf", str(crf),
-            "-c:a", "aac",
-            "-b:a", "128k",
-        ]
-
+    
+    # 构建基础参数
+    base_cmd = [get_ffmpeg_path(), "-i", input_file]
     if scale:
-        cmd.extend(["-vf", f"scale={scale}"])
+        base_cmd.extend(["-vf", f"scale={scale}"])
 
-    cmd.extend(["-y", output_path])
+    # 确定音频参数
+    audio_args = ["-c:a", "copy"] if audio_copy else ["-c:a", "aac", "-b:a", "128k"]
+    
+    hw_encoder = get_hw_encoder()
 
-    if progress_callback:
-        progress_callback(f"正在压缩: {os.path.basename(output_path)}")
+    if target_size_mb:
+        # 启用精准 Two-Pass 压缩
+        try:
+            from fisheep_video_merger.utils.ffprobe import get_video_detail
+            detail = get_video_detail(input_file)
+            if not detail or detail.duration <= 0:
+                return False, "无法获取视频时长，Two-Pass 失败"
+            
+            # 计算目标视频码率 (kbps)
+            target_total_bitrate = (target_size_mb * 8192) / detail.duration
+            audio_bitrate = 128 if not audio_copy else 192 # 简化估算
+            target_video_bitrate = max(100, int(target_total_bitrate - audio_bitrate))
+            
+            passlog_path = output_path + "_passlog"
+            
+            # Pass 1
+            cmd_pass1 = base_cmd.copy()
+            cmd_pass1.extend([
+                "-c:v", "libx264", # Pass 1 通常用软编保证统计准确
+                "-b:v", f"{target_video_bitrate}k",
+                "-preset", ffmpeg_preset,
+                "-pass", "1",
+                "-passlogfile", passlog_path,
+                "-an", "-f", "null",
+                "NUL" if os.name == 'nt' else "/dev/null"
+            ])
+            
+            if progress_callback:
+                progress_callback(f"精准压缩 (1/2): 分析视频源中...")
+            
+            success, err_msg = run_ffmpeg(cmd_pass1, output_path, progress_callback, "压缩(Pass-1)")
+            if not success:
+                return False, err_msg
+                
+            # Pass 2
+            cmd_pass2 = base_cmd.copy()
+            cmd_pass2.extend([
+                "-c:v", "libx264",
+                "-b:v", f"{target_video_bitrate}k",
+                "-preset", ffmpeg_preset,
+                "-pass", "2",
+                "-passlogfile", passlog_path,
+            ])
+            cmd_pass2.extend(audio_args)
+            cmd_pass2.extend(["-y", output_path])
+            
+            if progress_callback:
+                progress_callback(f"精准压缩 (2/2): 正在生成文件...")
+                
+            success, err_msg = run_ffmpeg(cmd_pass2, output_path, progress_callback, "压缩(Pass-2)")
+            
+            # 清理 log
+            for ext in ["-0.log", "-0.log.mbtree"]:
+                if os.path.exists(passlog_path + ext):
+                    os.remove(passlog_path + ext)
+                    
+            return success, err_msg
 
-    return run_ffmpeg(cmd, output_path, progress_callback, "压缩")
+        except Exception as e:
+            return False, f"Two-Pass 执行失败: {e}"
+            
+    else:
+        # 快速 CRF 压缩
+        cmd = base_cmd.copy()
+        if hw_encoder:
+            cmd.extend(["-c:v", hw_encoder, "-cq", str(crf)])
+        else:
+            cmd.extend(["-c:v", "libx264", "-preset", ffmpeg_preset, "-crf", str(crf)])
+            
+        cmd.extend(audio_args)
+        cmd.extend(["-y", output_path])
+
+        if progress_callback:
+            progress_callback(f"正在压缩: {os.path.basename(output_path)}")
+
+        return run_ffmpeg(cmd, output_path, progress_callback, "压缩")

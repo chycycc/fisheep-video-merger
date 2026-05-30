@@ -43,24 +43,10 @@ def trim_video(
     start_time: str = "00:00:00",
     end_time: Optional[str] = None,
     duration: Optional[float] = None,
-    mode: str = "copy",
+    accurate_mode: bool = False,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
-    """
-    裁剪视频片段
-
-    Args:
-        input_file: 输入文件路径
-        output_path: 输出文件路径
-        start_time: 开始时间（HH:MM:SS 或秒数）
-        end_time: 结束时间（与 duration 二选一）
-        duration: 持续时长秒数（与 end_time 二选一）
-        mode: "copy"（快速，关键帧对齐）或 "recode"（精确，帧级）
-        progress_callback: 进度回调
-
-    Returns:
-        (成功标志, 错误信息)
-    """
+    """裁剪视频片段（极速关键帧 vs 逐帧精准）"""
     err = ensure_output_dir(output_path)
     if err:
         return False, err
@@ -72,20 +58,30 @@ def trim_video(
 
     cmd = [get_ffmpeg_path()]
 
-    # -ss 放在 -i 前面实现快速 seek
-    cmd.extend(["-ss", str(start_sec)])
+    # 极速模式：-ss 在前（Input seek），仅限关键帧，有秒级误差
+    if not accurate_mode:
+        cmd.extend(["-ss", str(start_sec)])
+
     cmd.extend(["-i", input_file])
+
+    # 精准模式：-ss 在后（Output seek），必须搭配重编码，零误差
+    if accurate_mode:
+        cmd.extend(["-ss", str(start_sec)])
 
     if end_time:
         try:
             end_sec = parse_time(end_time)
-            cmd.extend(["-to", str(end_sec)])
+            # 在 output seek 模式下，-to 是相对于 -ss 的。
+            # 为了确保绝对时间点正确，统一改用 -t (duration)
+            trim_duration = end_sec - start_sec
+            if trim_duration > 0:
+                cmd.extend(["-t", str(trim_duration)])
         except ValueError as e:
             return False, str(e)
     elif duration:
         cmd.extend(["-t", str(duration)])
 
-    if mode == "copy":
+    if not accurate_mode:
         cmd.extend(["-c", "copy"])
     else:
         hw_encoder = get_hw_encoder()
@@ -95,6 +91,7 @@ def trim_video(
     cmd.extend(["-y", output_path])
 
     if progress_callback:
-        progress_callback(f"正在裁剪: {os.path.basename(output_path)}")
+        mode_str = "精准" if accurate_mode else "极速"
+        progress_callback(f"正在{mode_str}裁剪: {os.path.basename(output_path)}")
 
     return run_ffmpeg(cmd, output_path, progress_callback, "裁剪")
