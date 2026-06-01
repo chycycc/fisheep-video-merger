@@ -1,7 +1,7 @@
 # 🐑 Fisheep 视频工具箱
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-v0.5.5-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-v0.6.0-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows_10%2B-blue?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="License">
 </p>
