@@ -20,6 +20,8 @@ document.addEventListener('alpine:init', () => {
         openAccordion: 'base',
         settingsExpanded: true,
         theme: localStorage.getItem('theme') || 'dark',
+        configWidth: 320,
+        sidebarWidth: 240,
     });
 
     Alpine.store('settings', {
@@ -322,13 +324,17 @@ function initMockOrBridge() {
     // 绑定常规操作按钮到 Python 端
     document.getElementById('add-folder-btn').addEventListener('click', () => {
         callPython('select_folder_dialog').then(res => {
-            handleBackendResponse(res);
+            if (res && res.status === 'success' && res.folders && res.folders.length > 0) {
+                callPython('add_folder', res.folders[0]).then(state => handleBackendResponse(state));
+            }
         });
     });
 
     document.getElementById('add-files-btn').addEventListener('click', () => {
         callPython('select_files_dialog').then(res => {
-            handleBackendResponse(res);
+            if (res && res.status === 'success' && res.files && res.files.length > 0) {
+                callPython('on_files_dropped', res.files).then(state => handleBackendResponse(state));
+            }
         });
     });
 
@@ -447,8 +453,8 @@ window.selectQueueRow = function(index, event) {
 
     // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
     const store = Alpine.store('app');
-    // 再次点击同一行则取消选中
-    if (store.selectedTaskIndex === index) {
+    // 再次点击同一行则取消选中 (使用 == 防止类型不一致)
+    if (store.selectedTaskIndex == index) {
         store.selectedTaskIndex = -1;
         window.hideVideoPreview();
         window.updatePathPreview();
@@ -581,7 +587,7 @@ window.editOutputName = function(index, event) {
 
 window.updatePathPreview = function() {
     const label = document.getElementById('detail-path-label');
-    const filenameInput = document.getElementById('output-filename-input');
+    const filenameInput = document.getElementById('global-output-name');
     if (!label) return;
     
     const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
@@ -624,12 +630,12 @@ window.updatePathPreview = function() {
     
     if (singleSelectIndex !== -1 && tasks[singleSelectIndex]) {
         const task = tasks[singleSelectIndex];
-        const outputDirInput = document.getElementById('output-dir-input');
-        const outputFormatSelect = document.getElementById('output-format-select');
+        const outputDirInput = document.getElementById('global-output-dir');
+        const outputFormatSelect = document.getElementById('merge-format');
         
-        const outputDir = (outputDirInput ? outputDirInput.value.trim() : '') || task.source_dir;
+        const outputDir = (outputDirInput ? outputDirInput.value.trim() : '') || task.source_dir || '';
         const format = (outputFormatSelect ? outputFormatSelect.value : '') || 'mp4';
-        const newName = (filenameInput ? filenameInput.value.trim() : '') || task.name;
+        const newName = (filenameInput ? filenameInput.value.trim() : '') || task.name || '';
         
         const separator = outputDir.includes('/') ? '/' : '\\';
         const predictedPath = outputDir + (outputDir.endsWith(separator) ? '' : separator) + newName + '.' + format;
@@ -658,11 +664,12 @@ window.updateTaskProgress = function(index, percent, eta, speed) {
 };
 
 // C. 动态更新列表行状态（通过 Alpine.store 触发响应式更新）
-window.updateTaskStatus = function(index, status, errorMsg = '') {
+window.updateTaskStatus = function(index, status, errorMsg = '', outputPath = '') {
     const store = Alpine.store('app');
     if (store.tasks[index]) {
         store.tasks[index].status = status;
         store.tasks[index].error = errorMsg || '';
+        if (outputPath) store.tasks[index].output_path = outputPath;
         if (status === 'processing') {
             store.tasks[index].percent = 0;
         }
@@ -996,6 +1003,90 @@ window.deletePendingFile = function(filepath) {
     });
 };
 
+let manualMatchCache = null;
+
+window.manualMatchPending = function() {
+    const checkboxes = document.querySelectorAll('#pending-tbody .row-checkbox-pending:checked');
+    if (checkboxes.length !== 2) {
+        showToast('请精确勾选 1 个视频和 1 个音频', 'warning');
+        return;
+    }
+    
+    let videoFile = null;
+    let audioFile = null;
+    
+    const store = Alpine.store('app');
+    
+    Array.from(checkboxes).forEach(cb => {
+        const filepath = cb.getAttribute('data-filepath');
+        // Determine if it's video or audio from store
+        const item = store.pending.find(i => i.filepath === filepath);
+        if (item) {
+            if (item.stream_type === 'video_only') videoFile = item;
+            else if (item.stream_type === 'audio_only') audioFile = item;
+        }
+    });
+    
+    if (!videoFile || !audioFile) {
+        showToast('必须包含 1 个视频和 1 个音频', 'warning');
+        return;
+    }
+    
+    // Default name
+    let defaultName = videoFile.name.split('.').slice(0, -1).join('.');
+    
+    document.getElementById('mm-video-name').textContent = videoFile.name;
+    document.getElementById('mm-audio-name').textContent = audioFile.name;
+    document.getElementById('mm-output-name').value = defaultName;
+    
+    manualMatchCache = [videoFile.filepath, audioFile.filepath];
+    
+    const modal = document.getElementById('manual-match-modal');
+    modal.style.display = 'flex';
+};
+
+window.closeManualMatchModal = function() {
+    document.getElementById('manual-match-modal').style.display = 'none';
+    manualMatchCache = null;
+};
+
+window.confirmManualMatch = function() {
+    if (!manualMatchCache) return;
+    
+    const outputName = document.getElementById('mm-output-name').value.trim();
+    if (!outputName) {
+        showToast('文件名不能为空', 'warning');
+        return;
+    }
+    
+    callPython('manual_match', manualMatchCache, outputName).then(res => {
+        if (res && res.status === 'error') {
+            showToast(res.message, 'error');
+        } else if (res) {
+            handleBackendResponse(res);
+            showToast('手动配对成功，已移入合并队列', 'success');
+            closeManualMatchModal();
+            // Deselect all
+            const selectAll = document.getElementById('select-all-pending');
+            if(selectAll) selectAll.checked = false;
+        }
+    });
+};
+
+window.autoMatchPending = function() {
+    callPython('auto_match_pending').then(res => {
+        if (res && res.status === 'error') {
+            showToast(res.message, 'error');
+        } else if (res && res.status === 'success') {
+            handleBackendResponse(res);
+            if (res.message) showToast(res.message, 'success');
+        } else if (res) {
+            handleBackendResponse(res);
+            showToast('智能配对完成', 'success');
+        }
+    });
+};
+
 window.deleteMuxedFile = function(filepath) {
     callPython('delete_muxed_file', filepath).then(res => {
         if (res) {
@@ -1064,7 +1155,7 @@ function showToastWithAction(message, actionLabel, actionFn) {
 function initSettingsListeners() {
     // 输出格式、并发数、复选框已由 Alpine x-model + @change 绑定，无需手动 addEventListener
 
-    const filenameInput = document.getElementById('output-filename-input');
+    const filenameInput = document.getElementById('global-output-name');
     if (filenameInput) {
         // 当用户在输入框打字时，实时同步更新路径预览，但暂不提交后端
         filenameInput.addEventListener('input', () => {
@@ -1331,6 +1422,9 @@ function bindRowSelectionListeners() {
     // 监听表格内所有非空行的点击事件
     document.querySelectorAll('.data-table tbody').forEach(tbody => {
         tbody.addEventListener('click', (e) => {
+            // Alpine.js 管理的合并队列由 selectQueueRow 处理，不在此干预
+            if (tbody.id === 'queue-tbody') return;
+
             if (e.target.closest('button') || e.target.closest('input[type="checkbox"]') || e.target.closest('a')) {
                 return;
             }
@@ -1344,35 +1438,32 @@ function bindRowSelectionListeners() {
                     // Ctrl/Cmd + 点击：切换当前行
                     cb.checked = !cb.checked;
                 } else {
-                    // 普通点击：仅选中当前行，取消其他
-                    tbody.querySelectorAll('.tool-row-cb, .row-checkbox, .row-checkbox-pending, .row-checkbox-muxed').forEach(other => {
-                        if (other !== cb) other.checked = false;
-                    });
-                    cb.checked = true;
+                    // 普通点击：
+                    // 如果该行是唯一选中的行，则再次点击时取消选中
+                    const allChecked = tbody.querySelectorAll('.tool-row-cb:checked, .row-checkbox:checked, .row-checkbox-pending:checked, .row-checkbox-muxed:checked');
+                    if (allChecked.length === 1 && allChecked[0] === cb) {
+                        cb.checked = false;
+                    } else {
+                        // 否则选中当前行，取消其他
+                        tbody.querySelectorAll('.tool-row-cb, .row-checkbox, .row-checkbox-pending, .row-checkbox-muxed').forEach(other => {
+                            if (other !== cb) other.checked = false;
+                        });
+                        cb.checked = true;
+                    }
                 }
                 cb.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
         
         tbody.addEventListener('change', (e) => {
-            if (e.target.classList.contains('row-checkbox') || 
-                e.target.classList.contains('row-checkbox-pending') || 
+            if (e.target.classList.contains('row-checkbox-pending') || 
                 e.target.classList.contains('row-checkbox-muxed')) {
                 const tr = e.target.closest('tr');
                 if (tr) {
                     if (e.target.checked) {
                         tr.classList.add('active-row');
-                        if (e.target.classList.contains('row-checkbox')) {
-                            Alpine.store('app').selectedTaskIndex = parseInt(e.target.getAttribute('data-index'), 10);
-                        }
                     } else {
                         tr.classList.remove('active-row');
-                        if (e.target.classList.contains('row-checkbox')) {
-                            const idx = parseInt(e.target.getAttribute('data-index'), 10);
-                            if (Alpine.store('app').selectedTaskIndex === idx) {
-                                Alpine.store('app').selectedTaskIndex = -1;
-                            }
-                        }
                     }
                     if (window.updatePathPreview) {
                         window.updatePathPreview();
@@ -1489,12 +1580,9 @@ function addFilesToTool(tool, paths) {
     validPaths.forEach(path => {
         const baseName = path.split(/[\\/]/).pop();
         if (window.pywebview && window.pywebview.api) {
-            const apiCall = tool === 'extract'
-                ? window.pywebview.api.get_file_info(path).then(info => {
-                    // get_file_info 返回音频详情，补充基础信息
-                    return { filepath: path, name: baseName, ...info };
-                  }).catch(() => ({ filepath: path, name: baseName, status: 'success' }))
-                : window.pywebview.api.get_video_info(path);
+            const apiCall = window.pywebview.api.get_file_info(path).then(info => {
+                return { filepath: path, name: baseName, ...info };
+            }).catch(() => ({ filepath: path, name: baseName, status: 'success' }));
             apiCall.then(info => {
                 // 始终添加文件，即使信息获取失败
                 const fileData = { filepath: path, name: baseName, ...(info || {}) };
@@ -2150,4 +2238,130 @@ window.importProfile = function() {
             showToast(res.message, 'warning');
         }
     });
+};
+
+// 全局配置面板拖拽调整宽度逻辑
+window.startConfigResize = function(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const store = Alpine.store('app');
+    const startWidth = store.configWidth;
+    
+    document.body.classList.add('is-resizing');
+
+    function onMouseMove(moveEvent) {
+        // 由于调整条在左侧，向左拖动（clientX变小）意味着宽度增加
+        const delta = startX - moveEvent.clientX;
+        let newWidth = startWidth + delta;
+        
+        // 如果宽度小于 200，则自动隐藏
+        if (newWidth < 200) {
+            store.configPanelCollapsed = true;
+            newWidth = 320; // 记录一个恢复后的默认宽度
+            cleanup();
+        } else {
+            // 否则展开面板，并限制最大宽度为 600
+            store.configPanelCollapsed = false;
+            store.configWidth = Math.min(600, newWidth);
+        }
+    }
+    
+    function cleanup() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', cleanup);
+        document.body.style.cursor = '';
+        document.body.classList.remove('is-resizing');
+    }
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', cleanup);
+    document.body.style.cursor = 'col-resize';
+};
+
+// 左侧导航栏拖拽调整宽度逻辑
+window.startSidebarResize = function(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const store = Alpine.store('app');
+    const startWidth = store.sidebarCollapsed ? 72 : store.sidebarWidth;
+    let hasMoved = false;
+
+    function onMouseMove(moveEvent) {
+        const delta = moveEvent.clientX - startX;
+        
+        // 只有发生实际拖拽(>3px)才解除折叠，防止仅仅点击就瞬间弹开
+        if (!hasMoved && Math.abs(delta) > 3) {
+            hasMoved = true;
+            store.sidebarCollapsed = false;
+            document.body.classList.add('is-resizing');
+        }
+
+        if (hasMoved) {
+            let newWidth = startWidth + delta;
+            // 允许宽度平滑变化，最小允许拖到 72px，最大 400px
+            store.sidebarWidth = Math.max(72, Math.min(400, newWidth));
+        }
+    }
+    
+    function cleanup() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', cleanup);
+        
+        if (hasMoved) {
+            document.body.style.cursor = '';
+            document.body.classList.remove('is-resizing');
+            
+            // 拖动结束时，如果宽度小于 150，则自动收起并带上平滑过渡
+            if (store.sidebarWidth < 150) {
+                store.sidebarCollapsed = true;
+                // 记住一个恢复用的合适宽度
+                store.sidebarWidth = 240; 
+            } else if (store.sidebarWidth < 200) {
+                // 如果介于 150~200 之间，吸附到 200
+                store.sidebarWidth = 200;
+            }
+        }
+    }
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', cleanup);
+    document.body.style.cursor = 'col-resize';
+};
+
+window.showCustomTooltip = function(e, text) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+    window.dispatchEvent(new CustomEvent('show-tooltip', { detail: { text, x, y } }));
+};
+
+
+window.resetTaskStatus = function(index) {
+    callPython('reset_task', index).then(res => {
+        if (res && res.status !== 'error') {
+            handleBackendResponse(res);
+            showToast('已重置为待命', 'info');
+        }
+    });
+};
+
+window.hideCustomTooltip = function() {
+    let tooltip = document.getElementById("global-vanilla-tooltip");
+    if (tooltip) { tooltip.style.display = "none"; }
+};
+window.showCustomTooltip = function(e, text) {
+    let tooltip = document.getElementById("global-vanilla-tooltip");
+    if (!tooltip) {
+        tooltip = document.createElement("div");
+        tooltip.id = "global-vanilla-tooltip";
+        tooltip.className = "global-tooltip";
+        document.body.appendChild(tooltip);
+    }
+    tooltip.textContent = text;
+    const rect = e.currentTarget.getBoundingClientRect();
+    tooltip.style.left = (rect.left + rect.width / 2) + "px";
+    tooltip.style.top = rect.top + "px";
+    tooltip.style.transform = "translate(-50%, -100%)";
+    tooltip.style.marginTop = "-6px";
+    tooltip.style.display = "block";
 };

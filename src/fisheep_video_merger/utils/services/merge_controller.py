@@ -127,8 +127,8 @@ class MergeControllerService:
                     try:
                         index, success, err, output_path = f.result()
                         if success:
-                            task_manager.update_task_status(index, "completed")
-                            status_callback(index, "completed", None)
+                            task_manager.update_task_status(index, "completed", None, output_path)
+                            status_callback(index, "completed", None, output_path)
                             completed += 1
                         else:
                             task_manager.update_task_status(index, "failed", err)

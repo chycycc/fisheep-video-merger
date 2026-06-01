@@ -99,10 +99,25 @@ body {
     width: 240px; /* 默认展开宽度 */
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; /* 保证收缩时内容不溢出 */
+    position: relative;
 }
 
 .sidebar.collapsed {
     width: 72px; /* 完美的 72px 几何宽度 */
+}
+
+.sidebar-resizer {
+    position: absolute;
+    right: -4px;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    z-index: 100;
+}
+.sidebar-resizer:hover {
+    background-color: var(--primary-color);
+    opacity: 0.3;
 }
 
 .logo-area {
@@ -191,6 +206,11 @@ body {
     padding-top: 16px;
 }
 
+.sidebar-footer .nav-btn {
+    margin: 0 12px;
+    width: calc(100% - 24px);
+}
+
 .theme-toggle-area {
     display: flex;
     justify-content: space-between;
@@ -234,6 +254,18 @@ body {
     margin-left: 0;
     margin-right: 0;
     pointer-events: none; /* 禁用鼠标交互 */
+}
+
+.sidebar.collapsed .nav-btn,
+.sidebar.collapsed .sidebar-footer .nav-btn {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.sidebar.collapsed .theme-toggle-area {
+    justify-content: center;
+    padding: 0;
 }
 
 .sidebar.collapsed .logo-emoji {
@@ -306,7 +338,8 @@ body {
 .header-actions {
     display: flex;
     gap: 12px;
-    flex-shrink: 0;
+    flex-wrap: wrap;
+    flex-shrink: 1;
 }
 
 /* === 6. 通用按钮组件 (Buttons) === */
@@ -1189,6 +1222,11 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
         pointer-events: none;
     }
 
+    .sidebar.collapsed .theme-toggle-area {
+        justify-content: center;
+        padding: 0;
+    }
+
     .sidebar.collapsed .logo-area {
         padding: 0 16px;
         justify-content: center;
@@ -1385,6 +1423,7 @@ input[type="range"]::-webkit-slider-thumb {
     margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
+    padding-right: 24px; /* 留出侧边折叠按钮的空间 */
 }
 
 .tool-header h2 {
@@ -1654,8 +1693,26 @@ input[type="range"]::-webkit-slider-thumb {
     min-width: 0;
     width: 0;
     max-width: 0;
-    overflow: hidden;
+    overflow: visible;
     border-left: none;
+}
+
+.panel-resizer {
+    position: absolute;
+    left: -4px;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    z-index: 100;
+}
+.panel-resizer:hover {
+    background-color: var(--primary-color);
+    opacity: 0.3;
+}
+
+body.is-resizing * {
+    transition: none !important;
 }
 
 .panel-collapser {
@@ -1717,4 +1774,21 @@ input[type="range"]::-webkit-slider-thumb {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+/* === ȫ��������� === */
+.global-tooltip {
+    position: fixed;
+    background-color: var(--alt-base-bg, rgba(28, 29, 41, 0.95));
+    color: var(--text-color, #f3f4f6);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color, #23273D);
+    pointer-events: none;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }

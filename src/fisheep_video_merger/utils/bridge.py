@@ -232,8 +232,14 @@ class UIBridge:
         self._task_mgr.update_task_status(index, status)
         return self._get_queue_data()
 
+    def reset_task(self, index: int) -> dict:
+        if self._task_mgr.reset_task(index):
+            return self._get_queue_data()
+        return {"status": "error"}
+
     def rename_task(self, index: int, new_name: str) -> Dict:
         if self._task_mgr.rename_task(index, new_name):
+            self._task_mgr.reset_task(index)
             return self._get_queue_data()
         return {"status": "error", "message": "Invalid index"}
 
@@ -464,8 +470,9 @@ class UIBridge:
         def on_progress(index, percent, eta, speed):
             self._evaluate_js_safe(f"window.updateTaskProgress({index}, {percent}, '{eta}', '{speed}')")
 
-        def on_status(index, status, error):
-            self._evaluate_js_safe(f"window.updateTaskStatus({index}, '{status}')")
+        def on_status(index, status, error, output_path=''):
+            op_js = output_path.replace('\\', '\\\\') if output_path else ''
+            self._evaluate_js_safe(f"window.updateTaskStatus({index}, '{status}', '', '{op_js}')")
 
         def on_done(completed, failed):
             self._active_processes_clear()
@@ -695,7 +702,16 @@ class UIBridge:
                     a_size = os.path.getsize(t.audio_file) if getattr(t, "audio_file", None) and os.path.exists(t.audio_file) else 0
                     size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
 
-            source_name = os.path.basename(t.video_file) if getattr(t, "video_file", None) else ""
+            v_name = os.path.basename(t.video_file) if getattr(t, "video_file", None) else ""
+            a_name = os.path.basename(t.audio_file) if getattr(t, "audio_file", None) else ""
+            if v_name and a_name:
+                source_name = f"🎬 {v_name} ➕ 🎵 {a_name}"
+            elif v_name:
+                source_name = f"🎬 {v_name}"
+            elif a_name:
+                source_name = f"🎵 {a_name}"
+            else:
+                source_name = "未知媒体"
             tasks_list.append({
                 "name": t.output_name,
                 "source_name": source_name,
@@ -706,6 +722,8 @@ class UIBridge:
                 "size": size_str,
                 "status": t.status,
                 "error": t.error_message,
+                "source_dir": t.source_dir,
+                "output_path": getattr(t, "output_path", "") or "",
             })
 
         pending_list = []
@@ -773,3 +791,68 @@ class UIBridge:
         self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
         self._save_workspace_state()
         return self._get_queue_data()
+
+    def manual_match(self, filepaths: list[str], output_name: str = None) -> Dict:
+        if len(filepaths) != 2:
+            return {"status": "error", "message": "请精确勾选 1 个视频和 1 个音频"}
+            
+        try:
+            v_info = None
+            a_info = None
+            
+            for p in filepaths:
+                if v := next((v for v in self.pending_videos if v.filepath == p), None):
+                    v_info = v
+                elif a := next((a for a in self.pending_audios if a.filepath == p), None):
+                    a_info = a
+                    
+            if not v_info or not a_info:
+                return {"status": "error", "message": "必须包含 1 个视频和 1 个音频文件"}
+                
+            from fisheep_video_merger.core.matcher import create_manual_task
+            import os
+            root = self.root_paths[0] if self.root_paths else ""
+            out_name = output_name or os.path.splitext(os.path.basename(v_info.filepath))[0]
+            
+            task = create_manual_task(v_info, a_info, out_name, root)
+            self._task_mgr.preserve_status([task])
+            
+            self.pending_videos = [v for v in self.pending_videos if v.filepath != v_info.filepath]
+            self.pending_audios = [a for a in self.pending_audios if a.filepath != a_info.filepath]
+            
+            self._save_workspace_state()
+            return self._get_queue_data()
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def auto_match_pending(self) -> Dict:
+        try:
+            from fisheep_video_merger.core.matcher import auto_match
+            from fisheep_video_merger.utils.ffprobe import StreamType
+            
+            # Pack pending into a stream_infos list
+            streams = self.pending_videos + self.pending_audios
+            if not streams:
+                return {"status": "success", "message": "没有待整理文件可供配对"}
+                
+            # Perform auto match
+            result = auto_match(streams, self.root_paths)
+            
+            if len(result.auto_tasks) == 0:
+                return {"status": "success", "message": "未找到符合智能配对条件的条目"}
+                
+            # Update tasks
+            self._task_mgr.preserve_status(result.auto_tasks)
+            self.pending_videos = result.pending_videos
+            self.pending_audios = result.pending_audios
+            
+            self._save_workspace_state()
+            
+            data = self._get_queue_data()
+            data["status"] = "success"
+            data["message"] = f"智能配对成功，已结对 {len(result.auto_tasks)} 项"
+            return data
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+

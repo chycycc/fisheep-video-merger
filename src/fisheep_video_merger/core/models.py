@@ -20,6 +20,7 @@ class MergeTask:
     status: str = "pending"  # pending / completed / failed
     error_message: Optional[str] = None
     is_multi_episode: bool = False
+    output_path: Optional[str] = None
 
 
 @dataclass

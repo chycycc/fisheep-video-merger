@@ -85,10 +85,12 @@ class DialogService:
         )
         if not result:
             return {"status": "cancelled"}
+        
+        save_path = result[0] if isinstance(result, (list, tuple)) else result
         try:
-            with open(result, "w", encoding="utf-8") as f:
+            with open(save_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
-            return {"status": "success", "path": result}
+            return {"status": "success", "path": save_path}
         except Exception as e:
             return {"status": "error", "message": f"导出失败: {e}"}
 
