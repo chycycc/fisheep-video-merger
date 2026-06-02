@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-500: #3B82F6;
+  --color-primary-600: #2563EB;
+  --color-danger: #EF4444;
+}
+
+/* 遗留的全局变量（过渡期兼容原 style.css 使用） */
+:root {
+  --primary-color: var(--color-primary-500);
+  --bg-color: #F9FAFB;
+  --panel-bg: #FFFFFF;
+  --text-color: #111827;
+  --border-color: #E5E7EB;
+  --danger-color: var(--color-danger);
+}
+
+[data-theme="dark"] {
+  --primary-color: var(--color-primary-500);
+  --bg-color: #111827;
+  --panel-bg: #1F2937;
+  --text-color: #F9FAFB;
+  --border-color: #374151;
+  --danger-color: var(--color-danger);
+}

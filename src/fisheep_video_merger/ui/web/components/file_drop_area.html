@@ -1,14 +1,14 @@
-<tr class="empty-state-row" @click="window.selectFilesForTool(localTool)" style="cursor: pointer;">
-    <td colspan="10">
-        <div class="empty-state">
-            <div class="empty-icon" x-text="
+<tr class="hover:bg-transparent cursor-pointer group" @click="window.selectFilesForTool(localTool)">
+    <td colspan="10" class="border-b-0">
+        <div class="flex flex-col items-center justify-center py-20 text-center">
+            <div class="text-[56px] mb-4 drop-shadow-md grayscale-[0.2] group-hover:scale-105 transition-transform duration-300" x-text="
                 localTool === 'convert' ? '🔄' : 
                 localTool === 'extract' ? '🎵' : 
                 localTool === 'compress' ? '📦' : 
                 localTool === 'trim' ? '✂️' : '📁'
             "></div>
-            <h3 x-text="'拖入视频文件或点击此处选择'"></h3>
-            <p>支持 mp4 / mkv / flv / mov / avi / webm</p>
+            <h3 class="text-base font-semibold mb-2 text-gray-800 dark:text-gray-100" x-text="'拖入视频文件或点击此处选择'"></h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">支持 mp4 / mkv / flv / mov / avi / webm</p>
         </div>
     </td>
 </tr>

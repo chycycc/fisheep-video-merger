@@ -6,105 +6,114 @@
     <title>🐑 Fisheep 视频工具箱 v0.6.0</title>
     <!-- 引入本地高阶字体，实现 100% 离线可用 -->
     <link rel="stylesheet" href="fonts.css">
+    <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body x-data>
     <!-- App 主容器 -->
-    <div id="app-container" class="app-layout" :class="{ 'sidebar-collapsed': $store.app.sidebarCollapsed }">
+        <div id="app-container" class="grid grid-cols-[auto_1fr_auto] h-screen w-screen relative overflow-hidden text-gray-800 dark:text-gray-100" :class="{ 'sidebar-collapsed': $store.app.sidebarCollapsed }">
         
         <!-- 1. 左侧扁平科技感导航栏 (Sidebar) -->
-        <aside class="sidebar" 
+        <aside class="bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col py-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-10 relative" 
                :style="{ width: $store.app.sidebarCollapsed ? '72px' : $store.app.sidebarWidth + 'px', flex: 'none' }"
-               :class="{ 'collapsed': $store.app.sidebarCollapsed }">
+               :class="{ 'items-center px-0': $store.app.sidebarCollapsed }">
             <!-- 拖拽调整宽度的把手 -->
-            <div class="sidebar-resizer" @mousedown="window.startSidebarResize($event)"></div>
-            <div class="logo-area" id="logo-area-toggle" style="cursor: pointer;" title="点击折叠侧栏"
+            <div class="absolute right-[-3px] top-0 bottom-0 w-[6px] cursor-col-resize z-20 hover:bg-primary-500/50 transition-colors opacity-0 hover:opacity-100" @mousedown="window.startSidebarResize($event)"></div>
+            
+            <div class="flex items-center mb-6 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-lg mx-3 px-2 py-1" 
+                 :class="$store.app.sidebarCollapsed ? 'justify-center mx-0 px-0 w-12 h-12 rounded-full' : ''"
+                 title="点击折叠侧栏"
                  @click="$store.app.sidebarCollapsed = !$store.app.sidebarCollapsed">
-                <span class="logo-emoji" id="logo-icon">🐑</span>
-                <div class="logo-text">
-                    <h1>Fisheep</h1>
-                    <span class="version-tag">v0.6.0 工具箱</span>
+                <span class="text-2xl transition-transform duration-300 group-hover:scale-110" 
+                      :class="$store.app.sidebarCollapsed ? 'mr-0 -scale-x-100' : 'mr-3'">🐑</span>
+                <div class="flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300"
+                     :class="$store.app.sidebarCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[150px]'">
+                    <h1 class="text-lg font-bold text-gray-900 dark:text-white leading-tight tracking-tight">Fisheep</h1>
+                    <span class="text-[10px] bg-primary-500/10 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded uppercase font-semibold w-fit mt-0.5">v0.6.0 工具箱</span>
                 </div>
             </div>
 
-            <nav class="nav-links">
-                <button class="nav-btn" data-tool="merge"
-                        :class="{ 'active': $store.app.currentTool === 'merge' }"
-                        @click="$store.app.currentTool = 'merge'; window.location.hash = 'merge'">
-                    <span class="nav-icon">🔗</span>
-                    <span class="nav-text">音视频合并</span>
-                </button>
-                <button class="nav-btn" data-tool="convert"
-                        :class="{ 'active': $store.app.currentTool === 'convert' }"
-                        @click="$store.app.currentTool = 'convert'; window.location.hash = 'convert'">
-                    <span class="nav-icon">🔄</span>
-                    <span class="nav-text">格式转换</span>
-                </button>
-                <button class="nav-btn" data-tool="extract"
-                        :class="{ 'active': $store.app.currentTool === 'extract' }"
-                        @click="$store.app.currentTool = 'extract'; window.location.hash = 'extract'">
-                    <span class="nav-icon">🎵</span>
-                    <span class="nav-text">提取音频</span>
-                </button>
-                <button class="nav-btn" data-tool="compress"
-                        :class="{ 'active': $store.app.currentTool === 'compress' }"
-                        @click="$store.app.currentTool = 'compress'; window.location.hash = 'compress'">
-                    <span class="nav-icon">📦</span>
-                    <span class="nav-text">视频压缩</span>
-                </button>
-                <button class="nav-btn" data-tool="trim"
-                        :class="{ 'active': $store.app.currentTool === 'trim' }"
-                        @click="$store.app.currentTool = 'trim'; window.location.hash = 'trim'">
-                    <span class="nav-icon">✂️</span>
-                    <span class="nav-text">视频裁剪</span>
-                </button>
+            <nav class="flex flex-col flex-1 px-3 space-y-1 overflow-y-auto w-full">
+                <template x-for="btn in [
+                    { id: 'merge', icon: '🔗', name: '音视频合并' },
+                    { id: 'convert', icon: '🔄', name: '格式转换' },
+                    { id: 'extract', icon: '🎵', name: '提取音频' },
+                    { id: 'compress', icon: '📦', name: '视频压缩' },
+                    { id: 'trim', icon: '✂️', name: '视频裁剪' }
+                ]" :key="btn.id">
+                    <button class="flex items-center w-full px-3 py-2.5 rounded-lg text-sm transition-colors group"
+                            :class="[
+                                $store.app.currentTool === btn.id ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 font-medium shadow-sm ring-1 ring-gray-200 dark:ring-gray-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200',
+                                $store.app.sidebarCollapsed ? 'justify-center px-0' : ''
+                            ]"
+                            @click="$store.app.currentTool = btn.id; window.location.hash = btn.id">
+                        <span class="text-xl flex-shrink-0 transition-transform duration-300 group-hover:scale-110" 
+                              :class="[
+                                  $store.app.currentTool === btn.id ? 'scale-110' : '',
+                                  $store.app.sidebarCollapsed ? 'mr-0' : 'mr-3'
+                              ]" x-text="btn.icon"></span>
+                        <span class="whitespace-nowrap overflow-hidden transition-all duration-300" 
+                              :class="$store.app.sidebarCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[150px]'"
+                              x-text="btn.name"></span>
+                    </button>
+                </template>
             </nav>
 
-            <div class="sidebar-footer">
-                <button class="nav-btn" data-tool="settings"
-                        :class="{ 'active': $store.app.currentTool === 'settings' }"
+            <div class="px-3 py-2 mt-auto w-full border-t border-gray-200 dark:border-gray-800 flex flex-col space-y-1">
+                <button class="flex items-center w-full px-3 py-2.5 rounded-lg text-sm transition-colors group text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+                        :class="[
+                            $store.app.currentTool === 'settings' ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 font-medium shadow-sm ring-1 ring-gray-200 dark:ring-gray-700' : '',
+                            $store.app.sidebarCollapsed ? 'justify-center px-0' : ''
+                        ]"
                         @click="$store.app.currentTool = 'settings'; window.location.hash = 'settings'">
-                    <span class="nav-icon">⚙️</span>
-                    <span class="nav-text">设置</span>
+                    <span class="text-xl flex-shrink-0 transition-transform duration-300 group-hover:scale-110"
+                          :class="[
+                              $store.app.currentTool === 'settings' ? 'scale-110' : '',
+                              $store.app.sidebarCollapsed ? 'mr-0' : 'mr-3'
+                          ]">⚙️</span>
+                    <span class="whitespace-nowrap overflow-hidden transition-all duration-300" 
+                          :class="$store.app.sidebarCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[150px]'">设置</span>
                 </button>
-                <div class="theme-toggle-area">
-                    <span class="theme-label">🌓 主题</span>
-                    <button id="theme-switch-btn" class="icon-toggle">🌙</button>
+                <div class="flex items-center px-3 py-2 mt-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors w-full"
+                     :class="$store.app.sidebarCollapsed ? 'justify-center px-0' : 'justify-between'">
+                    <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap overflow-hidden transition-all duration-300"
+                          :class="$store.app.sidebarCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[150px]'">🌓 主题</span>
+                    <button id="theme-switch-btn" class="w-8 h-8 rounded-full flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm text-sm hover:scale-105 transition-transform flex-shrink-0">🌙</button>
                 </div>
             </div>
         </aside>
 
         <!-- 2. 右侧主工作区 (Main Work Area) -->
-        <div class="workspace-grid" :class="{ 'panel-collapsed': $store.app.configPanelCollapsed || $store.app.currentTool !== 'merge' }">
-            <main class="center-workspace" :style="{ paddingRight: ($store.app.configPanelCollapsed && $store.app.currentTool === 'merge') ? '48px' : '0' }">
+        <div class="flex-1 flex flex-row min-w-0 h-full relative" :class="{ 'panel-collapsed': $store.app.configPanelCollapsed || $store.app.currentTool !== 'merge' }">
+            <main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden transition-all duration-300 p-6" :style="{ paddingRight: ($store.app.configPanelCollapsed && $store.app.currentTool === 'merge') ? '48px' : '0' }">
 
             <!-- ========== 工具面板：音视频合并 ========== -->
-            <div class="tool-panel" id="tool-merge" :class="{ 'active': $store.app.currentTool === 'merge' }">
-                <header class="tool-header">
+            <div id="tool-merge" class="h-full w-full relative" :class="$store.app.currentTool === 'merge' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>音视频合并</h2>
-                        <p class="subtitle">拖入视频缓存文件夹或导入音视频文件即可开始并行合并</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">音视频合并</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">拖入视频缓存文件夹或导入音视频文件即可开始并行合并</p>
                     </div>
-                    <div class="header-actions">
-                        <button id="add-folder-btn" class="btn btn-secondary">📂 导入文件夹</button>
-                        <button id="add-files-btn" class="btn btn-secondary">📄 导入单任务</button>
-                        <button id="clear-btn" class="btn btn-danger">🧹 清空列表</button>
-                        <button class="btn btn-secondary" @click="batchDeleteSelected()" title="删除选中的任务">🗑️ 删除选中</button>
-                        <button class="btn btn-secondary" @click="batchRetryFailed()" title="重试所有失败的任务">🔄 重试失败</button>
-                        <button class="btn btn-secondary" @click="showBatchRenameDialog()" title="批量重命名选中任务">✏️ 批量重命名</button>
+                    <div class="flex gap-3 flex-wrap">
+                        <button id="add-folder-btn" class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  ">📂 导入文件夹</button>
+                        <button id="add-files-btn" class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  ">📄 导入单任务</button>
+                        <button id="clear-btn" class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-red-500/15 border border-red-500/30 text-red-500 hover:bg-red-500 hover:border-red-500 hover:text-white">🧹 清空列表</button>
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " @click="batchDeleteSelected()" title="删除选中的任务">🗑️ 删除选中</button>
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " @click="batchRetryFailed()" title="重试所有失败的任务">🔄 重试失败</button>
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " @click="showBatchRenameDialog()" title="批量重命名选中任务">✏️ 批量重命名</button>
                         
                     </div>
                 </header>
 
                 <!-- 合并工具子标签切换栏 -->
                 <div class="subtab-bar">
-                    <button class="btn" data-subtab="merge-queue" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'merge-queue\' }" data-subtab="merge-queue" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'merge-queue' }"
                             @click="$store.app.subtab = 'merge-queue'">📊 合并队列</button>
-                    <button class="btn" data-subtab="pending" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'pending\' }" data-subtab="pending" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'pending' }"
                             @click="$store.app.subtab = 'pending'">⏳ 待整理</button>
-                    <button class="btn" data-subtab="muxed" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'muxed\' }" data-subtab="muxed" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'muxed' }"
                             @click="$store.app.subtab = 'muxed'">✅ 已完整</button>
                 </div>
@@ -119,7 +128,7 @@
                             <table class="data-table" id="queue-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
+                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
                                         <th>源文件</th>
                                         <th>输出名</th>
                                         <th>格式</th>
@@ -139,7 +148,7 @@
                                             @dragstart="onTaskDragStart(index, $event)"
                                             @dragover.prevent="onTaskDragOver($event)"
                                             @drop="onTaskDrop(index, $event)">
-                                            <td><input type="checkbox" class="row-checkbox" :data-index="index"></td>
+                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox" :data-index="index"></td>
                                             <td style="max-width: 220px; padding: 4px 8px;">
                                                 <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted);">
                                                     <template x-if="task.video_file">
@@ -183,9 +192,9 @@
                                                 <span x-show="task.status === 'failed'" style="color: #EF4444;" :title="task.error || ''">❌ 失败</span>
                                             </td>
                                             <td style="white-space: nowrap;">
-                                                <button class="mini-action-btn" @click.stop="playVideo(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="播放" style="color: #10B981;">▶</button>
-                                                <button class="mini-action-btn" @click.stop="openFileFolder(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="打开目录" style="color: #3B82F6;">📂</button>
-                                                <button class="mini-action-btn" @click.stop="deleteTask(index)" title="移除" style="color: #EF4444;">✕</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="deleteTask(index)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -207,15 +216,15 @@
                     <!-- 待整理标签页 -->
                     <div class="tab-panel" id="panel-pending" :class="{ 'active': $store.app.subtab === 'pending' }">
                         <div class="batch-actions" style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; background: var(--window-bg);">
-                            <button class="btn btn-secondary" onclick="manualMatchPending()">💡 手动配对选定项</button>
-                            <button class="btn btn-secondary" onclick="autoMatchPending()">✨ 智能自动配对</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="manualMatchPending()">💡 手动配对选定项</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="autoMatchPending()">✨ 智能自动配对</button>
                             <span style="font-size: 12px; color: var(--text-muted); align-self: center; margin-left: 8px;">(精确勾选1个视频和1个音频)</span>
                         </div>
                         <div class="table-container">
                             <table class="data-table" id="pending-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" id="select-all-pending"></th>
+                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-pending"></th>
                                         <th>源名称</th>
                                         <th>大小</th>
                                         <th>修改日期</th>
@@ -226,7 +235,7 @@
                                     <!-- Alpine x-for: 待整理文件列表 -->
                                     <template x-for="(item, index) in $store.app.pending" :key="item.filepath">
                                         <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
-                                            <td><input type="checkbox" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
+                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
                                             <td :title="item.filepath">
                                                 <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
                                                     <span x-text="item.name" style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1;"></span>
@@ -238,9 +247,9 @@
                                             <td x-text="item.size || '未知'"></td>
                                             <td x-text="item.mtime || '未知'"></td>
                                             <td style="white-space: nowrap;">
-                                                <button class="mini-action-btn" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
-                                                <button class="mini-action-btn" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
-                                                <button class="mini-action-btn" @click.stop="window.deletePendingFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="window.deletePendingFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -264,7 +273,7 @@
                             <table class="data-table" id="muxed-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" id="select-all-muxed"></th>
+                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-muxed"></th>
                                         <th>已合并文件</th>
                                         <th>分辨率</th>
                                         <th>大小</th>
@@ -276,7 +285,7 @@
                                     <!-- Alpine x-for: 已完整文件列表 -->
                                     <template x-for="(item, index) in $store.app.muxed" :key="item.filepath">
                                         <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
-                                            <td><input type="checkbox" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
+                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
                                             <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
                                                 <span x-text="item.name"></span>
                                             </td>
@@ -284,9 +293,9 @@
                                             <td x-text="item.size || '未知'"></td>
                                             <td x-text="item.mtime || '未知'"></td>
                                             <td style="white-space: nowrap;">
-                                                <button class="mini-action-btn" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
-                                                <button class="mini-action-btn" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
-                                                <button class="mini-action-btn" @click.stop="deleteMuxedFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
+                                                <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="deleteMuxedFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
                                             </td>
                                         </tr>
                                     </template>
@@ -327,21 +336,21 @@
             </div>
 
             <!-- ========== 工具面板：格式转换 ========== -->
-            <div class="tool-panel" id="tool-convert" :class="{ 'active': $store.app.currentTool === 'convert' }">
-                <header class="tool-header">
+            <div id="tool-convert" class="h-full w-full relative" :class="$store.app.currentTool === 'convert' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>格式转换</h2>
-                        <p class="subtitle">将视频文件转换为其他格式，支持流复制（快速）和重编码</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">格式转换</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">将视频文件转换为其他格式，支持流复制（快速）和重编码</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="selectFilesForTool('convert')">📄 添加文件</button>
+                    <div class="flex gap-3 flex-wrap">
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="selectFilesForTool('convert')">📄 添加文件</button>
                     </div>
                 </header>
 
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>目标格式</label>
-                        <select id="convert-format" x-model="$store.settings.toolSettings.convert.format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="convert-format" x-model="$store.settings.toolSettings.convert.format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
                             <option value="mp4">MP4</option>
                             <option value="mkv">MKV</option>
                             <option value="webm">WebM</option>
@@ -350,7 +359,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>转换模式</label>
-                        <select id="convert-mode" x-model="$store.settings.toolSettings.convert.mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="convert-mode" x-model="$store.settings.toolSettings.convert.mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
                             <option value="copy">快速流复制（无损，秒级）</option>
                             <option value="recode">重编码（兼容性更好）</option>
                         </select>
@@ -358,13 +367,13 @@
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="convert-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('convert')">📂</button>
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="convert-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" onclick="selectToolOutputDir('convert')">📂</button>
                         </div>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="convert-output-name" x-model="$store.settings.toolSettings.convert.outputName" placeholder="例如: 转换后的视频">
+                        <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="convert-output-name" x-model="$store.settings.toolSettings.convert.outputName" placeholder="例如: 转换后的视频">
                     </div>
                 </div>
 
@@ -374,21 +383,21 @@
                 <action-bar></action-bar>
                 </div>
             </div>
-            <div class="tool-panel" id="tool-extract" :class="{ 'active': $store.app.currentTool === 'extract' }">
-                <header class="tool-header">
+            <div id="tool-extract" class="h-full w-full relative" :class="$store.app.currentTool === 'extract' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>提取音频</h2>
-                        <p class="subtitle">从视频文件中提取音轨，支持多种音频格式输出</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">提取音频</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">从视频文件中提取音轨，支持多种音频格式输出</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="selectFilesForTool('extract')">📄 添加文件</button>
+                    <div class="flex gap-3 flex-wrap">
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="selectFilesForTool('extract')">📄 添加文件</button>
                     </div>
                 </header>
 
                 <div class="tool-options" style="flex-wrap: wrap;">
                     <div class="tool-option-group">
                         <label>音频格式</label>
-                        <select id="extract-format" x-model="$store.settings.toolSettings.extract.format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-format" x-model="$store.settings.toolSettings.extract.format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
                             <option value="mp3">MP3</option>
                             <option value="aac">AAC</option>
                             <option value="flac">FLAC</option>
@@ -398,21 +407,21 @@
                     <div class="tool-option-group">
                         <label>质量预设</label>
                         <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-secondary preset-btn" data-preset="high" onclick="applyExtractPreset('high')" style="font-size:11px;padding:4px 8px;">高质量</button>
-                            <button class="btn btn-secondary preset-btn active" data-preset="medium" onclick="applyExtractPreset('medium')" style="font-size:11px;padding:4px 8px;">中等</button>
-                            <button class="btn btn-secondary preset-btn" data-preset="low" onclick="applyExtractPreset('low')" style="font-size:11px;padding:4px 8px;">低质量</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 preset-btn " data-preset="high" onclick="applyExtractPreset('high')" style="font-size:11px;padding:4px 8px;">高质量</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 preset-btn active" data-preset="medium" onclick="applyExtractPreset('medium')" style="font-size:11px;padding:4px 8px;">中等</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 preset-btn " data-preset="low" onclick="applyExtractPreset('low')" style="font-size:11px;padding:4px 8px;">低质量</button>
                         </div>
                     </div>
                     <div class="tool-option-group">
                         <label>码率模式</label>
-                        <select id="extract-bitrate-mode" x-model="$store.settings.toolSettings.extract.bitrateMode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-bitrate-mode" x-model="$store.settings.toolSettings.extract.bitrateMode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
                             <option value="cbr">CBR（恒定码率）</option>
                             <option value="vbr">VBR（可变码率）</option>
                         </select>
                     </div>
                     <div class="tool-option-group">
                         <label>音频码率</label>
-                        <select id="extract-bitrate" x-model="$store.settings.toolSettings.extract.bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-bitrate" x-model="$store.settings.toolSettings.extract.bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
                             <option value="64k">64 kbps</option>
                             <option value="128k">128 kbps</option>
                             <option value="192k" selected>192 kbps</option>
@@ -422,7 +431,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>声道</label>
-                        <select id="extract-channels" x-model="$store.settings.toolSettings.extract.channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-channels" x-model="$store.settings.toolSettings.extract.channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
                             <option value="original">保持原始</option>
                             <option value="stereo">立体声</option>
                             <option value="mono">单声道</option>
@@ -430,7 +439,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>采样率</label>
-                        <select id="extract-sample-rate" x-model="$store.settings.toolSettings.extract.sampleRate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-sample-rate" x-model="$store.settings.toolSettings.extract.sampleRate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
                             <option value="original">保持原始</option>
                             <option value="8000">8000 Hz</option>
                             <option value="11025">11025 Hz</option>
@@ -449,13 +458,13 @@
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="extract-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('extract')">📂</button>
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" onclick="selectToolOutputDir('extract')">📂</button>
                         </div>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则与源文件同名）</span></label>
-                        <input type="text" id="extract-output-name" x-model="$store.settings.toolSettings.extract.outputName" placeholder="例如: 我的音频">
+                        <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="extract-output-name" x-model="$store.settings.toolSettings.extract.outputName" placeholder="例如: 我的音频">
                     </div>
                 </div>
 
@@ -465,21 +474,21 @@
                 <action-bar></action-bar>
                 </div>
             </div>
-            <div class="tool-panel" id="tool-compress" :class="{ 'active': $store.app.currentTool === 'compress' }">
-                <header class="tool-header">
+            <div id="tool-compress" class="h-full w-full relative" :class="$store.app.currentTool === 'compress' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>视频压缩</h2>
-                        <p class="subtitle">降低视频码率或分辨率，显著减小文件体积</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">视频压缩</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">降低视频码率或分辨率，显著减小文件体积</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="selectFilesForTool('compress')">📄 添加文件</button>
+                    <div class="flex gap-3 flex-wrap">
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="selectFilesForTool('compress')">📄 添加文件</button>
                     </div>
                 </header>
 
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>压缩模式</label>
-                        <select id="compress-preset" x-model="$store.settings.toolSettings.compress.preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="compress-preset" x-model="$store.settings.toolSettings.compress.preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
                             <option value="fast">⚡ 快速（文件较大，速度最快）</option>
                             <option value="balanced" selected>🎯 均衡（推荐）</option>
                             <option value="quality">💎 高质量（文件最小，速度最慢）</option>
@@ -487,7 +496,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>分辨率缩放</label>
-                        <select id="compress-resolution" x-model="$store.settings.toolSettings.compress.resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="compress-resolution" x-model="$store.settings.toolSettings.compress.resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
                             <option value="original" selected>原始分辨率</option>
                             <option value="1080p">缩放至 1080p</option>
                             <option value="720p">缩放至 720p</option>
@@ -497,13 +506,13 @@
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="compress-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('compress')">📂</button>
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="compress-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" onclick="selectToolOutputDir('compress')">📂</button>
                         </div>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="compress-output-name" x-model="$store.settings.toolSettings.compress.outputName" placeholder="例如: 压缩后的视频">
+                        <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="compress-output-name" x-model="$store.settings.toolSettings.compress.outputName" placeholder="例如: 压缩后的视频">
                     </div>
                 </div>
 
@@ -513,14 +522,14 @@
                 <action-bar></action-bar>
                 </div>
             </div>
-            <div class="tool-panel" id="tool-trim" :class="{ 'active': $store.app.currentTool === 'trim' }">
-                <header class="tool-header">
+            <div id="tool-trim" class="h-full w-full relative" :class="$store.app.currentTool === 'trim' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>视频裁剪</h2>
-                        <p class="subtitle">按起止时间截取视频片段，快速模式无损裁剪</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">视频裁剪</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">按起止时间截取视频片段，快速模式无损裁剪</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="selectFilesForTool('trim')">📄 添加文件</button>
+                    <div class="flex gap-3 flex-wrap">
+                        <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="selectFilesForTool('trim')">📄 添加文件</button>
                     </div>
                 </header>
 
@@ -543,11 +552,11 @@
                     <div style="display: flex; gap: 12px; margin-top: 8px;">
                         <div style="flex: 1;">
                             <label style="font-size: 11px; color: var(--text-muted);">开始时间</label>
-                            <input type="text" id="trim-start" x-model="$store.settings.toolSettings.trim.start" placeholder="00:00:00" value="00:00:00">
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="trim-start" x-model="$store.settings.toolSettings.trim.start" placeholder="00:00:00" value="00:00:00">
                         </div>
                         <div style="flex: 1;">
                             <label style="font-size: 11px; color: var(--text-muted);">结束时间</label>
-                            <input type="text" id="trim-end" x-model="$store.settings.toolSettings.trim.end" placeholder="00:05:00">
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="trim-end" x-model="$store.settings.toolSettings.trim.end" placeholder="00:05:00">
                         </div>
                     </div>
                 </div>
@@ -555,7 +564,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>裁剪模式</label>
-                        <select id="trim-mode" x-model="$store.settings.toolSettings.trim.mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
+                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="trim-mode" x-model="$store.settings.toolSettings.trim.mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
                             <option value="copy">快速裁剪（关键帧对齐，无损）</option>
                             <option value="recode">精确裁剪（重编码，帧级精度）</option>
                         </select>
@@ -563,13 +572,13 @@
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="trim-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
-                            <button class="mini-action-btn" onclick="selectToolOutputDir('trim')">📂</button>
+                            <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="trim-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" onclick="selectToolOutputDir('trim')">📂</button>
                         </div>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="trim-output-name" x-model="$store.settings.toolSettings.trim.outputName" placeholder="例如: 裁剪后的视频">
+                        <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="trim-output-name" x-model="$store.settings.toolSettings.trim.outputName" placeholder="例如: 裁剪后的视频">
                     </div>
                 </div>
 
@@ -579,11 +588,11 @@
                 <action-bar></action-bar>
                 </div>
             </div>
-            <div class="tool-panel" id="tool-settings" :class="{ 'active': $store.app.currentTool === 'settings' }">
-                <header class="tool-header">
+            <div id="tool-settings" class="h-full w-full relative" :class="$store.app.currentTool === 'settings' ? 'flex flex-col overflow-y-auto' : 'hidden'">
+                <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2>设置</h2>
-                        <p class="subtitle">全局配置与应用信息</p>
+                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">设置</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">全局配置与应用信息</p>
                     </div>
                 </header>
 
@@ -591,9 +600,9 @@
                     <!-- 外观 -->
                     <div class="config-card">
                         <h4>🌓 外观</h4>
-                        <div class="form-group">
+                        <div class="flex flex-col gap-2 mb-4">
                             <label>主题模式</label>
-                            <select id="settings-theme">
+                            <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="settings-theme">
                                 <option value="auto">跟随系统</option>
                                 <option value="dark">深色模式</option>
                                 <option value="light">浅色模式</option>
@@ -621,8 +630,8 @@
                     <div class="config-card">
                         <h4>💾 配置管理</h4>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="exportConfig()" style="flex:1;">📤 导出配置</button>
-                            <button class="btn btn-secondary" onclick="importConfig()" style="flex:1;">📥 导入配置</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="exportConfig()" style="flex:1;">📤 导出配置</button>
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="importConfig()" style="flex:1;">📥 导入配置</button>
                         </div>
                         <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">导出/导入队列配对为 JSON 文件，跨机器复用</p>
                     </div>
@@ -632,7 +641,7 @@
                     <!-- 环境检测 -->
                     <div class="config-card">
                         <h4>🔧 环境检测</h4>
-                        <div class="form-group">
+                        <div class="flex flex-col gap-2 mb-4">
                             <label>FFmpeg 状态</label>
                             <div id="settings-ffmpeg-status" class="path-preview-box" x-data="{ status: null }" x-init="callPython('check_ffmpeg_status').then(s => status = s)">
                                 <template x-if="status === null">
@@ -667,7 +676,7 @@
                                 </template>
                                 <div x-show="logs.length === 0" style="color: var(--text-muted);">暂无日志</div>
                             </div>
-                            <button class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;"
+                            <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " style="margin-top: 8px; font-size: 11px;"
                                     @click="callPython('get_logs').then(r => logs = r.logs || [])">🔄 刷新</button>
                         </div>
                     </div>
@@ -686,7 +695,7 @@
             </main>
 
             <!-- 3. 右侧全局配置手风琴面板 (40%) -->
-            <aside class="global-config-panel" 
+            <aside class="bg-gray-50 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-row relative transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]" 
                    x-show="$store.app.currentTool === 'merge'"
                    :style="{ width: $store.app.configPanelCollapsed ? '0px' : $store.app.configWidth + 'px', flex: 'none', maxWidth: 'none', minWidth: $store.app.configPanelCollapsed ? '0px' : '320px' }"
                    :class="{ 'collapsed': $store.app.configPanelCollapsed }">
@@ -735,43 +744,55 @@
                                 <span x-text="cards.base ? '▼' : '▶'"></span>
                             </div>
                             <div class="accordion-body" x-show="cards.base" x-transition>
-                                <div class="form-group">
+                                <div class="flex flex-col gap-2 mb-4">
                                     <label>输出目录 (留空与源文件同级)</label>
-                                    <div class="input-with-action">
-                                        <input type="text" id="global-output-dir" placeholder="默认与源视频同级" readonly :value="$store.settings.outputDir">
-                                        <button class="mini-action-btn" onclick="selectOutputDir()">📂</button>
+                                    <div class="flex gap-2">
+                                        <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="global-output-dir" placeholder="默认与源视频同级" readonly :value="$store.settings.outputDir">
+                                        <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" onclick="selectOutputDir()">📂</button>
                                     </div>
                                 </div>
-                                <div class="form-group">
+                                <div class="flex flex-col gap-2 mb-4">
                                     <label>输出文件名 (支持批量模板)</label>
-                                    <input type="text" id="global-output-name" placeholder="{original}_输出">
+                                    <input type="text" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="global-output-name" placeholder="{original}_输出">
                                 </div>
                                 
                                 <div style="display:flex;flex-direction:row;gap:12px;">
-                                    <div class="form-group" style="flex: 1;">
+                                    <div class="flex flex-col gap-2 mb-4" style="flex: 1;">
                                         <label>输出格式</label>
-                                        <select id="merge-format" x-model="$store.settings.outputFormat">
+                                        <select class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="merge-format" x-model="$store.settings.outputFormat">
                                             <option value="mp4">MP4</option>
                                             <option value="mkv">MKV</option>
                                         </select>
                                     </div>
-                                    <div class="form-group" style="flex: 1;">
+                                    <div class="flex flex-col gap-2 mb-4" style="flex: 1;">
                                         <label>并发数</label>
-                                        <input type="number" id="merge-concurrency" min="1" max="8" x-model.number="$store.settings.concurrency">
+                                        <input type="number" class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" id="merge-concurrency" min="1" max="8" x-model.number="$store.settings.concurrency">
                                     </div>
                                 </div>
 
                                 <div class="form-group checkbox-group">
-                                    <label class="checkbox-container">
-                                        <input type="checkbox" x-model="$store.settings.overwrite">
-                                        <span class="checkmark"></span>自动覆盖同名文件
-                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+    <div class="relative w-[18px] h-[18px] flex-shrink-0">
+        <input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" x-model="$store.settings.overwrite">
+        <span class="absolute inset-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded transition-all duration-200 peer-checked:bg-primary-500 peer-checked:border-primary-500 group-hover:border-primary-500 flex items-center justify-center">
+            <span class="hidden peer-checked:block w-2 h-2 rounded-sm bg-gray-50 dark:bg-gray-800"></span>
+        </span>
+    </div>
+    <span class="text-xs font-medium text-gray-800 dark:text-gray-200 leading-[18px]">自动覆盖同名文件
+                                    </span>
+</label>
                                 </div>
                                 <div class="form-group checkbox-group" x-show="$store.app.currentTool === 'merge'">
-                                    <label class="checkbox-container">
-                                        <input type="checkbox" x-model="$store.settings.deleteSource">
-                                        <span class="checkmark"></span>合并成功后删除源文件
-                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+    <div class="relative w-[18px] h-[18px] flex-shrink-0">
+        <input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" x-model="$store.settings.deleteSource">
+        <span class="absolute inset-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded transition-all duration-200 peer-checked:bg-primary-500 peer-checked:border-primary-500 group-hover:border-primary-500 flex items-center justify-center">
+            <span class="hidden peer-checked:block w-2 h-2 rounded-sm bg-gray-50 dark:bg-gray-800"></span>
+        </span>
+    </div>
+    <span class="text-xs font-medium text-gray-800 dark:text-gray-200 leading-[18px]">合并成功后删除源文件
+                                    </span>
+</label>
                                 </div>
                             </div>
                         </div>
@@ -787,15 +808,15 @@
                                     在此可以将上方的<b>“输出目录”、“命名规则”</b>等设置保存为独立文件。适合经常处理相同类型视频（如番剧、网课）的用户，方便下次直接导入，免去重复配置的烦恼。
                                 </div>
                                 <div class="profile-actions" style="display:flex; gap:8px;">
-                                    <button class="btn btn-secondary" style="flex:1; border: 1px dashed var(--border-color);" onclick="exportProfile()">💾 导出当前配置</button>
-                                    <button class="btn btn-secondary" style="flex:1; border: 1px dashed var(--border-color);" onclick="importProfile()">📂 导入已有配置</button>
+                                    <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " style="flex:1; border: 1px dashed var(--border-color);" onclick="exportProfile()">💾 导出当前配置</button>
+                                    <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " style="flex:1; border: 1px dashed var(--border-color);" onclick="importProfile()">📂 导入已有配置</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="control-footer" style="margin-top:auto; padding-top:16px;">
-                        <button id="global-start-btn" class="btn btn-primary btn-block">🚀 开始当前队列任务</button>
+                        <button id="global-start-btn" class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-primary-500 text-white hover:bg-primary-600 shadow-sm border border-primary-600/20 w-full">🚀 开始当前队列任务</button>
                     </div>
 
                 </div>
@@ -840,10 +861,10 @@
             </div>
             <div style="margin-bottom: 16px;">
                 <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">合并后的文件名 (不含后缀):</label>
-                <input type="text" id="mm-output-name" class="input" style="width: 100%; box-sizing: border-box;">
+                <input type="text" id="mm-output-name" class="input w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-[13px] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" style="width: 100%; box-sizing: border-box;">
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-                <button class="btn btn-secondary" onclick="closeManualMatchModal()">取消</button>
+                <button class="px-4 py-2 rounded-lg text-[13px] font-semibold cursor-pointer inline-flex items-center justify-center gap-2 min-h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-gray-50/75 dark:bg-gray-800/75 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800  " onclick="closeManualMatchModal()">取消</button>
                 <button class="btn btn-primary" onclick="confirmManualMatch()">确认放入队列</button>
             </div>
         </div>
