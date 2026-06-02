@@ -1685,16 +1685,16 @@ function renderToolTable(tool) {
         // 音频提取：显示 编码/码率/声道/时长/大小
         tbody.innerHTML = files.map((file, index) => {
             return `
-                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
-                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
-                    <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
-                    <td>${file.codec || '未知'}</td>
-                    <td>${file.bitrate ? file.bitrate + ' kbps' : '未知'}</td>
-                    <td>${file.channels === 1 ? '单声道' : file.channels === 2 ? '立体声' : file.channel_layout || '未知'}</td>
-                    <td>${file.duration_str || '未知'}</td>
-                    <td>${file.size || '未知'}</td>
-                    <td class="tool-status">${getStatusHtml(file)}</td>
-                    <td style="white-space: nowrap;">
+                <tr class="transition-colors duration-150 ease-in-out hover:bg-white dark:hover:bg-[#151621] even:bg-black/[0.015] dark:even:bg-white/[0.005] group data-table-row ${file._status === 'processing' ? 'tool-processing' : ''}">
+                    <td width="40" class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${file.codec || '未知'}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${file.bitrate ? file.bitrate + ' kbps' : '未知'}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${file.channels === 1 ? '单声道' : file.channels === 2 ? '立体声' : file.channel_layout || '未知'}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${file.duration_str || '未知'}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${file.size || '未知'}</td>
+                    <td class="tool-status px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${getStatusHtml(file)}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
                         <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
                         <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
                         <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444;" title="移除">✕</button>
@@ -1707,13 +1707,13 @@ function renderToolTable(tool) {
             const col2 = file.duration_str || file.size || '未知';
             const col3 = file.size || '未知';
             return `
-                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
-                    <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
-                    <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
-                    <td>${col2}</td>
-                    <td>${col3}</td>
-                    <td class="tool-status">${getStatusHtml(file)}</td>
-                    <td style="white-space: nowrap;">
+                <tr class="transition-colors duration-150 ease-in-out hover:bg-white dark:hover:bg-[#151621] even:bg-black/[0.015] dark:even:bg-white/[0.005] group data-table-row ${file._status === 'processing' ? 'tool-processing' : ''}">
+                    <td width="40" class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${col2}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${col3}</td>
+                    <td class="tool-status px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">${getStatusHtml(file)}</td>
+                    <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
                         <button class="mini-action-btn" onclick="openToolFile('${tool}', ${index})" title="播放" style="color: #10B981;">▶</button>
                         <button class="mini-action-btn" onclick="openToolFileFolder('${tool}', ${index})" title="打开目录" style="color: #3B82F6;">📂</button>
                         <button class="mini-action-btn" onclick="removeToolFile('${tool}', ${index})" style="color: #EF4444;" title="移除">✕</button>

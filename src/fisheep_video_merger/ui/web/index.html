@@ -91,7 +91,7 @@
             <div id="tool-merge" class="h-full w-full relative" :class="$store.app.currentTool === 'merge' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">音视频合并</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">音视频合并</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">拖入视频缓存文件夹或导入音视频文件即可开始并行合并</p>
                     </div>
                     <div class="flex gap-3 flex-wrap">
@@ -107,13 +107,13 @@
 
                 <!-- 合并工具子标签切换栏 -->
                 <div class="subtab-bar">
-                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'merge-queue\' }" data-subtab="merge-queue" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700': $store.app.currentSubtab === 'merge-queue' }" data-subtab="merge-queue" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'merge-queue' }"
                             @click="$store.app.subtab = 'merge-queue'">📊 合并队列</button>
-                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'pending\' }" data-subtab="pending" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700': $store.app.currentSubtab === 'pending' }" data-subtab="pending" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'pending' }"
                             @click="$store.app.subtab = 'pending'">⏳ 待整理</button>
-                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ \'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700\': $store.app.currentSubtab === \'muxed\' }" data-subtab="muxed" data-parent="merge"
+                    <button class="px-3.5 py-1.5 rounded-md text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" :class="{ 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-gray-700': $store.app.currentSubtab === 'muxed' }" data-subtab="muxed" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'muxed' }"
                             @click="$store.app.subtab = 'muxed'">✅ 已完整</button>
                 </div>
@@ -125,31 +125,31 @@
                     <!-- 合并队列子标签 -->
                     <div class="tab-panel" id="panel-merge-queue" :class="{ 'active': $store.app.subtab === 'merge-queue' }">
                         <div class="table-container">
-                            <table class="data-table" id="queue-table">
+                            <table class="w-full border-collapse text-left text-[13px] data-table" id="queue-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
-                                        <th>源文件</th>
-                                        <th>输出名</th>
-                                        <th>格式</th>
-                                        <th>分辨率</th>
-                                        <th>大小</th>
-                                        <th>进度/状态</th>
-                                        <th width="100">操作</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-checkbox" @change="toggleSelectAll($event.target.checked)"></th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">源文件</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">输出名</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">格式</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">分辨率</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">大小</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">进度/状态</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="100">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="queue-tbody">
                                     <!-- Alpine x-for: 合并队列 -->
                                     <template x-for="(task, index) in $store.app.tasks" :key="index">
-                                        <tr :id="'queue-row-' + index"
+                                        <tr :id="'queue-row-' + index" class="transition-colors duration-150 ease-in-out hover:bg-white dark:hover:bg-[#151621] even:bg-black/[0.015] dark:even:bg-white/[0.005] group data-table-row"
                                             :class="{ 'active-row': $store.app.selectedTaskIndex == index, 'selected': task.status === 'completed' }"
                                             @click="selectQueueRow(index, $event)"
                                             draggable="true"
                                             @dragstart="onTaskDragStart(index, $event)"
                                             @dragover.prevent="onTaskDragOver($event)"
                                             @drop="onTaskDrop(index, $event)">
-                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox" :data-index="index"></td>
-                                            <td style="max-width: 220px; padding: 4px 8px;">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox" :data-index="index"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="max-width: 220px; padding: 4px 8px;">
                                                 <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted);">
                                                     <template x-if="task.video_file">
                                                         <div style="display: flex; align-items: center; gap: 4px;" 
@@ -172,15 +172,15 @@
                                                     </template>
                                                 </div>
                                             </td>
-                                            <td style="font-weight: 600; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;" 
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="font-weight: 600; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;" 
                                                 @dblclick="editOutputName(index, $event)" 
                                                 @mouseenter="window.showCustomTooltip($event, task.name)" 
                                                 @mouseleave="window.hideCustomTooltip()"
                                                 x-text="task.name"></td>
-                                            <td><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;" x-text="task.format"></span></td>
-                                            <td x-text="task.resolution || '未知'"></td>
-                                            <td x-text="task.size || '未知'"></td>
-                                            <td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><span style="background-color: var(--alt-base-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px;" x-text="task.format"></span></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="task.resolution || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="task.size || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
                                                 <span x-show="task.status === 'pending'" style="color: var(--text-muted);">⏳ 待命</span>
                                                 <div x-show="task.status === 'processing'" class="table-progress-bar">
                                                     <div class="table-progress-chunk" :style="'width:' + (task.percent || 0) + '%'"></div>
@@ -191,7 +191,7 @@
                                                 </span>
                                                 <span x-show="task.status === 'failed'" style="color: #EF4444;" :title="task.error || ''">❌ 失败</span>
                                             </td>
-                                            <td style="white-space: nowrap;">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="white-space: nowrap;">
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="播放" style="color: #10B981;">▶</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(task.status === 'completed' && task.output_path ? task.output_path : (task.video_file || task.audio_file))" title="打开目录" style="color: #3B82F6;">📂</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="deleteTask(index)" title="移除" style="color: #EF4444;">✕</button>
@@ -200,7 +200,7 @@
                                     </template>
                                     <!-- 空状态 -->
                                     <tr class="empty-state-row" x-show="$store.app.tasks.length === 0">
-                                        <td colspan="7">
+                                        <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" colspan="7">
                                             <div class="empty-state">
                                                 <div class="empty-icon">🐑</div>
                                                 <h3>目前队列空空如也</h3>
@@ -221,22 +221,22 @@
                             <span style="font-size: 12px; color: var(--text-muted); align-self: center; margin-left: 8px;">(精确勾选1个视频和1个音频)</span>
                         </div>
                         <div class="table-container">
-                            <table class="data-table" id="pending-table">
+                            <table class="w-full border-collapse text-left text-[13px] data-table" id="pending-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-pending"></th>
-                                        <th>源名称</th>
-                                        <th>大小</th>
-                                        <th>修改日期</th>
-                                        <th width="120">操作</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-pending"></th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">源名称</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">大小</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">修改日期</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="120">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pending-tbody">
                                     <!-- Alpine x-for: 待整理文件列表 -->
                                     <template x-for="(item, index) in $store.app.pending" :key="item.filepath">
-                                        <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
-                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
-                                            <td :title="item.filepath">
+                                        <tr @click="window.loadPreviewForFile(item.filepath)" class="cursor-pointer transition-colors duration-150 ease-in-out hover:bg-white dark:hover:bg-[#151621] even:bg-black/[0.015] dark:even:bg-white/[0.005] group data-table-row">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-pending" :data-filepath="item.filepath"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" :title="item.filepath">
                                                 <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
                                                     <span x-text="item.name" style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1;"></span>
                                                     <span x-show="item.stream_type === 'video_only'" style="flex-shrink: 0; background-color: rgba(16,185,129,0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 11px;">视频</span>
@@ -244,9 +244,9 @@
                                                     <span x-show="item.stream_type !== 'video_only' &amp;&amp; item.stream_type !== 'audio_only'" style="flex-shrink: 0; background-color: rgba(156,163,175,0.15); color: #9CA3AF; padding: 2px 6px; border-radius: 4px; font-size: 11px;">未知</span>
                                                 </div>
                                             </td>
-                                            <td x-text="item.size || '未知'"></td>
-                                            <td x-text="item.mtime || '未知'"></td>
-                                            <td style="white-space: nowrap;">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="item.size || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="item.mtime || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="white-space: nowrap;">
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="window.deletePendingFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
@@ -255,7 +255,7 @@
                                     </template>
                                     <!-- 空状态 -->
                                     <tr class="empty-state-row" x-show="$store.app.pending.length === 0">
-                                        <td colspan="5">
+                                        <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" colspan="5">
                                             <div class="empty-state">
                                                 <div class="empty-icon">📁</div>
                                                 <h3>没有需要整理的零散片段</h3>
@@ -270,29 +270,29 @@
                     <!-- 已完整子标签 -->
                     <div class="tab-panel" id="panel-muxed" :class="{ 'active': $store.app.subtab === 'muxed' }">
                         <div class="table-container">
-                            <table class="data-table" id="muxed-table">
+                            <table class="w-full border-collapse text-left text-[13px] data-table" id="muxed-table">
                                 <thead>
                                     <tr>
-                                        <th width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-muxed"></th>
-                                        <th>已合并文件</th>
-                                        <th>分辨率</th>
-                                        <th>大小</th>
-                                        <th>合并时间</th>
-                                        <th width="180">操作</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="40"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" id="select-all-muxed"></th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">已合并文件</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">分辨率</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">大小</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">合并时间</th>
+                                        <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="180">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="muxed-tbody">
                                     <!-- Alpine x-for: 已完整文件列表 -->
                                     <template x-for="(item, index) in $store.app.muxed" :key="item.filepath">
-                                        <tr @click="window.loadPreviewForFile(item.filepath)" style="cursor: pointer;">
-                                            <td><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
-                                            <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
+                                        <tr @click="window.loadPreviewForFile(item.filepath)" class="cursor-pointer transition-colors duration-150 ease-in-out hover:bg-white dark:hover:bg-[#151621] even:bg-black/[0.015] dark:even:bg-white/[0.005] group data-table-row">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap"><input type="checkbox" class="peer absolute opacity-0 cursor-pointer h-0 w-0" class="row-checkbox-muxed" :data-filepath="item.filepath"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.filepath">
                                                 <span x-text="item.name"></span>
                                             </td>
-                                            <td x-text="item.resolution || '自动'"></td>
-                                            <td x-text="item.size || '未知'"></td>
-                                            <td x-text="item.mtime || '未知'"></td>
-                                            <td style="white-space: nowrap;">
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="item.resolution || '自动'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="item.size || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" x-text="item.mtime || '未知'"></td>
+                                            <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" style="white-space: nowrap;">
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="playVideo(item.filepath)" title="播放" style="color: #10B981;">▶</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="openFileFolder(item.filepath)" title="打开目录" style="color: #3B82F6;">📂</button>
                                                 <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer mx-[1px] hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm text-xs" @click.stop="deleteMuxedFile(item.filepath)" title="移除" style="color: #EF4444;">✕</button>
@@ -301,7 +301,7 @@
                                     </template>
                                     <!-- 空状态 -->
                                     <tr class="empty-state-row" x-show="$store.app.muxed.length === 0">
-                                        <td colspan="6">
+                                        <td class="px-4 py-3.5 border-b border-gray-100 dark:border-[#23273D] align-middle text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" colspan="6">
                                             <div class="empty-state">
                                                 <div class="empty-icon">🎬</div>
                                                 <h3>尚未完成任何视频合并</h3>
@@ -339,7 +339,7 @@
             <div id="tool-convert" class="h-full w-full relative" :class="$store.app.currentTool === 'convert' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">格式转换</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">格式转换</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">将视频文件转换为其他格式，支持流复制（快速）和重编码</p>
                     </div>
                     <div class="flex gap-3 flex-wrap">
@@ -386,7 +386,7 @@
             <div id="tool-extract" class="h-full w-full relative" :class="$store.app.currentTool === 'extract' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">提取音频</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">提取音频</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">从视频文件中提取音轨，支持多种音频格式输出</p>
                     </div>
                     <div class="flex gap-3 flex-wrap">
@@ -477,7 +477,7 @@
             <div id="tool-compress" class="h-full w-full relative" :class="$store.app.currentTool === 'compress' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">视频压缩</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">视频压缩</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">降低视频码率或分辨率，显著减小文件体积</p>
                     </div>
                     <div class="flex gap-3 flex-wrap">
@@ -525,7 +525,7 @@
             <div id="tool-trim" class="h-full w-full relative" :class="$store.app.currentTool === 'trim' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">视频裁剪</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">视频裁剪</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">按起止时间截取视频片段，快速模式无损裁剪</p>
                     </div>
                     <div class="flex gap-3 flex-wrap">
@@ -591,7 +591,7 @@
             <div id="tool-settings" class="h-full w-full relative" :class="$store.app.currentTool === 'settings' ? 'flex flex-col overflow-y-auto' : 'hidden'">
                 <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
-                        <h2 class="font-[\'Outfit\'] text-2xl font-bold text-gray-900 dark:text-white">设置</h2>
+                        <h2 class="font-['Outfit'] text-2xl font-bold text-gray-900 dark:text-white">设置</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">全局配置与应用信息</p>
                     </div>
                 </header>

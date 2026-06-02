@@ -184,60 +184,26 @@ body {
     box-shadow: var(--card-shadow);
 }
 
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 13px;
-}
 
-.data-table th {
-    background-color: var(--table-header-bg);
-    color: var(--text-color);
-    font-weight: 700;
-    padding: 14px 16px;
-    border-bottom: 2px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    white-space: nowrap;
-}
 
-.data-table td {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border-color);
-    vertical-align: middle;
-    color: var(--text-color);
-    font-weight: 500;
-    white-space: nowrap;
-}
 
-.data-table tbody tr {
-    transition: background-color 0.15s ease;
-}
 
-.data-table tbody tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.015);
-}
+
+
+
+
+
 
 /* 隔行变色在高对比度暗黑下的微调 */
-[data-theme="dark"] .data-table tbody tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.005);
-}
+[data-theme="dark"] 
 
-.data-table tbody tr:hover {
-    background-color: var(--alt-base-bg);
-}
 
-.data-table tbody tr.selected {
-    background-color: var(--table-selected-bg);
-}
 
-.data-table tbody tr.active-row {
-    background-color: var(--table-selected-bg) !important;
-}
 
-/* 表格空状态 (Empty State) */
+
+
+
+
 .data-table 
 
 /* === 9. 合并工具工作区与配置面板 === */
@@ -1166,12 +1132,8 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* === 10. 表格行选中高亮联动效果 === */
-.data-table tbody tr.active-row td {
-    background-color: var(--table-selected-bg) !important;
-}
-.data-table tbody tr.active-row td:first-child {
-    box-shadow: inset 3px 0 0 0 var(--primary-color) !important;
-}
+
+
 
 /* Master-Detail Layout (60:40) */
 
