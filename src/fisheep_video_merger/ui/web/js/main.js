@@ -1,3 +1,20 @@
+
+import { Converter } from './tools/converter.js';
+import { Extractor } from './tools/extractor.js';
+import { Compressor } from './tools/compressor.js';
+import { Trimmer } from './tools/trimmer.js';
+
+window.startToolTask = function(tool) {
+    if (tool === 'convert') Converter.start();
+    else if (tool === 'extract') Extractor.start();
+    else if (tool === 'compress') Compressor.start();
+    else if (tool === 'trim') Trimmer.start();
+    else if (tool === 'merge') {
+        const globalStartBtn = document.getElementById('global-start-btn');
+        if (globalStartBtn) globalStartBtn.click();
+    }
+};
+
 /* ====================================================================
    🐑 Fisheep 视频工具箱 v0.6.0 核心客户端逻辑 (JS)
    处理界面渲染、拖拽捕获、选项卡切换、并作为 Bridge 终点对接 Python 后端
@@ -5,6 +22,9 @@
 
 // 右键菜单模式：'custom' = 自定义菜单, 'native' = 系统原生菜单
 let contextMenuMode = localStorage.getItem('contextMenuMode') || 'native';
+
+import { registerComponents } from './store.js';
+registerComponents();
 
 // Alpine.js 响应式状态（在 alpine:init 事件中注册，早于 DOM 处理）
 document.addEventListener('alpine:init', () => {
@@ -22,6 +42,9 @@ document.addEventListener('alpine:init', () => {
         theme: localStorage.getItem('theme') || 'dark',
         configWidth: 320,
         sidebarWidth: 240,
+        getTasksForTool(tool) {
+            return window.toolFiles ? (window.toolFiles[tool] || []) : [];
+        },
     });
 
     Alpine.store('settings', {
@@ -34,10 +57,10 @@ document.addEventListener('alpine:init', () => {
         toolOutputDirs: { convert: '', extract: '', compress: '', trim: '' },
         // 工具设置
         toolSettings: {
-            convert: { format: 'mp4', mode: 'copy' },
-            extract: { format: 'aac', bitrate: '192k' },
-            compress: { preset: 'medium', resolution: '720p' },
-            trim: { mode: 'reencode' }
+            convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
+            extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
+            compress: { mode: 'crf', targetSize: '50', preset: 'balanced', resolution: '1080p', outputName: '' },
+            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, outputName: '' }
         }
     });
 });
@@ -1491,7 +1514,8 @@ function bindRowSelectionListeners() {
 /* === 13. 通用视频工具前端逻辑 (Convert / Extract / Compress / Trim) === */
 
 // 各工具的任务列表缓存
-const toolFiles = { convert: [], extract: [], compress: [], trim: [] };
+window.toolFiles = { convert: [], extract: [], compress: [], trim: [] };
+const toolFiles = window.toolFiles;
 
 // 工具进度回调（由 Python 通过 evaluate_js 调用）
 window.updateToolProgress = function(tool, text, pct) {
@@ -1565,7 +1589,7 @@ function initToolDropZones() {
     });
 }
 
-function selectFilesForTool(tool) {
+window.selectFilesForTool = function selectFilesForTool(tool) {
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.select_tool_files().then(res => {
             if (res && res.status === 'success' && res.files) {
@@ -2033,23 +2057,7 @@ function initToolStartButtons() {
         });
     }
 
-    // 视频压缩
-    const compressBtn = document.getElementById('compress-start-btn');
-    if (compressBtn) {
-        compressBtn.addEventListener('click', () => {
-            const preset = document.getElementById('compress-preset').value;
-            const resolution = document.getElementById('compress-resolution').value;
-            const outputDir = document.getElementById('compress-output-dir')?.value || '';
-            const outputName = document.getElementById('compress-output-name')?.value?.trim() || '';
-            const checkedCount = document.querySelectorAll('#compress-tbody .tool-row-cb:checked').length;
-            const totalCount = toolFiles.compress.length;
-            const selCount = checkedCount || totalCount;
-            const nameForBatch = selCount === 1 ? outputName : '';
-            runToolTask('compress', (file) => {
-                return window.pywebview.api.compress_video_api(file.filepath, preset, resolution, outputDir, nameForBatch);
-            });
-        });
-    }
+    
 
     // 视频裁剪
     const trimBtn = document.getElementById('trim-start-btn');
@@ -2167,26 +2175,7 @@ function gatherCurrentSettings() {
         delete_source: Alpine.store('settings').deleteSource,
         output_dir: document.getElementById('global-output-dir')?.value || '',
         naming_template: document.getElementById('global-output-name')?.value || '',
-        tool_settings: {
-            convert: {
-                format: document.getElementById('convert-format')?.value || 'mp4',
-                mode: document.getElementById('convert-mode')?.value || 'copy',
-                crf: document.getElementById('convert-crf')?.value || '23'
-            },
-            extract: {
-                format: document.getElementById('extract-format')?.value || 'mp3',
-                volume: document.getElementById('extract-volume')?.value || 'original'
-            },
-            compress: {
-                mode: document.getElementById('compress-mode')?.value || 'crf',
-                target_size: document.getElementById('compress-target-size')?.value || '50'
-            },
-            trim: {
-                start: document.getElementById('trim-start')?.value || '00:00:00',
-                end: document.getElementById('trim-end')?.value || '',
-                accurate: document.getElementById('trim-accurate-mode')?.checked || false
-            }
-        }
+        tool_settings: Alpine.store('settings').toolSettings
     };
 }
 
@@ -2206,24 +2195,11 @@ function applyLoadedSettings(settings) {
     }
 
     if (settings.tool_settings) {
-        const ts = settings.tool_settings;
-        if (ts.convert) {
-            if (ts.convert.format) document.getElementById('convert-format').value = ts.convert.format;
-            if (ts.convert.mode) document.getElementById('convert-mode').value = ts.convert.mode;
-            if (ts.convert.crf) document.getElementById('convert-crf').value = ts.convert.crf;
-        }
-        if (ts.extract) {
-            if (ts.extract.format) document.getElementById('extract-format').value = ts.extract.format;
-            if (ts.extract.volume) document.getElementById('extract-volume').value = ts.extract.volume;
-        }
-        if (ts.compress) {
-            if (ts.compress.mode) document.getElementById('compress-mode').value = ts.compress.mode;
-            if (ts.compress.target_size) document.getElementById('compress-target-size').value = ts.compress.target_size;
-        }
-        if (ts.trim) {
-            if (ts.trim.start) document.getElementById('trim-start').value = ts.trim.start;
-            if (ts.trim.end) document.getElementById('trim-end').value = ts.trim.end;
-            if (ts.trim.accurate !== undefined) document.getElementById('trim-accurate-mode').checked = ts.trim.accurate;
+        // Deep merge tool settings to trigger Alpine reactivity
+        for (const tool in settings.tool_settings) {
+            if (store.toolSettings[tool]) {
+                store.toolSettings[tool] = { ...store.toolSettings[tool], ...settings.tool_settings[tool] };
+            }
         }
     }
 }
@@ -2377,3 +2353,21 @@ window.showCustomTooltip = function(e, text) {
     tooltip.style.marginTop = "-6px";
     tooltip.style.display = "block";
 };
+
+// === Web Components Alpine Context Helpers ===
+window.toggleSelectAllLocal = function(checked, tool) {
+    document.querySelectorAll('#' + tool + '-tbody .tool-row-cb').forEach(cb => {
+        cb.checked = checked;
+        const tr = cb.closest('tr');
+        if (tr) tr.classList.toggle('active-row', checked);
+    });
+};
+
+// === Global Context Exports for Alpine & Legacy HTML ===
+window.callPython = callPython;
+if (typeof showToast !== 'undefined') window.showToast = showToast;
+if (typeof selectFilesForTool !== 'undefined') window.selectFilesForTool = selectFilesForTool;
+if (typeof runToolTask !== 'undefined') window.runToolTask = runToolTask;
+if (typeof handleBackendResponse !== 'undefined') window.handleBackendResponse = handleBackendResponse;
+if (typeof showConflictDialog !== 'undefined') window.showConflictDialog = showConflictDialog;
+if (typeof closeConflictDialog !== 'undefined') window.closeConflictDialog = closeConflictDialog;

@@ -1,0 +1,14 @@
+<tr class="empty-state-row" @click="window.selectFilesForTool(localTool)" style="cursor: pointer;">
+    <td colspan="10">
+        <div class="empty-state">
+            <div class="empty-icon" x-text="
+                localTool === 'convert' ? '🔄' : 
+                localTool === 'extract' ? '🎵' : 
+                localTool === 'compress' ? '📦' : 
+                localTool === 'trim' ? '✂️' : '📁'
+            "></div>
+            <h3 x-text="'拖入视频文件或点击此处选择'"></h3>
+            <p>支持 mp4 / mkv / flv / mov / avi / webm</p>
+        </div>
+    </td>
+</tr>

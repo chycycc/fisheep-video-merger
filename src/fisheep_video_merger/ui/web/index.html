@@ -341,7 +341,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>目标格式</label>
-                        <select id="convert-format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
+                        <select id="convert-format" x-model="$store.settings.toolSettings.convert.format" @change="callPython('update_tool_setting', 'convert', 'format', $event.target.value)">
                             <option value="mp4">MP4</option>
                             <option value="mkv">MKV</option>
                             <option value="webm">WebM</option>
@@ -350,7 +350,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>转换模式</label>
-                        <select id="convert-mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
+                        <select id="convert-mode" x-model="$store.settings.toolSettings.convert.mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
                             <option value="copy">快速流复制（无损，秒级）</option>
                             <option value="recode">重编码（兼容性更好）</option>
                         </select>
@@ -364,37 +364,14 @@
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="convert-output-name" placeholder="例如: 转换后的视频">
+                        <input type="text" id="convert-output-name" x-model="$store.settings.toolSettings.convert.outputName" placeholder="例如: 转换后的视频">
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th width="40"><input type="checkbox" checked></th>
-                                <th>文件名</th>
-                                <th>原始格式</th>
-                                <th>大小</th>
-                                <th>状态</th>
-                                <th width="80">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="convert-tbody">
-                            <tr class="empty-state-row">
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <div class="empty-icon">🔄</div>
-                                        <h3>拖入视频文件开始转换</h3>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div x-data="{ localTool: 'convert', actionName: '转换' }">
+                    <task-list></task-list>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="convert-start-btn" class="btn btn-primary" disabled>🚀 开始转换</button>
+                <action-bar></action-bar>
                 </div>
             </div>
             <div class="tool-panel" id="tool-extract" :class="{ 'active': $store.app.currentTool === 'extract' }">
@@ -411,7 +388,7 @@
                 <div class="tool-options" style="flex-wrap: wrap;">
                     <div class="tool-option-group">
                         <label>音频格式</label>
-                        <select id="extract-format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
+                        <select id="extract-format" x-model="$store.settings.toolSettings.extract.format" @change="callPython('update_tool_setting', 'extract', 'format', $event.target.value)">
                             <option value="mp3">MP3</option>
                             <option value="aac">AAC</option>
                             <option value="flac">FLAC</option>
@@ -428,14 +405,14 @@
                     </div>
                     <div class="tool-option-group">
                         <label>码率模式</label>
-                        <select id="extract-bitrate-mode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
+                        <select id="extract-bitrate-mode" x-model="$store.settings.toolSettings.extract.bitrateMode" @change="callPython('update_tool_setting', 'extract', 'bitrate_mode', $event.target.value)">
                             <option value="cbr">CBR（恒定码率）</option>
                             <option value="vbr">VBR（可变码率）</option>
                         </select>
                     </div>
                     <div class="tool-option-group">
                         <label>音频码率</label>
-                        <select id="extract-bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
+                        <select id="extract-bitrate" x-model="$store.settings.toolSettings.extract.bitrate" @change="callPython('update_tool_setting', 'extract', 'bitrate', $event.target.value)">
                             <option value="64k">64 kbps</option>
                             <option value="128k">128 kbps</option>
                             <option value="192k" selected>192 kbps</option>
@@ -445,7 +422,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>声道</label>
-                        <select id="extract-channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
+                        <select id="extract-channels" x-model="$store.settings.toolSettings.extract.channels" @change="callPython('update_tool_setting', 'extract', 'channels', $event.target.value)">
                             <option value="original">保持原始</option>
                             <option value="stereo">立体声</option>
                             <option value="mono">单声道</option>
@@ -453,7 +430,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>采样率</label>
-                        <select id="extract-sample-rate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
+                        <select id="extract-sample-rate" x-model="$store.settings.toolSettings.extract.sampleRate" @change="callPython('update_tool_setting', 'extract', 'sample_rate', $event.target.value)">
                             <option value="original">保持原始</option>
                             <option value="8000">8000 Hz</option>
                             <option value="11025">11025 Hz</option>
@@ -464,7 +441,7 @@
                     </div>
                     <div class="tool-option-group" style="flex: 1; min-width: 200px;">
                         <label>音量调节 <span id="extract-volume-label" style="color: var(--text-muted);">1.0x</span></label>
-                        <input type="range" id="extract-volume" min="0.5" max="2.0" step="0.1" value="1.0"
+                        <input type="range" id="extract-volume" x-model="$store.settings.toolSettings.extract.volume" min="0.5" max="2.0" step="0.1" value="1.0"
                                style="width: 100%;"
                                oninput="document.getElementById('extract-volume-label').textContent = this.value + 'x'"
                                @change="callPython('update_tool_setting', 'extract', 'volume', parseFloat($event.target.value))">
@@ -478,40 +455,14 @@
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则与源文件同名）</span></label>
-                        <input type="text" id="extract-output-name" placeholder="例如: 我的音频">
+                        <input type="text" id="extract-output-name" x-model="$store.settings.toolSettings.extract.outputName" placeholder="例如: 我的音频">
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th width="40"><input type="checkbox" checked></th>
-                                <th>文件名</th>
-                                <th>编码</th>
-                                <th>码率</th>
-                                <th>声道</th>
-                                <th>时长</th>
-                                <th>大小</th>
-                                <th>状态</th>
-                                <th width="80">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="extract-tbody">
-                            <tr class="empty-state-row">
-                                <td colspan="9">
-                                    <div class="empty-state">
-                                        <div class="empty-icon">🎵</div>
-                                        <h3>拖入视频文件提取音频</h3>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div x-data="{ localTool: 'extract', actionName: '提取' }">
+                    <task-list></task-list>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="extract-start-btn" class="btn btn-primary" disabled>🚀 开始提取</button>
+                <action-bar></action-bar>
                 </div>
             </div>
             <div class="tool-panel" id="tool-compress" :class="{ 'active': $store.app.currentTool === 'compress' }">
@@ -528,7 +479,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>压缩模式</label>
-                        <select id="compress-preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
+                        <select id="compress-preset" x-model="$store.settings.toolSettings.compress.preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
                             <option value="fast">⚡ 快速（文件较大，速度最快）</option>
                             <option value="balanced" selected>🎯 均衡（推荐）</option>
                             <option value="quality">💎 高质量（文件最小，速度最慢）</option>
@@ -536,7 +487,7 @@
                     </div>
                     <div class="tool-option-group">
                         <label>分辨率缩放</label>
-                        <select id="compress-resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
+                        <select id="compress-resolution" x-model="$store.settings.toolSettings.compress.resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
                             <option value="original" selected>原始分辨率</option>
                             <option value="1080p">缩放至 1080p</option>
                             <option value="720p">缩放至 720p</option>
@@ -552,37 +503,14 @@
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="compress-output-name" placeholder="例如: 压缩后的视频">
+                        <input type="text" id="compress-output-name" x-model="$store.settings.toolSettings.compress.outputName" placeholder="例如: 压缩后的视频">
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th width="40"><input type="checkbox" checked></th>
-                                <th>文件名</th>
-                                <th>原始大小</th>
-                                <th>预估大小</th>
-                                <th>状态</th>
-                                <th width="80">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="compress-tbody">
-                            <tr class="empty-state-row">
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <div class="empty-icon">📦</div>
-                                        <h3>拖入视频文件开始压缩</h3>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div x-data="{ localTool: 'compress', actionName: '压缩' }">
+                    <task-list></task-list>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="compress-start-btn" class="btn btn-primary" disabled>🚀 开始压缩</button>
+                <action-bar></action-bar>
                 </div>
             </div>
             <div class="tool-panel" id="tool-trim" :class="{ 'active': $store.app.currentTool === 'trim' }">
@@ -615,11 +543,11 @@
                     <div style="display: flex; gap: 12px; margin-top: 8px;">
                         <div style="flex: 1;">
                             <label style="font-size: 11px; color: var(--text-muted);">开始时间</label>
-                            <input type="text" id="trim-start" placeholder="00:00:00" value="00:00:00">
+                            <input type="text" id="trim-start" x-model="$store.settings.toolSettings.trim.start" placeholder="00:00:00" value="00:00:00">
                         </div>
                         <div style="flex: 1;">
                             <label style="font-size: 11px; color: var(--text-muted);">结束时间</label>
-                            <input type="text" id="trim-end" placeholder="00:05:00">
+                            <input type="text" id="trim-end" x-model="$store.settings.toolSettings.trim.end" placeholder="00:05:00">
                         </div>
                     </div>
                 </div>
@@ -627,7 +555,7 @@
                 <div class="tool-options">
                     <div class="tool-option-group">
                         <label>裁剪模式</label>
-                        <select id="trim-mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
+                        <select id="trim-mode" x-model="$store.settings.toolSettings.trim.mode" @change="callPython('update_tool_setting', 'trim', 'mode', $event.target.value)">
                             <option value="copy">快速裁剪（关键帧对齐，无损）</option>
                             <option value="recode">精确裁剪（重编码，帧级精度）</option>
                         </select>
@@ -641,37 +569,14 @@
                     </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
-                        <input type="text" id="trim-output-name" placeholder="例如: 裁剪后的视频">
+                        <input type="text" id="trim-output-name" x-model="$store.settings.toolSettings.trim.outputName" placeholder="例如: 裁剪后的视频">
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th width="40"><input type="checkbox" checked></th>
-                                <th>文件名</th>
-                                <th>时长</th>
-                                <th>大小</th>
-                                <th>状态</th>
-                                <th width="80">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="trim-tbody">
-                            <tr class="empty-state-row">
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <div class="empty-icon">✂️</div>
-                                        <h3>拖入视频文件开始裁剪</h3>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div x-data="{ localTool: 'trim', actionName: '裁剪' }">
+                    <task-list></task-list>
 
-                <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                    <button id="trim-start-btn" class="btn btn-primary" disabled>🚀 开始裁剪</button>
+                <action-bar></action-bar>
                 </div>
             </div>
             <div class="tool-panel" id="tool-settings" :class="{ 'active': $store.app.currentTool === 'settings' }">
@@ -918,7 +823,7 @@
         <ul class="context-menu-list"></ul>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module" src="js/main.js"></script>
     <script src="alpine.min.js" defer></script>
 
     <!-- Manual Match Modal -->

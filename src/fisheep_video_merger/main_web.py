@@ -53,8 +53,8 @@ def main():
         logger.error(f"无法定位前端资源 HTML 文件: {html_path}")
         sys.exit(1)
 
-    url = "file:///" + os.path.abspath(html_path)
-    logger.info(f"正在加载本地网页资源: {url}")
+    url = os.path.abspath(html_path)  # 使用绝对物理路径，让 pywebview 开启内建 HTTP Server
+    logger.info(f"正在准备以 HTTP Server 模式加载网页资源: {url}")
 
     # 5. 拉起高颜值桌面窗口 (Edge WebView2)
     # 从设置中恢复窗口位置
@@ -92,8 +92,8 @@ def main():
 
     window.events.closed += on_window_closed
 
-    # 6. 运行 webview 主循环
-    webview.start(debug=True)  # 开发模式，右键可审查元素
+    # 6. 运行 webview 主循环，启用内置 HTTP Server 解决 fetch跨域 问题
+    webview.start(debug=True, http_server=True)  # 开发模式，右键可审查元素
 
 
 if __name__ == "__main__":
