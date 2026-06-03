@@ -139,3 +139,37 @@ export function syncSettingsFromPython() {
         }
     });
 }
+
+/**
+ * 结构化消息分发器 — 接收 Python 端 _send_message() 发送的 JSON 消息
+ * 替代直接拼接 JS 代码的 evaluate_js 方式，便于未来前端框架迁移
+ */
+window.__onBridgeMessage = function(msg) {
+    const { type, data } = msg;
+    switch (type) {
+        case 'state_update':
+            handleBackendResponse(data);
+            break;
+        case 'toast':
+            if (window.showToast) window.showToast(data.message, data.type || 'info');
+            break;
+        case 'task_progress':
+            if (window.updateTaskProgress) window.updateTaskProgress(data.index, data.percent, data.eta, data.speed);
+            break;
+        case 'task_status':
+            if (window.updateTaskStatus) window.updateTaskStatus(data.index, data.status, data.error, data.output_path);
+            break;
+        case 'tool_progress':
+            if (window.updateToolProgress) window.updateToolProgress(data.tool, data.text, data.percent);
+            break;
+        case 'button_state':
+            const btn = document.getElementById(data.id);
+            if (btn) {
+                if (data.disabled !== undefined) btn.disabled = data.disabled;
+                if (data.text !== undefined) btn.textContent = data.text;
+            }
+            break;
+        default:
+            console.warn('[Bridge] 未知消息类型:', type, data);
+    }
+};
