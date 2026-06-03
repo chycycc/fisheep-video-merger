@@ -802,7 +802,9 @@
                     </div>
 
                     <div class="control-footer" style="margin-top:auto; padding-top:16px;">
-                        <button id="global-start-btn" class="btn btn-primary btn-block">🚀 开始当前队列任务</button>
+                        <button id="global-start-btn" class="btn btn-primary btn-block"
+                                :disabled="$store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed')"
+                                :class="{ 'opacity-50 cursor-not-allowed': $store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed') }">🚀 开始当前队列任务</button>
                     </div>
 
                 </div>
