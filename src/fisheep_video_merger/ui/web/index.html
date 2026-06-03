@@ -611,7 +611,11 @@
 
                     <!-- 硬件加速 -->
                     <div class="config-card">
-                        <h4>⚡ 硬件加速</h4>
+                        <h4 style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+                            @click="window.loadHwAccelInfo && window.loadHwAccelInfo()">
+                            <span>⚡ 硬件加速</span>
+                            <span style="font-size: 10px; color: var(--text-muted);">🔄 点击刷新</span>
+                        </h4>
                         <div id="hw-accel-info" style="font-size: 12px; color: var(--text-muted);">
                             <span>检测中...</span>
                         </div>
@@ -623,6 +627,9 @@
                         <div style="display: flex; gap: 8px;">
                             <button class="btn btn-secondary" onclick="exportConfig()" style="flex:1;">📤 导出配置</button>
                             <button class="btn btn-secondary" onclick="importConfig()" style="flex:1;">📥 导入配置</button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button class="btn btn-secondary" onclick="window.restoreDefaults && window.restoreDefaults()" style="flex:1; border: 1px dashed var(--border-color);">🔄 恢复默认设置</button>
                         </div>
                         <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">导出/导入队列配对为 JSON 文件，跨机器复用</p>
                     </div>

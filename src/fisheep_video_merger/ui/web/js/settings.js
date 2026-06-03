@@ -3,7 +3,7 @@
  * 负责设置面板初始化、硬件加速/平台统计加载、配置导出导入、工具面板、Profile 管理、面板拖拽调整
  */
 
-import { callPython, handleBackendResponse } from './bridge.js';
+import { callPython, handleBackendResponse, syncSettingsFromPython } from './bridge.js';
 import { showToast } from './ui.js';
 
 /**
@@ -1041,3 +1041,31 @@ export function initTrimTimeline() {
         updateVisual();
     };
 }
+
+/**
+ * 恢复默认设置
+ */
+window.restoreDefaults = function() {
+    if (!confirm('确定要恢复所有设置为默认值吗？')) return;
+
+    const defaults = {
+        output_format: 'mp4',
+        concurrency: 2,
+        overwrite: true,
+        delete_allowed: false,
+        output_dir: '',
+        naming_template: '',
+        theme: 'auto',
+        tool_settings: {
+            convert: { format: 'mp4', mode: 'copy' },
+            extract: { format: 'aac', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', volume: '1.0' },
+            compress: { preset: 'balanced', resolution: 'original' },
+            trim: { mode: 'copy' }
+        }
+    };
+
+    callPython('update_settings', defaults).then(() => {
+        syncSettingsFromPython();
+        if (window.showToast) window.showToast('已恢复默认设置', 'success');
+    });
+};
