@@ -458,6 +458,9 @@ class UIBridge:
             self._save_workspace_state()
 
         est = self._merge_ctrl.get_merge_estimate(self.tasks, int(self.settings.get("concurrency", 2)), self.settings)
+        if est.get("tasks", 0) == 0:
+            self._send_message("toast", {"message": "无待合并任务", "type": "warning"})
+            return {"status": "success", "message": "无待合并任务"}
         if est.get("estimate"):
             est_msg = f"⏱️ {est['estimate']}（{est['tasks']} 个任务，{est['size_mb']} MB）"
             self._send_message("toast", {"message": est_msg, "type": "info"})
