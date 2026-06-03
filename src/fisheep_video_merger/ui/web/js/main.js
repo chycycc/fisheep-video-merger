@@ -722,6 +722,8 @@ function updateMergeStatusBar() {
     const statusText = document.getElementById('merge-status-text');
     const statusChunk = document.getElementById('merge-status-chunk');
 
+    if (!statusBar || !statusText || !statusChunk) return;
+
     if (total > 0 && done < total) {
         statusBar.classList.remove('hidden');
         statusText.textContent = `⚡ 正在合并: ${done}/${total}`;
@@ -734,15 +736,21 @@ function updateMergeStatusBar() {
 // C2. 初始化合并状态条
 window.initDashboardCards = function(tasks) {
     const statusBar = document.getElementById('merge-status-bar');
+    const statusText = document.getElementById('merge-status-text');
+    const statusSpeed = document.getElementById('merge-status-speed');
+    const statusChunk = document.getElementById('merge-status-chunk');
+
+    if (!statusBar || !statusText || !statusSpeed || !statusChunk) return;
+
     const activeTasks = tasks.filter(t => t.status !== 'completed');
     const total = tasks.length;
     const done = total - activeTasks.length;
 
     if (activeTasks.length > 0) {
         statusBar.classList.remove('hidden');
-        document.getElementById('merge-status-text').textContent = `⚡ 正在合并: ${done}/${total}`;
-        document.getElementById('merge-status-speed').textContent = '';
-        document.getElementById('merge-status-chunk').style.width = `${(done / total) * 100}%`;
+        statusText.textContent = `⚡ 正在合并: ${done}/${total}`;
+        statusSpeed.textContent = '';
+        statusChunk.style.width = `${(done / total) * 100}%`;
     }
 };
 
@@ -916,9 +924,6 @@ window.selectOutputDir = function() {
 
 // C3. 全局删除任务函数，回传给后端并重新渲染
 window.deleteTask = function(index) {
-    if (window.event) {
-        window.event.stopPropagation();
-    }
     callPython('delete_task', index).then(res => {
         handleBackendResponse(res);
         showToast('任务已从列表中移除', 'info');
