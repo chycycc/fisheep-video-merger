@@ -219,12 +219,13 @@ class UIBridge:
         return self._get_queue_data()
 
     def clear_queue(self) -> Dict:
-        self._task_mgr.clear_all()
-        self.pending_videos.clear()
-        self.pending_audios.clear()
-        self.muxed_files.clear()
-        self.all_stream_infos.clear()
-        self.root_paths.clear()
+        with self._lock:
+            self._task_mgr.clear_all()
+            self.pending_videos.clear()
+            self.pending_audios.clear()
+            self.muxed_files.clear()
+            self.all_stream_infos.clear()
+            self.root_paths.clear()
         self._save_workspace_state()
         return self._get_queue_data()
 
@@ -359,26 +360,25 @@ class UIBridge:
                     self.pending_audios = match_result.pending_audios
                     self._apply_naming_template()
 
-                if match_result.muxed_files:
-                    for m in match_result.muxed_files:
-                        if not any(x.filepath == m.filepath for x in self.muxed_files):
-                            self.muxed_files.append(m)
+                    if match_result.muxed_files:
+                        for m in match_result.muxed_files:
+                            if not any(x.filepath == m.filepath for x in self.muxed_files):
+                                self.muxed_files.append(m)
 
                 if not self.settings.get("output_dir"):
                     if self.root_paths:
                         self.settings["output_dir"] = os.path.dirname(self.root_paths[0])
 
                 self._save_workspace_state()
-                state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
-                self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+                self._send_message("state_update", self._get_queue_data())
 
                 if len(match_result.auto_tasks) > 0 or len(match_result.pending_videos) > 0:
-                    self._evaluate_js_safe("showToast('文件夹扫描完成', 'success')")
+                    self._send_message("toast", {"message": "文件夹扫描完成", "type": "success"})
                 else:
-                    self._evaluate_js_safe("showToast('选中文件夹内未发现支持的视频缓存', 'warning')")
+                    self._send_message("toast", {"message": "选中文件夹内未发现支持的视频缓存", "type": "warning"})
             except Exception as e:
                 logger.error(f"异步扫描失败: {e}")
-                self._evaluate_js_safe(f"showToast('扫描失败: {json.dumps(str(e))}', 'error')")
+                self._send_message("toast", {"message": f"扫描失败: {e}", "type": "error"})
 
         threading.Thread(target=scan_worker, daemon=True).start()
 
@@ -427,19 +427,18 @@ class UIBridge:
 
                     self._save_workspace_state()
 
-                state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
-                self._evaluate_js_safe(f"handleBackendResponse({state_json})")
+                self._send_message("state_update", self._get_queue_data())
 
                 if len(new_videos) + len(new_audios) > 0:
                     if len(self.tasks) > old_tasks_count:
                         pass
                     else:
-                        self._evaluate_js_safe("showToast('导入的片段由于缺少对应音/视频，已自动归入【待整理】队列', 'warning')")
+                        self._send_message("toast", {"message": "导入的片段由于缺少对应音/视频，已自动归入【待整理】队列", "type": "warning"})
                 elif len(new_muxed) > 0:
-                    self._evaluate_js_safe("showToast('导入的视频已是完整文件，自动归入【已完整】队列', 'info')")
+                    self._send_message("toast", {"message": "导入的视频已是完整文件，自动归入【已完整】队列", "type": "info"})
             except Exception as e:
                 logger.error(f"添加文件失败: {e}")
-                self._evaluate_js_safe(f"showToast('添加文件失败: {json.dumps(str(e))}', 'error')")
+                self._send_message("toast", {"message": f"添加文件失败: {e}", "type": "error"})
 
         threading.Thread(target=files_worker, daemon=True).start()
 
@@ -459,38 +458,30 @@ class UIBridge:
             self._save_workspace_state()
 
         est = self._merge_ctrl.get_merge_estimate(self.tasks, int(self.settings.get("concurrency", 2)), self.settings)
+        if est.get("tasks", 0) == 0:
+            self._send_message("toast", {"message": "无待合并任务", "type": "warning"})
+            return {"status": "success", "message": "无待合并任务"}
         if est.get("estimate"):
             est_msg = f"⏱️ {est['estimate']}（{est['tasks']} 个任务，{est['size_mb']} MB）"
-            self._evaluate_js_safe(f"showToast('{est_msg}', 'info')")
+            self._send_message("toast", {"message": est_msg, "type": "info"})
 
-        self._evaluate_js_safe("document.getElementById('start-btn').disabled = true")
-        self._evaluate_js_safe("document.getElementById('start-btn').textContent = '⚡ 正在合并队列...'")
-        self._evaluate_js_safe("document.getElementById('cancel-btn').classList.remove('hidden')")
+        self._send_message("button_state", {"id": "global-start-btn", "disabled": True, "text": "⚡ 正在合并队列..."})
 
         def on_progress(index, percent, eta, speed):
-            self._evaluate_js_safe(f"window.updateTaskProgress({index}, {percent}, '{eta}', '{speed}')")
+            self._send_message("task_progress", {"index": index, "percent": percent, "eta": eta, "speed": speed})
 
         def on_status(index, status, error, output_path=''):
-            op_js = output_path.replace('\\', '\\\\') if output_path else ''
-            self._evaluate_js_safe(f"window.updateTaskStatus({index}, '{status}', '', '{op_js}')")
+            self._send_message("task_status", {"index": index, "status": status, "error": error, "output_path": output_path})
 
         def on_done(completed, failed):
             self._active_processes_clear()
             self._save_workspace_state()
-            state_json = json.dumps(self._get_queue_data(), ensure_ascii=False)
-            self._evaluate_js_safe(f"handleBackendResponse({state_json})")
-            self._evaluate_js_safe("document.getElementById('start-btn').disabled = false")
-            self._evaluate_js_safe("document.getElementById('start-btn').textContent = '🚀 开始合并队列'")
-            self._evaluate_js_safe("document.getElementById('cancel-btn').classList.add('hidden')")
+            self._send_message("state_update", self._get_queue_data())
+            self._send_message("button_state", {"id": "global-start-btn", "disabled": False, "text": "🚀 开始合并队列"})
             if self._merge_ctrl._cancel_event.is_set():
-                self._evaluate_js_safe("showToast('⚠️ 合并已取消', 'warning')")
+                self._send_message("toast", {"message": "⚠️ 合并已取消", "type": "warning"})
             else:
-                output_dir = self.settings.get("output_dir", "")
-                if output_dir:
-                    est_msg = f"🎉 所有任务已合并完成！"
-                    self._evaluate_js_safe(f"showToast('{est_msg}', 'success')")
-                else:
-                    self._evaluate_js_safe("showToast('🎉 所有任务已合并完成！', 'success')")
+                self._send_message("toast", {"message": "🎉 所有任务已合并完成！", "type": "success"})
 
         self._merge_ctrl.start_merge(
             self.tasks, int(self.settings.get("concurrency", 2)), self.settings,
@@ -674,10 +665,7 @@ class UIBridge:
     def _make_tool_progress_callback(self, tool: str):
         """创建工具进度回调闭包"""
         def callback(txt, pct=None, eta=None, speed=None):
-            self._evaluate_js_safe(
-                f"window.updateToolProgress && window.updateToolProgress('{tool}', "
-                f"{json.dumps(txt)}, {pct if pct is not None else 'null'})"
-            )
+            self._send_message("tool_progress", {"tool": tool, "text": txt, "percent": pct})
         return callback
 
     def _apply_naming_template(self):
@@ -767,6 +755,11 @@ class UIBridge:
             "muxed": muxed_list,
         }
 
+    def _send_message(self, msg_type: str, data: dict = None):
+        """向前端发送结构化消息（替代直接拼接 JS 代码）"""
+        payload = json.dumps({"type": msg_type, "data": data or {}}, ensure_ascii=False)
+        self._evaluate_js_safe(f"window.__onBridgeMessage && window.__onBridgeMessage({payload})")
+
     def _evaluate_js_safe(self, code: str):
         """线程安全地在 Webview window 中执行 JS"""
         if self._window:
@@ -780,46 +773,49 @@ class UIBridge:
     # ====================================================================
 
     def delete_pending_file(self, filepath: str) -> Dict:
-        self.pending_videos = [v for v in self.pending_videos if v.filepath != filepath]
-        self.pending_audios = [a for a in self.pending_audios if a.filepath != filepath]
-        self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
+        with self._lock:
+            self.pending_videos = [v for v in self.pending_videos if v.filepath != filepath]
+            self.pending_audios = [a for a in self.pending_audios if a.filepath != filepath]
+            self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
         self._save_workspace_state()
         return self._get_queue_data()
 
     def delete_muxed_file(self, filepath: str) -> Dict:
-        self.muxed_files = [m for m in self.muxed_files if m.filepath != filepath]
-        self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
+        with self._lock:
+            self.muxed_files = [m for m in self.muxed_files if m.filepath != filepath]
+            self.all_stream_infos = [x for x in self.all_stream_infos if x.filepath != filepath]
         self._save_workspace_state()
         return self._get_queue_data()
 
     def manual_match(self, filepaths: list[str], output_name: str = None) -> Dict:
         if len(filepaths) != 2:
             return {"status": "error", "message": "请精确勾选 1 个视频和 1 个音频"}
-            
+
         try:
-            v_info = None
-            a_info = None
-            
-            for p in filepaths:
-                if v := next((v for v in self.pending_videos if v.filepath == p), None):
-                    v_info = v
-                elif a := next((a for a in self.pending_audios if a.filepath == p), None):
-                    a_info = a
-                    
-            if not v_info or not a_info:
-                return {"status": "error", "message": "必须包含 1 个视频和 1 个音频文件"}
-                
-            from fisheep_video_merger.core.matcher import create_manual_task
-            import os
-            root = self.root_paths[0] if self.root_paths else ""
-            out_name = output_name or os.path.splitext(os.path.basename(v_info.filepath))[0]
-            
-            task = create_manual_task(v_info, a_info, out_name, root)
-            self._task_mgr.preserve_status([task])
-            
-            self.pending_videos = [v for v in self.pending_videos if v.filepath != v_info.filepath]
-            self.pending_audios = [a for a in self.pending_audios if a.filepath != a_info.filepath]
-            
+            with self._lock:
+                v_info = None
+                a_info = None
+
+                for p in filepaths:
+                    if v := next((v for v in self.pending_videos if v.filepath == p), None):
+                        v_info = v
+                    elif a := next((a for a in self.pending_audios if a.filepath == p), None):
+                        a_info = a
+
+                if not v_info or not a_info:
+                    return {"status": "error", "message": "必须包含 1 个视频和 1 个音频文件"}
+
+                from fisheep_video_merger.core.matcher import create_manual_task
+                import os
+                root = self.root_paths[0] if self.root_paths else ""
+                out_name = output_name or os.path.splitext(os.path.basename(v_info.filepath))[0]
+
+                task = create_manual_task(v_info, a_info, out_name, root)
+                self._task_mgr.preserve_status([task])
+
+                self.pending_videos = [v for v in self.pending_videos if v.filepath != v_info.filepath]
+                self.pending_audios = [a for a in self.pending_audios if a.filepath != a_info.filepath]
+
             self._save_workspace_state()
             return self._get_queue_data()
         except Exception as e:
@@ -829,25 +825,26 @@ class UIBridge:
         try:
             from fisheep_video_merger.core.matcher import auto_match
             from fisheep_video_merger.utils.ffprobe import StreamType
-            
-            # Pack pending into a stream_infos list
-            streams = self.pending_videos + self.pending_audios
-            if not streams:
-                return {"status": "success", "message": "没有待整理文件可供配对"}
-                
-            # Perform auto match
-            result = auto_match(streams, self.root_paths)
-            
-            if len(result.auto_tasks) == 0:
-                return {"status": "success", "message": "未找到符合智能配对条件的条目"}
-                
-            # Update tasks
-            self._task_mgr.preserve_status(result.auto_tasks)
-            self.pending_videos = result.pending_videos
-            self.pending_audios = result.pending_audios
-            
+
+            with self._lock:
+                # Pack pending into a stream_infos list
+                streams = self.pending_videos + self.pending_audios
+                if not streams:
+                    return {"status": "success", "message": "没有待整理文件可供配对"}
+
+                # Perform auto match
+                result = auto_match(streams, self.root_paths)
+
+                if len(result.auto_tasks) == 0:
+                    return {"status": "success", "message": "未找到符合智能配对条件的条目"}
+
+                # Update tasks
+                self._task_mgr.preserve_status(result.auto_tasks)
+                self.pending_videos = result.pending_videos
+                self.pending_audios = result.pending_audios
+
             self._save_workspace_state()
-            
+
             data = self._get_queue_data()
             data["status"] = "success"
             data["message"] = f"智能配对成功，已结对 {len(result.auto_tasks)} 项"
