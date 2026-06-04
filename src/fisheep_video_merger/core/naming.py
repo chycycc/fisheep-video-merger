@@ -63,12 +63,12 @@ def apply_naming_template(template: str, video_filepath: str, source_dir: str, r
 
     支持变量：
         {series} — 系列名（从 B站元数据或父目录提取）
-        {ep} — 集数（2位补零）
+        {ep} — 集数（默认2位补零，支持 {ep:03d} 等格式化语法）
         {original} — 原始文件名（不含扩展名）
         {index} — 序号（从1开始）
 
     Args:
-        template: 模板字符串，如 "{series}_{ep}"
+        template: 模板字符串，如 "{series}_{ep}" 或 "{series}_{ep:03d}"
         video_filepath: 视频文件路径
         source_dir: 源目录
         root_path: 根目录
@@ -83,16 +83,16 @@ def apply_naming_template(template: str, video_filepath: str, source_dir: str, r
     # 提取变量值
     meta = read_bilibili_meta(source_dir)
     series = ""
-    ep = ""
+    ep_num = None
     if meta:
         series = re.sub(r'[\\/:*?"<>|]', "", meta.get("title", "")).strip()
         ep_info = meta.get("ep", {})
         ep_raw = ep_info.get("index", "")
         if ep_raw:
             try:
-                ep = f"{int(ep_raw):02d}"
+                ep_num = int(ep_raw)
             except (ValueError, TypeError):
-                ep = str(ep_raw)
+                pass
 
     if not series:
         parent_name = os.path.basename(source_dir)
@@ -103,14 +103,26 @@ def apply_naming_template(template: str, video_filepath: str, source_dir: str, r
                 parent_name = gp_name
         series = re.sub(r'[\\/:*?"<>|]', "", parent_name).strip()
 
-    if not ep:
+    if ep_num is None:
         ep_num = extract_episode_number(os.path.basename(video_filepath))
-        ep = f"{ep_num:02d}" if ep_num is not None else ""
 
+    # {ep} 默认格式为2位补零，保持向后兼容
+    ep_default = f"{ep_num:02d}" if ep_num is not None else ""
     original = os.path.splitext(os.path.basename(video_filepath))[0]
 
-    result = template.replace("{series}", series)
-    result = result.replace("{ep}", ep)
+    # 先处理 {ep:FORMAT} 格式化语法（如 {ep:03d}、{ep:02d}）
+    def _replace_ep_format(match: re.Match) -> str:
+        fmt = match.group(1)
+        if ep_num is not None:
+            try:
+                return format(ep_num, fmt)
+            except (ValueError, TypeError):
+                return ep_default
+        return ep_default
+
+    result = re.sub(r"\{ep:([^}]+)}", _replace_ep_format, template)
+    result = result.replace("{series}", series)
+    result = result.replace("{ep}", ep_default)
     result = result.replace("{original}", original)
     result = result.replace("{index}", str(index + 1))
 
