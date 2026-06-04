@@ -902,6 +902,20 @@ input[type="range"]::-webkit-slider-thumb {
     color: var(--text-primary);
 }
 
+/* 工具面板显隐 */
+.tool-panel {
+    display: none;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+.tool-panel.active {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
 /* 拖拽悬浮效果 */
 .tool-panel.drag-over::after {
     content: '📥 释放鼠标，导入视频文件';

@@ -309,61 +309,7 @@
 
                     <!-- 批量合并子标签 -->
                     <div class="tab-panel" id="panel-batch-merge" :class="{ 'active': $store.app.subtab === 'batch-merge' }">
-                        <!-- 批次导入区 -->
-                        <div x-show="!$store.app.batchId">
-                            <div class="drop-zone" @drop.prevent="window.handleBatchDrop($event)" @dragover.prevent>
-                                <div class="drop-zone-icon">📁</div>
-                                <div class="drop-zone-text">拖入多个文件夹进行批量合并</div>
-                                <div class="drop-zone-hint">每个文件夹为一集，自动扫描配对</div>
-                            </div>
-                            <div style="margin-top: 12px; display: flex; gap: 8px;">
-                                <input type="text" x-model="$store.app.batchSeriesName" placeholder="系列名称（可选）"
-                                       style="flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--window-bg); color: var(--text-color);">
-                                <button class="btn btn-secondary" @click="window.selectBatchFolders()">📂 选择文件夹</button>
-                            </div>
-                        </div>
-
-                        <!-- 批次信息 -->
-                        <div x-show="$store.app.batchId" style="margin-top: 16px;">
-                            <div class="config-card">
-                                <h4>📦 批次信息</h4>
-                                <div style="font-size: 12px; color: var(--text-muted);">
-                                    <div>批次 ID: <span x-text="$store.app.batchId"></span></div>
-                                    <div>任务数: <span x-text="$store.app.batchTaskCount"></span></div>
-                                </div>
-                            </div>
-
-                            <!-- 命名模板 -->
-                            <div class="config-card" style="margin-top: 12px;">
-                                <h4>📝 命名模板</h4>
-                                <input type="text" x-model="$store.app.batchTemplate"
-                                       style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--window-bg); color: var(--text-color);"
-                                       @input="window.debouncePreview()">
-                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                    变量: {series} 系列名, {ep} 集数, {ep:03d} 三位序号
-                                </div>
-                                <button class="btn btn-secondary" style="margin-top: 8px;" @click="window.refreshPreview()">🔄 刷新预览</button>
-                            </div>
-
-                            <!-- 命名预览 -->
-                            <div class="config-card" style="margin-top: 12px;" x-show="$store.app.batchPreviews.length > 0">
-                                <h4>👀 命名预览</h4>
-                                <div style="max-height: 200px; overflow-y: auto;">
-                                    <template x-for="(p, i) in $store.app.batchPreviews" :key="i">
-                                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--border-color);">
-                                            <span x-text="p.video_file || p.audio_file" style="color: var(--text-muted);"></span>
-                                            <span x-text="'→ ' + p.output_name" style="color: var(--primary-color); font-weight: 600;"></span>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <!-- 操作按钮 -->
-                            <div style="margin-top: 16px; display: flex; gap: 8px;">
-                                <button class="btn btn-primary" style="flex: 1;" @click="window.startBatchMerge()">🚀 开始批量合并</button>
-                                <button class="btn btn-secondary" @click="window.clearBatch()">🗑️ 清空批次</button>
-                            </div>
-                        </div>
+                        <batch-panel></batch-panel>
                     </div>
                 </section>
 
