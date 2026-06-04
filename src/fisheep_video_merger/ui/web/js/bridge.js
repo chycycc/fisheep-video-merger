@@ -169,6 +169,9 @@ window.__onBridgeMessage = function(msg) {
                 if (data.text !== undefined) btn.textContent = data.text;
             }
             break;
+        case 'batch_scan_done':
+            if (window.handleBatchScanDone) window.handleBatchScanDone(data);
+            break;
         default:
             console.warn('[Bridge] 未知消息类型:', type, data);
     }

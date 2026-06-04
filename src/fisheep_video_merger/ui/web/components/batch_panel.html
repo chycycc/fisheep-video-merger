@@ -41,8 +41,8 @@
             <div style="max-height: 200px; overflow-y: auto;">
                 <template x-for="(p, i) in previews" :key="i">
                     <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--border-color);">
-                        <span x-text="p.video || p.audio" style="color: var(--text-muted);"></span>
-                        <span x-text="'→ ' + p.preview" style="color: var(--primary-color); font-weight: 600;"></span>
+                        <span x-text="p.video_file || p.audio_file" style="color: var(--text-muted);"></span>
+                        <span x-text="'→ ' + p.output_name" style="color: var(--primary-color); font-weight: 600;"></span>
                     </div>
                 </template>
             </div>

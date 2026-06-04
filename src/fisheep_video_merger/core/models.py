@@ -21,6 +21,7 @@ class MergeTask:
     error_message: Optional[str] = None
     is_multi_episode: bool = False
     output_path: Optional[str] = None
+    percent: int = 0  # 合并进度百分比
 
 
 @dataclass

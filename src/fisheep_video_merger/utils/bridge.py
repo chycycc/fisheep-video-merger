@@ -449,18 +449,29 @@ class UIBridge:
     # ====================================================================
 
     def batch_import(self, folders: list, series_name: str = "") -> Dict:
-        """批量导入多个文件夹"""
+        """批量导入多个文件夹（异步扫描）"""
         try:
             batch = self._batch_proc.create_batch(folders, series_name)
-            batch = self._batch_proc.scan_batch(batch.id)
-            return {
-                "status": "success",
-                "batch_id": batch.id,
-                "tasks": len(batch.tasks),
-                "pending": batch.pending,
-                "muxed": batch.muxed,
-                "series_name": batch.series_name,
-            }
+
+            def scan_worker():
+                try:
+                    result = self._batch_proc.scan_batch(batch.id)
+                    if result:
+                        self._send_message("batch_scan_done", {
+                            "batch_id": result.id,
+                            "tasks": len(result.tasks),
+                            "pending": result.pending,
+                            "muxed": result.muxed,
+                            "series_name": result.series_name,
+                        })
+                    else:
+                        self._send_message("toast", {"message": "批次扫描失败", "type": "error"})
+                except Exception as e:
+                    logger.error(f"批量扫描失败: {e}")
+                    self._send_message("toast", {"message": f"批量扫描失败: {e}", "type": "error"})
+
+            threading.Thread(target=scan_worker, daemon=True).start()
+            return {"status": "success", "batch_id": batch.id}
         except Exception as e:
             logger.error(f"批量导入失败: {e}")
             return {"status": "error", "message": str(e)}
@@ -469,6 +480,8 @@ class UIBridge:
         """预览批量命名结果"""
         try:
             previews = self._batch_proc.preview_names(batch_id, template)
+            if previews is None:
+                return {"status": "error", "message": "批次不存在"}
             return {"status": "success", "previews": previews}
         except Exception as e:
             return {"status": "error", "message": str(e)}
