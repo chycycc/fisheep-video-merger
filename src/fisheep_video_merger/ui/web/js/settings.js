@@ -833,7 +833,7 @@ export function getSelectedFiles(tool) {
 }
 
 /**
- * 运行工具任务（逐个文件处理）
+ * 运行工具任务（并发池模式）
  * @param {string} tool - 工具名称
  * @param {Function} taskFn - 单文件处理函数
  */
@@ -858,52 +858,55 @@ export function runToolTask(tool, taskFn) {
     let completed = 0;
     let failed = 0;
     const total = selectedFiles.length;
+    const concurrency = Alpine.store('settings').concurrency || 2;
 
     // 标记选中行为等待中
-    selectedFiles.forEach(file => {
-        file._status = 'waiting';
-    });
+    selectedFiles.forEach(file => { file._status = 'waiting'; });
     renderToolTable(tool);
 
-    async function processNext(i) {
-        if (i >= selectedFiles.length) {
-            if (btn) {
-                btn.textContent = '🚀 开始处理';
-                btn.disabled = false;
-            }
-            showToast(`处理完成：成功 ${completed}，失败 ${failed}`, failed > 0 ? 'warning' : 'success');
-            return;
-        }
-
-        const file = selectedFiles[i];
+    async function processFile(file) {
         file._status = 'processing';
         renderToolTable(tool);
-
         try {
             const result = await taskFn(file);
             if (result && result.status === 'success') {
                 completed++;
                 file._status = 'completed';
-                renderToolTable(tool);
             } else {
                 failed++;
                 file._status = 'failed';
                 file._error = result?.error || result?.message || '失败';
-                renderToolTable(tool);
-                console.error(`[${tool}] 失败:`, file._error);
             }
         } catch (e) {
             failed++;
             file._status = 'failed';
             file._error = String(e);
-            renderToolTable(tool);
-            console.error(`[${tool}] 异常:`, e);
         }
-
-        processNext(i + 1);
+        renderToolTable(tool);
     }
 
-    processNext(0);
+    // 并发处理池
+    async function runPool() {
+        const queue = [...selectedFiles];
+        const workers = [];
+        for (let i = 0; i < Math.min(concurrency, queue.length); i++) {
+            workers.push((async () => {
+                while (queue.length > 0) {
+                    const file = queue.shift();
+                    if (file) await processFile(file);
+                }
+            })());
+        }
+        await Promise.all(workers);
+
+        if (btn) {
+            btn.textContent = '🚀 开始处理';
+            btn.disabled = false;
+        }
+        showToast(`处理完成：成功 ${completed}，失败 ${failed}`, failed > 0 ? 'warning' : 'success');
+    }
+
+    runPool();
 }
 
 // =====================================================

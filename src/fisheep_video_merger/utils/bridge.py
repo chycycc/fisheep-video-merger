@@ -28,6 +28,7 @@ from fisheep_video_merger.utils.services.task_manager import TaskManagerService
 from fisheep_video_merger.utils.services.merge_controller import MergeControllerService
 from fisheep_video_merger.utils.services.tool_service import ToolService
 from fisheep_video_merger.utils.services.dialog_service import DialogService
+from fisheep_video_merger.core.batch import BatchProcessor
 
 logger = get_logger()
 
@@ -81,6 +82,7 @@ class UIBridge:
         self._merge_ctrl = MergeControllerService()
         self._tool_svc = ToolService()
         self._dialog_svc = DialogService()
+        self._batch_proc = BatchProcessor()
 
         # 加载历史工作状态
         self._load_workspace_state()
@@ -441,6 +443,48 @@ class UIBridge:
                 self._send_message("toast", {"message": f"添加文件失败: {e}", "type": "error"})
 
         threading.Thread(target=files_worker, daemon=True).start()
+
+    # ====================================================================
+    # 📦 批量处理 API
+    # ====================================================================
+
+    def batch_import(self, folders: list, series_name: str = "") -> Dict:
+        """批量导入多个文件夹"""
+        try:
+            batch = self._batch_proc.create_batch(folders, series_name)
+            batch = self._batch_proc.scan_batch(batch.id)
+            return {
+                "status": "success",
+                "batch_id": batch.id,
+                "tasks": len(batch.tasks),
+                "pending": batch.pending,
+                "muxed": batch.muxed,
+                "series_name": batch.series_name,
+            }
+        except Exception as e:
+            logger.error(f"批量导入失败: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def batch_preview(self, batch_id: str, template: str) -> Dict:
+        """预览批量命名结果"""
+        try:
+            previews = self._batch_proc.preview_names(batch_id, template)
+            return {"status": "success", "previews": previews}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def batch_merge(self, batch_id: str, settings: dict = None) -> Dict:
+        """启动批量合并"""
+        batch = self._batch_proc.get_batch(batch_id)
+        if not batch:
+            return {"status": "error", "message": "批次不存在"}
+        if not batch.tasks:
+            return {"status": "error", "message": "批次无任务"}
+        # 将批次任务加入合并队列
+        for task in batch.tasks:
+            self._task_mgr.add_task(task)
+        # 启动合并
+        return self.start_merging("merge", settings)
 
     # ====================================================================
     # ⚡ 合并 API

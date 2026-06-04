@@ -18,6 +18,10 @@ class TaskManagerService:
     def __init__(self):
         self.tasks: List[MergeTask] = []
 
+    def add_task(self, task: MergeTask) -> None:
+        """添加单个任务到队列"""
+        self.tasks.append(task)
+
     def rename_task(self, index: int, new_name: str) -> bool:
         """重命名任务输出文件名"""
         if 0 <= index < len(self.tasks):
