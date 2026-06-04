@@ -107,6 +107,9 @@
                     <button class="btn" data-subtab="muxed" data-parent="merge"
                             :class="{ 'active': $store.app.subtab === 'muxed' }"
                             @click="$store.app.subtab = 'muxed'">✅ 已完整</button>
+                    <button class="btn" data-subtab="batch-merge" data-parent="merge"
+                            :class="{ 'active': $store.app.subtab === 'batch-merge' }"
+                            @click="$store.app.subtab = 'batch-merge'">📦 批量合并</button>
                 </div>
 
                 <!-- 合并工具主体：表格 + 配置面板 -->
@@ -303,9 +306,14 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- 批量合并子标签 -->
+                    <div class="tab-panel" id="panel-batch-merge" :class="{ 'active': $store.app.subtab === 'batch-merge' }">
+                        <batch-panel></batch-panel>
+                    </div>
                 </section>
 
-                
+
 
                 </div> <!-- 关闭水平 flex 容器 -->
 
