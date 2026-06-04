@@ -669,3 +669,122 @@ export function selectOutputDir() {
         }
     });
 }
+
+// === 批量处理 ===
+
+/**
+ * 处理批次面板的拖拽导入事件
+ * @param {DragEvent} event - 拖拽事件
+ */
+window.handleBatchDrop = function(event) {
+    // 从拖拽事件中获取文件夹路径
+    const files = Array.from(event.dataTransfer.files);
+    const paths = files.map(f => f.path || f.name).filter(p => p);
+    if (paths.length === 0) {
+        showToast('请拖入文件夹', 'warning');
+        return;
+    }
+    window.batchImport(paths);
+};
+
+/**
+ * 通过文件夹选择对话框批量导入
+ */
+window.selectBatchFolders = function() {
+    callPython('select_folder_dialog').then(res => {
+        if (res && res.folders && res.folders.length > 0) {
+            window.batchImport(res.folders);
+        }
+    });
+};
+
+/**
+ * 批量导入文件夹到批次
+ * @param {string[]} folders - 文件夹路径列表
+ */
+window.batchImport = function(folders) {
+    // 获取系列名称（从 Alpine 组件数据中读取）
+    const panel = document.querySelector('batch-panel');
+    const seriesName = panel?.__x?.$data?.seriesName || '';
+
+    callPython('batch_import', folders, seriesName).then(res => {
+        if (res && res.status === 'success') {
+            showToast(`批量导入成功：${res.tasks} 个任务`, 'success');
+            // 更新 Alpine 数据
+            if (panel && panel.__x) {
+                panel.__x.$data.batchId = res.batch_id;
+                panel.__x.$data.taskCount = res.tasks;
+            }
+            window.refreshPreview();
+        } else {
+            showToast(`批量导入失败：${res?.message}`, 'error');
+        }
+    });
+};
+
+/**
+ * 刷新批次预览
+ */
+window.refreshPreview = function() {
+    const panel = document.querySelector('batch-panel');
+    if (!panel || !panel.__x) return;
+    const batchId = panel.__x.$data.batchId;
+    const template = panel.__x.$data.template;
+    if (!batchId) return;
+
+    callPython('batch_preview', batchId, template).then(res => {
+        if (res && res.status === 'success') {
+            panel.__x.$data.previews = res.previews;
+        }
+    });
+};
+
+/**
+ * 启动批量合并
+ */
+window.startBatchMerge = function() {
+    const panel = document.querySelector('batch-panel');
+    if (!panel || !panel.__x) return;
+    const batchId = panel.__x.$data.batchId;
+    if (!batchId) {
+        showToast('请先导入批次', 'warning');
+        return;
+    }
+
+    const settings = {
+        output_format: Alpine.store('settings').outputFormat,
+        concurrency: Alpine.store('settings').concurrency,
+        overwrite: Alpine.store('settings').overwrite,
+    };
+
+    callPython('batch_merge', batchId, settings).then(res => {
+        if (res && res.status === 'error') {
+            showToast(res.message, 'warning');
+        } else {
+            showToast('批量合并已启动', 'success');
+        }
+    });
+};
+
+/**
+ * 清空当前批次
+ */
+window.clearBatch = function() {
+    const panel = document.querySelector('batch-panel');
+    if (panel && panel.__x) {
+        panel.__x.$data.batchId = null;
+        panel.__x.$data.previews = [];
+        panel.__x.$data.taskCount = 0;
+    }
+    showToast('批次已清空', 'info');
+};
+
+// 防抖预览
+let _previewTimer = null;
+/**
+ * 防抖刷新批次预览（500ms）
+ */
+window.debouncePreview = function() {
+    clearTimeout(_previewTimer);
+    _previewTimer = setTimeout(() => window.refreshPreview(), 500);
+};
