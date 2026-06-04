@@ -699,33 +699,17 @@ window.selectBatchFolders = function() {
 };
 
 /**
- * 获取批次面板的 Alpine 数据（兼容 Alpine v2/v3）
- */
-function getBatchData() {
-    const panel = document.querySelector('batch-panel');
-    if (!panel) return null;
-    // Alpine v3: Alpine.$data(el), v2: el.__x.$data
-    if (typeof Alpine !== 'undefined' && Alpine.$data) {
-        return Alpine.$data(panel);
-    }
-    return panel.__x?.$data || null;
-}
-
-/**
  * 批量导入文件夹到批次（异步扫描）
  * @param {string[]} folders - 文件夹路径列表
  */
 window.batchImport = function(folders) {
-    const data = getBatchData();
-    const seriesName = data?.seriesName || '';
+    const store = Alpine.store('app');
+    const seriesName = store.batchSeriesName || '';
 
     callPython('batch_import', folders, seriesName).then(res => {
         if (res && res.status === 'success') {
             showToast('正在扫描文件夹...', 'info');
-            // batchId 在异步扫描完成后通过 batch_scan_done 消息设置
-            if (data) {
-                data.batchId = res.batch_id;
-            }
+            store.batchId = res.batch_id;
         } else {
             showToast(`批量导入失败：${res?.message}`, 'error');
         }
@@ -736,11 +720,9 @@ window.batchImport = function(folders) {
  * 处理批量扫描完成消息（由 bridge.js 调用）
  */
 window.handleBatchScanDone = function(data) {
-    const panelData = getBatchData();
-    if (panelData) {
-        panelData.batchId = data.batch_id;
-        panelData.taskCount = data.tasks;
-    }
+    const store = Alpine.store('app');
+    store.batchId = data.batch_id;
+    store.batchTaskCount = data.tasks;
     showToast(`批量扫描完成：${data.tasks} 个任务`, 'success');
     window.refreshPreview();
 };
@@ -749,12 +731,12 @@ window.handleBatchScanDone = function(data) {
  * 刷新批次预览
  */
 window.refreshPreview = function() {
-    const data = getBatchData();
-    if (!data || !data.batchId) return;
+    const store = Alpine.store('app');
+    if (!store.batchId) return;
 
-    callPython('batch_preview', data.batchId, data.template).then(res => {
+    callPython('batch_preview', store.batchId, store.batchTemplate).then(res => {
         if (res && res.status === 'success') {
-            data.previews = res.previews || [];
+            store.batchPreviews = res.previews || [];
         }
     });
 };
@@ -763,8 +745,8 @@ window.refreshPreview = function() {
  * 启动批量合并
  */
 window.startBatchMerge = function() {
-    const data = getBatchData();
-    if (!data || !data.batchId) {
+    const store = Alpine.store('app');
+    if (!store.batchId) {
         showToast('请先导入批次', 'warning');
         return;
     }
@@ -775,7 +757,7 @@ window.startBatchMerge = function() {
         overwrite: Alpine.store('settings').overwrite,
     };
 
-    callPython('batch_merge', data.batchId, settings).then(res => {
+    callPython('batch_merge', store.batchId, settings).then(res => {
         if (res && res.status === 'error') {
             showToast(res.message, 'warning');
         } else {
@@ -788,12 +770,10 @@ window.startBatchMerge = function() {
  * 清空当前批次
  */
 window.clearBatch = function() {
-    const data = getBatchData();
-    if (data) {
-        data.batchId = null;
-        data.previews = [];
-        data.taskCount = 0;
-    }
+    const store = Alpine.store('app');
+    store.batchId = null;
+    store.batchPreviews = [];
+    store.batchTaskCount = 0;
     showToast('批次已清空', 'info');
 };
 

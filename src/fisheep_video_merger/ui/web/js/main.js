@@ -132,6 +132,12 @@ document.addEventListener('alpine:init', () => {
         theme: localStorage.getItem('theme') || 'dark',
         configWidth: 320,
         sidebarWidth: 240,
+        // 批量处理状态
+        batchId: null,
+        batchPreviews: [],
+        batchTaskCount: 0,
+        batchSeriesName: '',
+        batchTemplate: '{series}_{ep:03d}',
         getTasksForTool(tool) {
             return window.toolFiles ? (window.toolFiles[tool] || []) : [];
         },
