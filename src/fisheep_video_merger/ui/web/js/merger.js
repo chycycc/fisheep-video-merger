@@ -702,7 +702,7 @@ window.selectBatchFolders = function() {
  * 获取批次面板的 Alpine 数据（兼容 Alpine v2/v3）
  */
 function getBatchData() {
-    const panel = document.querySelector('batch-panel');
+    const panel = document.querySelector('.batch-panel');
     if (!panel) return null;
     // Alpine v3: Alpine.$data(el), v2: el.__x.$data
     if (typeof Alpine !== 'undefined' && Alpine.$data) {
