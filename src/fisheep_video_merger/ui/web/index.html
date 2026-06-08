@@ -58,6 +58,12 @@
                     <span class="nav-icon">✂️</span>
                     <span class="nav-text">视频裁剪</span>
                 </button>
+                <button class="nav-btn" data-tool="subtitle"
+                        :class="{ 'active': $store.app.currentTool === 'subtitle' }"
+                        @click="$store.app.currentTool = 'subtitle'; window.location.hash = 'subtitle'">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-text">字幕工具</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -587,6 +593,180 @@
                 <action-bar></action-bar>
                 </div>
             </div>
+
+            <!-- ========== 工具面板：字幕工具 ========== -->
+            <div class="tool-panel" id="tool-subtitle" :class="{ 'active': $store.app.currentTool === 'subtitle' }"
+                 x-data="{ activeTab: 'adjust' }">
+                <header class="tool-header">
+                    <div>
+                        <h2>字幕工具</h2>
+                        <p class="subtitle">字幕调轴、合并、格式转换、拆分、提取、批量处理一站式完成</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="selectFilesForTool('subtitle')">📄 添加字幕文件</button>
+                    </div>
+                </header>
+
+                <!-- 子功能 Tab 栏 -->
+                <div class="subtab-bar">
+                    <button class="btn" :class="{ 'active': activeTab === 'adjust' }" @click="activeTab = 'adjust'">📐 调轴</button>
+                    <button class="btn" :class="{ 'active': activeTab === 'merge' }" @click="activeTab = 'merge'">🔗 合并</button>
+                    <button class="btn" :class="{ 'active': activeTab === 'convert' }" @click="activeTab = 'convert'">🔄 转换</button>
+                    <button class="btn" :class="{ 'active': activeTab === 'split' }" @click="activeTab = 'split'">✂️ 拆分</button>
+                    <button class="btn" :class="{ 'active': activeTab === 'extract' }" @click="activeTab = 'extract'">📤 提取</button>
+                    <button class="btn" :class="{ 'active': activeTab === 'batch' }" @click="activeTab = 'batch'">📦 批量</button>
+                </div>
+
+                <!-- 调轴参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'adjust'" x-transition>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>偏移量（秒）<span style="color: var(--text-muted); font-weight: normal;">正数延后，负数提前</span></label>
+                        <input type="number" id="subtitle-adjust-offset" step="0.1" value="0" placeholder="例如: 1.5 或 -0.8"
+                               x-model="$store.settings.toolSettings.subtitle.adjustOffset">
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-adjust-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-adjust')">📂</button>
+                        </div>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出文件名 <span style="color: var(--text-muted); font-weight: normal;">（留空则自动命名）</span></label>
+                        <input type="text" id="subtitle-adjust-output-name" placeholder="例如: adjusted_sub">
+                    </div>
+                </div>
+
+                <!-- 合并参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'merge'" x-transition>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>字幕文件 A</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-merge-file-a" placeholder="拖入或选择第一个字幕文件" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectSubtitleMergeFile('a')">📂</button>
+                        </div>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>字幕文件 B</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-merge-file-b" placeholder="拖入或选择第二个字幕文件" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectSubtitleMergeFile('b')">📂</button>
+                        </div>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>合并布局</label>
+                        <select id="subtitle-merge-layout" x-model="$store.settings.toolSettings.subtitle.mergeLayout">
+                            <option value="vertical">上下排列（A 在上，B 在下）</option>
+                            <option value="horizontal">左右排列（A 在左，B 在右）</option>
+                            <option value="interleave">逐行交错</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-merge-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-merge')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 转换参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'convert'" x-transition>
+                    <div class="tool-option-group">
+                        <label>目标格式</label>
+                        <select id="subtitle-convert-format" x-model="$store.settings.toolSettings.subtitle.convertFormat">
+                            <option value="srt">SRT（通用字幕）</option>
+                            <option value="ass">ASS（高级样式字幕）</option>
+                            <option value="ssa">SSA</option>
+                            <option value="vtt">WebVTT</option>
+                            <option value="sub">SUB</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-convert-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-convert')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 拆分参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'split'" x-transition>
+                    <div class="tool-option-group">
+                        <label>拆分规则</label>
+                        <select id="subtitle-split-rule" x-model="$store.settings.toolSettings.subtitle.splitRule">
+                            <option value="lines">按行数拆分</option>
+                            <option value="time">按时长拆分</option>
+                            <option value="regex">按正则匹配拆分</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>正则表达式 <span style="color: var(--text-muted); font-weight: normal;">（仅正则模式）</span></label>
+                        <input type="text" id="subtitle-split-regex" placeholder="例如: ^第.*章" x-model="$store.settings.toolSettings.subtitle.splitRegex">
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-split-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-split')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提取参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'extract'" x-transition>
+                    <div class="tool-option-group">
+                        <label>字幕流</label>
+                        <select id="subtitle-extract-stream" x-model="$store.settings.toolSettings.subtitle.extractStream">
+                            <option value="0">字幕流 #0</option>
+                            <option value="1">字幕流 #1</option>
+                            <option value="2">字幕流 #2</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>输出格式</label>
+                        <select id="subtitle-extract-format" x-model="$store.settings.toolSettings.subtitle.extractFormat">
+                            <option value="srt">SRT</option>
+                            <option value="ass">ASS</option>
+                            <option value="vtt">WebVTT</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-extract-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-extract')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 批量参数面板 -->
+                <div class="tool-options" x-show="activeTab === 'batch'" x-transition>
+                    <div class="tool-option-group">
+                        <label>批量操作</label>
+                        <select id="subtitle-batch-operation" x-model="$store.settings.toolSettings.subtitle.batchOperation">
+                            <option value="adjust">批量调轴</option>
+                            <option value="convert">批量转换格式</option>
+                            <option value="extract">批量提取字幕</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" style="flex: 1;">
+                        <label>输出目录</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="subtitle-batch-output-dir" placeholder="默认与源文件同目录" readonly style="flex: 1;">
+                            <button class="mini-action-btn" onclick="selectToolOutputDir('subtitle-batch')">📂</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div x-data="{ localTool: 'subtitle', actionName: '处理' }">
+                    <task-list></task-list>
+
+                    <action-bar></action-bar>
+                </div>
+            </div>
+
             <div class="tool-panel" id="tool-settings" :class="{ 'active': $store.app.currentTool === 'settings' }">
                 <header class="tool-header">
                     <div>
