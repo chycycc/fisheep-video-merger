@@ -638,7 +638,7 @@
                 </div>
 
                 <!-- 合并参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'merge'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'merge'">
                     <div class="tool-option-group" style="flex: 1;">
                         <label>字幕文件 A</label>
                         <div style="display: flex; gap: 8px;">
@@ -923,8 +923,8 @@
                             </div>
                         </div>
 
-                        <!-- Card: 基础输出 -->
-                        <div class="accordion-card">
+                        <!-- Card: 基础输出 (仅合并队列显示) -->
+                        <div class="accordion-card" x-show="$store.app.subtab === 'merge-queue'">
                             <div class="accordion-header" @click="cards.base = !cards.base">
                                 <h4>📂 输出配置</h4>
                                 <span x-text="cards.base ? '▼' : '▶'"></span>
@@ -989,7 +989,7 @@
                         </div>
                     </div>
 
-                    <div class="control-footer" style="margin-top:auto; padding-top:16px;">
+                    <div class="control-footer" style="margin-top:auto; padding-top:16px;" x-show="$store.app.subtab === 'merge-queue'">
                         <button id="global-start-btn" class="btn btn-primary btn-block"
                                 :disabled="$store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed')"
                                 :class="{ 'opacity-50 cursor-not-allowed': $store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed') }">🚀 开始当前队列任务</button>
