@@ -61,12 +61,13 @@ class UIBridge:
             "output_dir_template": "",
             "path_depth": 0,
             "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
-            "tool_output_dirs": {"convert": "", "extract": "", "compress": "", "trim": ""},
+            "tool_output_dirs": {"convert": "", "extract": "", "compress": "", "trim": "", "subtitle": ""},
             "tool_settings": {
                 "convert": {"format": "mp4", "mode": "copy"},
                 "extract": {"format": "aac", "bitrate": "192k"},
                 "compress": {"preset": "balanced", "resolution": "720p"},
-                "trim": {"mode": "reencode"}
+                "trim": {"mode": "reencode"},
+                "subtitle": {"operation": "adjust", "offset_ms": 0, "layout": "top_bottom"}
             },
             "window_x": None,
             "window_y": None,
@@ -597,6 +598,36 @@ class UIBridge:
             input_file, start_time, end_time, mode, output_dir, output_name,
             self._make_tool_progress_callback('trim')
         )
+
+    def subtitle_adjust_api(self, input_file, offset_ms, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_adjust_api(input_file, offset_ms, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_adjust_segments_api(self, input_file, segments, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_adjust_segments_api(input_file, segments, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_merge_api(self, file_a, file_b, output_dir="", output_name="", layout="top_bottom"):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(file_a)
+        return self._tool_svc.subtitle_merge_api(file_a, file_b, output_dir, output_name, layout, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_convert_api(self, input_file, target_format, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_convert_api(input_file, target_format, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_split_api(self, input_file, output_dir="", output_name="", pattern=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_split_api(input_file, output_dir, output_name, pattern or None, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_extract_api(self, input_file, output_dir="", output_name="", stream_index=0, output_format="srt"):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_extract_api(input_file, output_dir, output_name, stream_index, output_format, self._make_tool_progress_callback('subtitle'))
 
     def get_video_preview(self, filepath: str) -> Dict:
         return self._tool_svc.get_video_preview(filepath)
