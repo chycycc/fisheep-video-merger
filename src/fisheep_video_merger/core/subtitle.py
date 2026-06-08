@@ -164,6 +164,10 @@ def merge_subtitles(
         subs_a = pysubs2.load(file_a, encoding="utf-8")
         subs_b = pysubs2.load(file_b, encoding="utf-8")
 
+        # 兼容 HTML 传入的 layout 值
+        if layout in ("top_bottom", "vertical"):
+            layout = "top_bottom"
+
         if layout == "top_bottom":
             # ASS 格式：利用 margin_v 和 layer 控制上下位置
             # 先检测输出格式
