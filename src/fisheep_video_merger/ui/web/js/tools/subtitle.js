@@ -39,6 +39,24 @@ export const Subtitle = {
         });
     },
 
+    // 按片段调轴（供外部调用）
+    startSegments: (segments) => {
+        const tool = 'subtitle';
+        if (!window.toolFiles || !window.toolFiles[tool] || window.toolFiles[tool].length === 0) {
+            window.showToast('当前队列中没有文件', 'warning');
+            return;
+        }
+        const outputDir = document.getElementById('subtitle-adjust-output-dir')?.value || '';
+        const outputName = Alpine.store('settings').toolSettings.subtitle.outputName?.trim() || '';
+        const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
+        const selCount = checkedCount || window.toolFiles[tool].length;
+        const nameForBatch = selCount === 1 ? outputName : '';
+
+        window.runToolTask(tool, (file) => {
+            return window.pywebview.api.subtitle_adjust_segments_api(file.filepath, segments, outputDir, nameForBatch);
+        });
+    },
+
     startMerge: () => {
         const tool = 'subtitle';
         const fileA = document.getElementById('subtitle-merge-file-a')?.value || '';

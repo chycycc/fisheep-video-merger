@@ -134,7 +134,10 @@ document.addEventListener('alpine:init', () => {
         theme: localStorage.getItem('theme') || 'dark',
         configWidth: 320,
         sidebarWidth: 240,
+        toolFilesVersion: 0,  // 响应式计数器，文件变化时自增
         getTasksForTool(tool) {
+            // 引用 toolFilesVersion 使 Alpine 追踪依赖
+            void this.toolFilesVersion;
             return window.toolFiles ? (window.toolFiles[tool] || []) : [];
         },
     });

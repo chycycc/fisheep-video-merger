@@ -165,32 +165,13 @@ export function selectOutputDir() {
  * 设置面板初始化
  */
 export function initSettingsPanel() {
-    // 从 Python 同步设置到 UI
+    // 从 Python 同步设置到 UI（仅同步实际存在的元素）
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.get_current_settings().then(settings => {
             if (!settings) return;
             const themeSelect = document.getElementById('settings-theme');
-            const outputDir = document.getElementById('settings-output-dir');
-            const format = document.getElementById('settings-output-format');
-            const concurrency = document.getElementById('settings-concurrency');
-            const overwrite = document.getElementById('settings-overwrite');
-            const deleteSource = document.getElementById('settings-delete-source');
-
             if (themeSelect) themeSelect.value = settings.theme || 'auto';
-            if (outputDir) outputDir.value = settings.output_dir || '';
-            if (format) format.value = settings.output_format || 'mp4';
-            if (concurrency) concurrency.value = settings.concurrency || 2;
-            if (overwrite) overwrite.checked = !!settings.overwrite;
-            if (deleteSource) deleteSource.checked = !!settings.delete_allowed;
         });
-
-    }
-
-    // FFmpeg 路径检测
-    const ffmpegDisplay = document.getElementById('settings-ffmpeg-path');
-    if (ffmpegDisplay && window.pywebview && window.pywebview.api) {
-        // 用一个已知不存在的文件触发 bridge 的 ffmpeg 检测
-        ffmpegDisplay.textContent = 'ffmpeg 可用（通过 bridge 自动检测）';
     }
 
     // 主题切换
@@ -206,49 +187,8 @@ export function initSettingsPanel() {
         });
     }
 
-    // 输出目录
-    const outputDirInput = document.getElementById('settings-output-dir');
-    if (outputDirInput) {
-        outputDirInput.addEventListener('change', (e) => {
-            callPython('update_setting', 'output_dir', e.target.value);
-        });
-    }
-
-    // 输出格式
-    const formatSelect = document.getElementById('settings-output-format');
-    if (formatSelect) {
-        formatSelect.addEventListener('change', (e) => {
-            callPython('update_setting', 'output_format', e.target.value);
-        });
-    }
-
-    // 并发数
-    const concurrencyInput = document.getElementById('settings-concurrency');
-    if (concurrencyInput) {
-        concurrencyInput.addEventListener('change', (e) => {
-            let val = parseInt(e.target.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > 8) val = 8;
-            e.target.value = val;
-            callPython('update_setting', 'concurrency', val);
-        });
-    }
-
-    // 覆盖
-    const overwriteCb = document.getElementById('settings-overwrite');
-    if (overwriteCb) {
-        overwriteCb.addEventListener('change', (e) => {
-            callPython('update_setting', 'overwrite', e.target.checked);
-        });
-    }
-
-    // 删除源文件
-    const deleteCb = document.getElementById('settings-delete-source');
-    if (deleteCb) {
-        deleteCb.addEventListener('change', (e) => {
-            callPython('update_setting', 'delete_allowed', e.target.checked);
-        });
-    }
+    // 注意：输出目录、格式、并发数、覆盖、删除源文件等设置
+    // 已在合并配置面板（右侧 config panel）中管理，此处不再重复
 }
 
 /**
@@ -258,8 +198,7 @@ export function selectSettingsOutputDir() {
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.select_output_dir_dialog().then(res => {
             if (res && res.output_dir) {
-                const input = document.getElementById('settings-output-dir');
-                if (input) input.value = res.output_dir;
+                // 输出目录设置已在合并配置面板中管理
                 callPython('update_setting', 'output_dir', res.output_dir);
             }
         });
@@ -600,6 +539,7 @@ function addFilesToTool(tool, paths) {
                 if (!fileData.name) fileData.name = baseName;
                 if (!fileData.filepath) fileData.filepath = path;
                 toolFiles[tool].push(fileData);
+                if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
                 renderToolTable(tool);
                 updateToolStartButton(tool);
                 showToast(`已添加: ${baseName}`, 'success');
@@ -615,6 +555,7 @@ function addFilesToTool(tool, paths) {
                 name: path.split(/[\\/]/).pop(),
                 size: '未知',
             });
+            if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
             renderToolTable(tool);
             updateToolStartButton(tool);
         }
@@ -733,6 +674,7 @@ export function openToolFileFolder(tool, index) {
  */
 export function removeToolFile(tool, index) {
     toolFiles[tool].splice(index, 1);
+    if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
     renderToolTable(tool);
     updateToolStartButton(tool);
 }
