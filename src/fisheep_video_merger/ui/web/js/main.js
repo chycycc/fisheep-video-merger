@@ -168,7 +168,7 @@ function initTabs() {
     // Hash 路由：根据 URL hash 切换工具（使用 Alpine.store）
     function navigateFromHash() {
         const hash = window.location.hash.replace('#', '') || 'merge';
-        const validTools = ['merge', 'convert', 'extract', 'compress', 'trim', 'settings'];
+        const validTools = ['merge', 'convert', 'extract', 'compress', 'trim', 'subtitle', 'settings'];
         if (validTools.includes(hash)) {
             Alpine.store('app').currentTool = hash;
         }
