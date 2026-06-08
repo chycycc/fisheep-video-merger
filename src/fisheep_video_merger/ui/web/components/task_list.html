@@ -23,7 +23,11 @@
                 <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">原时长</th></template>
                 <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">截取范围</th></template>
                 <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
-                
+
+                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">格式</th></template>
+                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">大小</th></template>
+                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+
                 <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="80">操作</th>
             </tr>
         </thead>
@@ -33,10 +37,11 @@
                     <td colspan="10" style="border-bottom: none;">
                         <div class="empty-state">
                             <div class="empty-icon" x-text="
-                                localTool === 'convert' ? '🔄' : 
-                                localTool === 'extract' ? '🎵' : 
-                                localTool === 'compress' ? '📦' : 
-                                localTool === 'trim' ? '✂️' : '📁'
+                                localTool === 'convert' ? '🔄' :
+                                localTool === 'extract' ? '🎵' :
+                                localTool === 'compress' ? '📦' :
+                                localTool === 'trim' ? '✂️' :
+                                localTool === 'subtitle' ? '💬' : '📁'
                             "></div>
                             <h3 x-text="'拖入视频文件或点击此处选择'"></h3>
                             <p>支持 mp4 / mkv / flv / mov / avi / webm</p>
