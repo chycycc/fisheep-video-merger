@@ -11,6 +11,7 @@ import { Converter } from './tools/converter.js';
 import { Extractor } from './tools/extractor.js';
 import { Compressor } from './tools/compressor.js';
 import { Trimmer } from './tools/trimmer.js';
+import { Subtitle } from './tools/subtitle.js';
 
 import { registerComponents } from './store.js';
 
@@ -105,6 +106,7 @@ window.startToolTask = function(tool) {
     else if (tool === 'extract') Extractor.start();
     else if (tool === 'compress') Compressor.start();
     else if (tool === 'trim') Trimmer.start();
+    else if (tool === 'subtitle') Subtitle.start();
     else if (tool === 'merge') {
         const globalStartBtn = document.getElementById('global-start-btn');
         if (globalStartBtn) globalStartBtn.click();
@@ -144,13 +146,14 @@ document.addEventListener('alpine:init', () => {
         deleteSource: false,
         outputDir: '',
         // 工具输出目录
-        toolOutputDirs: { convert: '', extract: '', compress: '', trim: '' },
+        toolOutputDirs: { convert: '', extract: '', compress: '', trim: '', subtitle: '' },
         // 工具设置
         toolSettings: {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
             extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
             compress: { mode: 'crf', targetSize: '50', preset: 'balanced', resolution: '1080p', outputName: '' },
-            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, outputName: '' }
+            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, outputName: '' },
+            subtitle: { operation: 'adjust', offsetMs: 0, layout: 'top_bottom', outputName: '' }
         }
     });
 });
