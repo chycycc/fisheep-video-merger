@@ -638,7 +638,7 @@ function renderToolTable(tool) {
 
     const files = toolFiles[tool];
     if (files.length === 0) {
-        const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️' };
+        const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️', subtitle: '📝' };
         tbody.innerHTML = `
             <tr class="empty-state-row" onclick="selectFilesForTool('${tool}')" style="cursor: pointer;">
                 <td colspan="6">
