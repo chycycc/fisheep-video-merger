@@ -86,7 +86,7 @@ export function syncSettingsFromPython() {
             // 同步工具输出目录
             if (settings.tool_output_dirs) {
                 Object.assign(store.toolOutputDirs, settings.tool_output_dirs);
-                ['convert', 'extract', 'compress', 'trim'].forEach(tool => {
+                ['convert', 'extract', 'compress', 'trim', 'subtitle'].forEach(tool => {
                     const el = document.getElementById(`${tool}-output-dir`);
                     if (el && store.toolOutputDirs[tool]) el.value = store.toolOutputDirs[tool];
                 });
@@ -118,6 +118,12 @@ export function syncSettingsFromPython() {
                 if (ts.trim) {
                     const mode = document.getElementById('trim-mode');
                     if (mode) mode.value = ts.trim.mode || 'reencode';
+                }
+                if (ts.subtitle) {
+                    const op = document.getElementById('subtitle-operation');
+                    if (op) op.value = ts.subtitle.operation || 'adjust';
+                    const offset = document.getElementById('subtitle-offset');
+                    if (offset) offset.value = (ts.subtitle.offset_ms || 0) / 1000;
                 }
             }
 
