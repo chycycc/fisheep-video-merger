@@ -4,6 +4,7 @@
 """
 
 import os
+import re
 from typing import Callable, Optional
 
 from fisheep_video_merger.core.ffmpeg_runner import run_ffmpeg, ensure_output_dir, get_ffmpeg_path
@@ -85,6 +86,17 @@ def adjust_subtitle_segments(
 
     if not segments:
         return False, "未提供调轴片段"
+
+    # 校验片段参数
+    required_keys = {"start_ms", "end_ms", "offset_ms"}
+    for i, seg in enumerate(segments):
+        missing = required_keys - set(seg.keys())
+        if missing:
+            return False, f"片段 #{i} 缺少必要字段: {', '.join(sorted(missing))}"
+        if not isinstance(seg["start_ms"], (int, float)) or not isinstance(seg["end_ms"], (int, float)):
+            return False, f"片段 #{i} 的 start_ms/end_ms 必须为数值"
+        if seg["start_ms"] > seg["end_ms"]:
+            return False, f"片段 #{i} 的 start_ms({seg['start_ms']}) 不能大于 end_ms({seg['end_ms']})"
 
     if progress_callback:
         progress_callback("正在按片段调轴...")
@@ -232,6 +244,10 @@ def convert_subtitle(
     if progress_callback:
         progress_callback("正在转换格式...")
 
+    # 确保 output_path 扩展名与 target_format 一致
+    base, _ = os.path.splitext(output_path)
+    output_path = f"{base}.{fmt}"
+
     try:
         subs = pysubs2.load(input_file, encoding="utf-8")
         subs.save(output_path, encoding="utf-8")
@@ -270,7 +286,6 @@ def split_bilingual(
         (成功标志, 错误信息)
     """
     import pysubs2
-    import re
 
     err_a = ensure_output_dir(output_path_a)
     if err_a:
@@ -296,7 +311,7 @@ def split_bilingual(
         if pattern:
             lang_pattern = re.compile(pattern)
 
-        for event in subs:
+        for event_idx, event in enumerate(subs):
             # 按 \N 分割双语行（pysubs2 内部换行符为 \N）
             lines = event.text.split(r"\N")
 
@@ -307,7 +322,7 @@ def split_bilingual(
                 continue
 
             if lang_pattern:
-                # 按正则模式分类
+                # 按正则模式分类，逐行匹配
                 lines_a = []
                 lines_b = []
                 for line in lines:
@@ -317,9 +332,14 @@ def split_bilingual(
                     else:
                         lines_a.append(line)
             else:
-                # 默认：第一行归 A，第二行及之后归 B
-                lines_a = [lines[0]]
-                lines_b = [lines[1]]
+                # 默认：按事件索引奇偶整体分配（不丢弃任何行）
+                # 偶数事件归 A，奇数事件归 B
+                if event_idx % 2 == 0:
+                    lines_a = list(lines)
+                    lines_b = []
+                else:
+                    lines_a = []
+                    lines_b = list(lines)
 
             if lines_a:
                 evt_a = event.copy()
@@ -367,9 +387,6 @@ def extract_from_video(
     err = ensure_output_dir(output_path)
     if err:
         return False, err
-
-    if progress_callback:
-        progress_callback("正在提取字幕...")
 
     # 字幕流在 FFmpeg 中的映射为 s:索引
     stream_map = f"0:s:{stream_index}"
