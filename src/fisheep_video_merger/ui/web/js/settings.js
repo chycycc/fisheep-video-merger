@@ -5,6 +5,7 @@
 
 import { callPython, handleBackendResponse, syncSettingsFromPython } from './bridge.js';
 import { showToast } from './ui.js';
+import { Subtitle } from './tools/subtitle.js';
 
 /**
  * 监听配置面板中表单控件的值变化并更新到 Python
@@ -479,7 +480,7 @@ export function startSidebarResize(e) {
 // =====================================================
 
 // 各工具的任务列表缓存
-window.toolFiles = { convert: [], extract: [], compress: [], trim: [] };
+window.toolFiles = { convert: [], extract: [], compress: [], trim: [], subtitle: [] };
 const toolFiles = window.toolFiles;
 
 /**
@@ -507,7 +508,7 @@ export function updateToolProgress(tool, text, pct) {
  * 为工具面板初始化拖拽区域
  */
 export function initToolDropZones() {
-    ['convert', 'extract', 'compress', 'trim'].forEach(tool => {
+    ['convert', 'extract', 'compress', 'trim', 'subtitle'].forEach(tool => {
         const panel = document.getElementById(`tool-${tool}`);
         if (!panel) return;
 
@@ -812,6 +813,22 @@ export function initToolStartButtons() {
             runToolTask('trim', (file) => {
                 return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir, nameForBatch);
             });
+        });
+    }
+
+    // 字幕工具
+    const subtitleBtn = document.getElementById('subtitle-start-btn');
+    if (subtitleBtn) {
+        subtitleBtn.addEventListener('click', () => {
+            Subtitle.start();
+        });
+    }
+
+    // 字幕合并（独立按钮）
+    const subtitleMergeBtn = document.getElementById('subtitle-merge-btn');
+    if (subtitleMergeBtn) {
+        subtitleMergeBtn.addEventListener('click', () => {
+            Subtitle.startMerge();
         });
     }
 }
