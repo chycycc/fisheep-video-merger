@@ -7,7 +7,7 @@ export const Subtitle = {
         }
 
         const operation = Alpine.store('settings').toolSettings.subtitle.operation;
-        const outputDir = document.getElementById('subtitle-output-dir')?.value || '';
+        const outputDir = document.getElementById('subtitle-adjust-output-dir')?.value || '';
         const outputName = Alpine.store('settings').toolSettings.subtitle.outputName?.trim() || '';
 
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
@@ -17,20 +17,20 @@ export const Subtitle = {
         window.runToolTask(tool, (file) => {
             switch (operation) {
                 case 'adjust': {
-                    const offsetMs = parseFloat(document.getElementById('subtitle-offset')?.value || '0') * 1000;
+                    const offsetMs = parseFloat(document.getElementById('subtitle-adjust-offset')?.value || '0') * 1000;
                     return window.pywebview.api.subtitle_adjust_api(file.filepath, offsetMs, outputDir, nameForBatch);
                 }
                 case 'convert': {
-                    const format = document.getElementById('subtitle-format')?.value || 'srt';
+                    const format = document.getElementById('subtitle-convert-format')?.value || 'srt';
                     return window.pywebview.api.subtitle_convert_api(file.filepath, format, outputDir, nameForBatch);
                 }
                 case 'extract': {
-                    const streamIndex = parseInt(document.getElementById('subtitle-stream')?.value || '0');
+                    const streamIndex = parseInt(document.getElementById('subtitle-extract-stream')?.value || '0');
                     const format = document.getElementById('subtitle-extract-format')?.value || 'srt';
                     return window.pywebview.api.subtitle_extract_api(file.filepath, outputDir, nameForBatch, streamIndex, format);
                 }
                 case 'split': {
-                    const pattern = document.getElementById('subtitle-split-pattern')?.value || '';
+                    const pattern = document.getElementById('subtitle-split-regex')?.value || '';
                     return window.pywebview.api.subtitle_split_api(file.filepath, outputDir, nameForBatch, pattern);
                 }
                 default:
@@ -48,7 +48,7 @@ export const Subtitle = {
             return;
         }
         const layout = document.getElementById('subtitle-merge-layout')?.value || 'top_bottom';
-        const outputDir = document.getElementById('subtitle-output-dir')?.value || '';
+        const outputDir = document.getElementById('subtitle-merge-output-dir')?.value || '';
         const outputName = Alpine.store('settings').toolSettings.subtitle.outputName?.trim() || '';
 
         window.pywebview.api.subtitle_merge_api(fileA, fileB, outputDir, outputName, layout).then(result => {
