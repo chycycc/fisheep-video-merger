@@ -14,6 +14,14 @@ from fisheep_video_merger.core.converter import convert_single
 from fisheep_video_merger.core.extractor import extract_audio
 from fisheep_video_merger.core.compressor import compress_video
 from fisheep_video_merger.core.trimmer import trim_video
+from fisheep_video_merger.core.subtitle import (
+    adjust_subtitle,
+    adjust_subtitle_segments,
+    merge_subtitles,
+    convert_subtitle,
+    split_bilingual,
+    extract_from_video,
+)
 from fisheep_video_merger.utils.ffprobe import get_video_detail, extract_screenshot
 from fisheep_video_merger.utils.logger import get_logger
 
@@ -116,6 +124,165 @@ class ToolService:
         accurate_mode = (mode == "accurate")
         success, err = trim_video(input_file, output_path, start_time, end_time, accurate_mode=accurate_mode, progress_callback=progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+
+    # ── 字幕工具 ──────────────────────────────────────────
+
+    def subtitle_adjust_api(self, input_file: str, offset_ms: int,
+                            output_dir: str = "", output_name: str = "",
+                            progress_callback=None) -> Dict:
+        """字幕整体调轴"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0] + "_adjusted"
+        ext = os.path.splitext(input_file)[1]
+        output_path = os.path.join(output_dir, f"{name}{ext}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = adjust_subtitle(input_file, output_path, offset_ms, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"字幕调轴异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def subtitle_adjust_segments_api(self, input_file: str, segments: list,
+                                     output_dir: str = "", output_name: str = "",
+                                     progress_callback=None) -> Dict:
+        """字幕按片段调轴"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0] + "_adjusted"
+        ext = os.path.splitext(input_file)[1]
+        output_path = os.path.join(output_dir, f"{name}{ext}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = adjust_subtitle_segments(input_file, output_path, segments, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"字幕按片段调轴异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def subtitle_merge_api(self, file_a: str, file_b: str,
+                           output_dir: str = "", output_name: str = "",
+                           layout: str = "top_bottom",
+                           progress_callback=None) -> Dict:
+        """字幕合并（双语）"""
+        if not os.path.exists(file_a):
+            return {"status": "error", "message": f"文件不存在: {file_a}"}
+        if not os.path.exists(file_b):
+            return {"status": "error", "message": f"文件不存在: {file_b}"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(file_a)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name_a = os.path.splitext(os.path.basename(file_a))[0]
+            name_b = os.path.splitext(os.path.basename(file_b))[0]
+            name = f"{name_a}+{name_b}_merged"
+        ext = os.path.splitext(file_a)[1]
+        output_path = os.path.join(output_dir, f"{name}{ext}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = merge_subtitles(file_a, file_b, output_path, layout, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"字幕合并异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def subtitle_convert_api(self, input_file: str, target_format: str,
+                             output_dir: str = "", output_name: str = "",
+                             progress_callback=None) -> Dict:
+        """字幕格式转换"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        fmt = target_format.lower().lstrip(".")
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0]
+        output_path = os.path.join(output_dir, f"{name}.{fmt}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = convert_subtitle(input_file, output_path, target_format, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"字幕格式转换异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def subtitle_split_api(self, input_file: str,
+                           output_dir: str = "", output_name: str = "",
+                           pattern=None, progress_callback=None) -> Dict:
+        """拆分双语字幕"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        ext = os.path.splitext(input_file)[1]
+        if output_name:
+            base_name = os.path.splitext(output_name)[0]
+        else:
+            base_name = os.path.splitext(os.path.basename(input_file))[0]
+        output_path_a = os.path.join(output_dir, f"{base_name}_A{ext}")
+        output_path_b = os.path.join(output_dir, f"{base_name}_B{ext}")
+        output_path_a = self._resolve_conflict(output_path_a)
+        output_path_b = self._resolve_conflict(output_path_b)
+
+        try:
+            success, err = split_bilingual(input_file, output_path_a, output_path_b, pattern, progress_callback)
+            return {
+                "status": "success" if success else "error",
+                "output_path_a": output_path_a,
+                "output_path_b": output_path_b,
+                "message": err,
+            }
+        except Exception as e:
+            logger.error(f"双语字幕拆分异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def subtitle_extract_api(self, input_file: str,
+                             output_dir: str = "", output_name: str = "",
+                             stream_index: int = 0, output_format: str = "srt",
+                             progress_callback=None) -> Dict:
+        """从视频提取内嵌字幕"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        fmt = output_format.lower().lstrip(".")
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0]
+        output_path = os.path.join(output_dir, f"{name}.{fmt}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = extract_from_video(input_file, output_path, stream_index, progress_callback)
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"字幕提取异常: {e}")
+            return {"status": "error", "message": str(e)}
 
     def get_video_preview(self, filepath: str) -> Dict:
         """获取视频预览信息（截图 + 元数据，并行执行）"""
