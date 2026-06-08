@@ -35,6 +35,9 @@ export function selectQueueRow(index, event) {
 
     const store = Alpine.store('app');
 
+    // 切换到合并队列时，清除 muxed/pending 预览文件标记
+    window._currentPreviewFile = null;
+
     // 辅助函数：清除所有行的 active-row 样式
     function clearAllActiveRows() {
         document.querySelectorAll('#queue-tbody tr').forEach(tr => {
