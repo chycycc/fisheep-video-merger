@@ -513,6 +513,9 @@ class UIBridge:
         if settings:
             # Update global settings from frontend
             self.settings.update(settings)
+            # 前端发送 output_name_template，同步到 naming_template
+            if "output_name_template" in settings:
+                self.settings["naming_template"] = settings["output_name_template"]
             self._save_workspace_state()
 
         est = self._merge_ctrl.get_merge_estimate(self.tasks, int(self.settings.get("concurrency", 2)), self.settings)
@@ -758,7 +761,7 @@ class UIBridge:
 
     def _apply_naming_template(self):
         """如果有命名模板设置，重新生成所有任务的输出名"""
-        template = self.settings.get("naming_template", "").strip()
+        template = (self.settings.get("naming_template") or "").strip()
         if not template:
             return
         for i, task in enumerate(self.tasks):
@@ -770,7 +773,7 @@ class UIBridge:
         """生成前端渲染所需的规格数据"""
         tasks_list = []
         for i, t in enumerate(self.tasks):
-            fmt = self.settings.get("output_format", "mp4").upper()
+            fmt = (self.settings.get("output_format") or "mp4").upper()
             size_str = "未知"
             if task_video := getattr(t, "video_file", None):
                 if os.path.exists(task_video):

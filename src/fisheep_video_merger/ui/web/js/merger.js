@@ -9,6 +9,7 @@ import { showToast } from './ui.js';
 // 预览请求计数器（防竞态）
 window._previewDebounce = null;
 window._previewRequestId = 0;
+window._currentPreviewFile = null;  // 当前预览的文件路径（muxed/pending）
 
 // 拖拽排序起始索引
 window._dragFromIndex = null;
@@ -23,7 +24,7 @@ export function toggleConfigPanel() {
 
 /**
  * 单击列表行，更新右侧的预计输出路径预览 + 视频预览
- * 同时同步行首 checkbox 选中状态
+ * 同时同步行首 checkbox 选中状态与 active-row 样式
  * @param {number} index - 任务索引
  * @param {Event} event - 点击事件
  */
@@ -32,31 +33,76 @@ export function selectQueueRow(index, event) {
         return;
     }
 
-    // 如果点击的是 checkbox，同步 active-row 样式
+    const store = Alpine.store('app');
+
+    // 辅助函数：清除所有行的 active-row 样式
+    function clearAllActiveRows() {
+        document.querySelectorAll('#queue-tbody tr').forEach(tr => {
+            tr.classList.remove('active-row');
+        });
+    }
+
+    // 辅助函数：设置指定行的 active-row 样式
+    function setActiveRow(idx) {
+        const tr = document.getElementById(`queue-row-${idx}`);
+        if (tr) tr.classList.add('active-row');
+    }
+
+    // 如果点击的是 checkbox，同步选中状态
     if (event && event.target.type === 'checkbox') {
+        const isChecked = event.target.checked;
         const tr = event.target.closest('tr');
-        if (tr) {
-            tr.classList.toggle('active-row', event.target.checked);
+        if (tr) tr.classList.toggle('active-row', isChecked);
+        if (isChecked) {
+            store.selectedTaskIndex = index;
+            store.configPanelCollapsed = false;
+            window.loadVideoPreview(index);
+        } else {
+            // 检查是否还有其他选中的行
+            const anyChecked = document.querySelectorAll('#queue-tbody .row-checkbox:checked').length > 0;
+            if (!anyChecked) {
+                store.selectedTaskIndex = -1;
+                window.hideVideoPreview();
+            }
         }
+        window.updatePathPreview();
         return;
     }
 
-    // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
-    const store = Alpine.store('app');
-    // 再次点击同一行则取消选中 (使用 == 防止类型不一致)
+    // 点击行：切换选中状态
     if (store.selectedTaskIndex == index) {
+        // 再次点击同一行则取消选中
         store.selectedTaskIndex = -1;
-        // 同步取消 checkbox
-        const cb = document.querySelector(`#queue-row-${index} .row-checkbox`);
-        if (cb) cb.checked = false;
+        clearAllActiveRows();
+        // 同步取消所有 checkbox
+        document.querySelectorAll('#queue-tbody .row-checkbox').forEach(cb => cb.checked = false);
         window.hideVideoPreview();
         window.updatePathPreview();
         return;
     }
+
     store.selectedTaskIndex = index;
-    // 同步勾选 checkbox
+
+    // 同步：清除所有 active-row，设置当前行
+    clearAllActiveRows();
+    setActiveRow(index);
+
+    // 同步：勾选当前行 checkbox
     const cb = document.querySelector(`#queue-row-${index} .row-checkbox`);
     if (cb) cb.checked = true;
+
+    // 自动展开配置面板显示预览
+    store.configPanelCollapsed = false;
+
+    // 自动填充输出目录为视频所在目录
+    const task = store.tasks[index];
+    if (task && task.source_dir) {
+        const outputDirInput = document.getElementById('global-output-dir');
+        if (outputDirInput && !outputDirInput.value.trim()) {
+            outputDirInput.value = task.source_dir;
+        }
+    }
+
     // 自动展开配置面板显示预览
     store.configPanelCollapsed = false;
 
@@ -70,10 +116,17 @@ export function selectQueueRow(index, event) {
  */
 export function loadPreviewForFile(filepath) {
     if (!filepath) return;
+    // 记录当前预览文件
+    window._currentPreviewFile = filepath;
     // 自动展开配置面板
     Alpine.store('app').configPanelCollapsed = false;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'block';
+
+    // 立即显示文件路径
+    const pathLabel = document.getElementById('detail-path-label');
+    if (pathLabel) pathLabel.textContent = filepath;
+
     const reqId = ++window._previewRequestId;
     callPython('get_video_preview', filepath).then(res => {
         if (reqId !== window._previewRequestId) return;
@@ -103,6 +156,7 @@ export function loadPreviewForFile(filepath) {
  * 隐藏预览面板
  */
 export function hideVideoPreview() {
+    window._currentPreviewFile = null;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'none';
     const img = document.getElementById('preview-img');
@@ -198,6 +252,12 @@ export function updatePathPreview() {
     const label = document.getElementById('detail-path-label');
     const filenameInput = document.getElementById('global-output-name');
     if (!label) return;
+
+    // 如果当前有预览的 muxed/pending 文件，优先显示其路径
+    if (window._currentPreviewFile) {
+        label.textContent = window._currentPreviewFile;
+        return;
+    }
 
     const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
     const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');

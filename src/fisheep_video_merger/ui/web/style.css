@@ -1658,7 +1658,6 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 
-
 /* Master-Detail Layout (60:40) */
 .workspace-grid {
     display: flex;

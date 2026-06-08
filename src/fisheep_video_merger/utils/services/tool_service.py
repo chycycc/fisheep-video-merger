@@ -347,7 +347,7 @@ class ToolService:
         }
 
     def get_file_info(self, filepath: str) -> Dict:
-        """获取音频文件详细信息（编码/码率/声道/采样率/时长）"""
+        """获取媒体文件详细信息（编码/码率/声道/采样率/时长）"""
         if not os.path.exists(filepath):
             return {"status": "error", "message": "文件不存在"}
         try:
@@ -357,26 +357,51 @@ class ToolService:
                 return {"status": "error", "message": "ffprobe 调用失败"}
 
             audio_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "audio"]
+            video_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "video"]
             fmt = data.get("format", {})
+
+            # 时长优先从音频流获取，回退到 format 级别
+            duration = 0
+            if audio_streams:
+                duration = float(audio_streams[0].get("duration", 0) or 0)
+            if duration <= 0:
+                duration = float(fmt.get("duration", 0) or 0)
+            if duration <= 0 and video_streams:
+                duration = float(video_streams[0].get("duration", 0) or 0)
+
+            bitrate_raw = 0
+            result = {
+                "status": "success",
+                "duration": duration,
+                "duration_str": self._format_duration(duration) if duration > 0 else None,
+                "name": os.path.basename(filepath),
+                "filepath": filepath,
+                "size": f"{os.path.getsize(filepath) / (1024*1024):.1f} MB",
+            }
 
             if audio_streams:
                 a = audio_streams[0]
-                duration = float(a.get("duration", 0) or fmt.get("duration", 0) or 0)
                 bitrate_raw = a.get("bit_rate") or fmt.get("bit_rate") or 0
-                return {
-                    "status": "success",
+                result.update({
                     "codec": a.get("codec_name", "未知"),
                     "bitrate": int(bitrate_raw) // 1000 if bitrate_raw else 0,
                     "channels": a.get("channels", 0),
                     "channel_layout": a.get("channel_layout", "未知"),
                     "sample_rate": a.get("sample_rate", "未知"),
-                    "duration": duration,
-                    "duration_str": self._format_duration(duration) if duration > 0 else None,
-                    "name": os.path.basename(filepath),
-                    "filepath": filepath,
-                    "size": f"{os.path.getsize(filepath) / (1024*1024):.1f} MB",
-                }
-            return {"status": "error", "message": "未找到音频流"}
+                })
+            elif video_streams:
+                # 无音频流时，返回视频编码信息
+                v = video_streams[0]
+                bitrate_raw = v.get("bit_rate") or fmt.get("bit_rate") or 0
+                result.update({
+                    "codec": v.get("codec_name", "未知"),
+                    "bitrate": int(bitrate_raw) // 1000 if bitrate_raw else 0,
+                    "channels": 0,
+                    "channel_layout": "无音频",
+                    "sample_rate": "N/A",
+                })
+
+            return result
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

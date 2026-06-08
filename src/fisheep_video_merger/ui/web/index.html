@@ -142,7 +142,6 @@
                                     <!-- Alpine x-for: 合并队列 -->
                                     <template x-for="(task, index) in $store.app.tasks" :key="index">
                                         <tr :id="'queue-row-' + index"
-                                            :class="{ 'active-row': $store.app.selectedTaskIndex == index, 'selected': task.status === 'completed' }"
                                             @click="selectQueueRow(index, $event)"
                                             draggable="true"
                                             @dragstart="onTaskDragStart(index, $event)"
@@ -618,7 +617,7 @@
                 </div>
 
                 <!-- 调轴参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'adjust'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'adjust'">
                     <div class="tool-option-group" style="flex: 1;">
                         <label>偏移量（秒）<span style="color: var(--text-muted); font-weight: normal;">正数延后，负数提前</span></label>
                         <input type="number" id="subtitle-adjust-offset" step="0.1" value="0" placeholder="例如: 1.5 或 -0.8"
@@ -671,7 +670,7 @@
                 </div>
 
                 <!-- 转换参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'convert'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'convert'">
                     <div class="tool-option-group">
                         <label>目标格式</label>
                         <select id="subtitle-convert-format" x-model="$store.settings.toolSettings.subtitle.convertFormat">
@@ -692,7 +691,7 @@
                 </div>
 
                 <!-- 拆分参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'split'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'split'">
                     <div class="tool-option-group">
                         <label>拆分规则</label>
                         <select id="subtitle-split-rule" x-model="$store.settings.toolSettings.subtitle.splitRule">
@@ -715,7 +714,7 @@
                 </div>
 
                 <!-- 提取参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'extract'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'extract'">
                     <div class="tool-option-group">
                         <label>字幕流</label>
                         <select id="subtitle-extract-stream" x-model="$store.settings.toolSettings.subtitle.extractStream">
@@ -742,7 +741,7 @@
                 </div>
 
                 <!-- 批量参数面板 -->
-                <div class="tool-options" x-show="activeTab === 'batch'" x-transition>
+                <div class="tool-options" x-show="activeTab === 'batch'">
                     <div class="tool-option-group">
                         <label>批量操作</label>
                         <select id="subtitle-batch-operation" x-model="$store.settings.toolSettings.subtitle.batchOperation">
@@ -971,8 +970,8 @@
                             </div>
                         </div>
                         
-                        <!-- Card: 模板与进阶 -->
-                        <div class="accordion-card">
+                        <!-- Card: 模板与进阶 (仅合并队列显示) -->
+                        <div class="accordion-card" x-show="$store.app.subtab === 'merge-queue'">
                             <div class="accordion-header" @click="cards.adv = !cards.adv">
                                 <h4>⚙️ 模板管理 (进阶)</h4>
                                 <span x-text="cards.adv ? '▼' : '▶'"></span>
