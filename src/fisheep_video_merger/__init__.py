@@ -1,2 +1,2 @@
-__version__ = "0.5.5"
+__version__ = "0.8.0"
 __appname__ = "Fisheep Video Merger"
