@@ -303,6 +303,12 @@ function initMockOrBridge() {
             const outputName = document.getElementById('global-output-name')?.value?.trim() || '';
 
             if (tool === 'merge') {
+                // 检查是否有选中的任务
+                const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+                if (checkedBoxes.length === 0) {
+                    showToast('请先勾选要合并的任务', 'warning');
+                    return;
+                }
                 let settings = {
                     output_name_template: outputName,
                     output_dir_template: outputDir,

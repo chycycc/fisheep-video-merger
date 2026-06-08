@@ -23,11 +23,21 @@ export function toggleConfigPanel() {
 
 /**
  * 单击列表行，更新右侧的预计输出路径预览 + 视频预览
+ * 同时同步行首 checkbox 选中状态
  * @param {number} index - 任务索引
  * @param {Event} event - 点击事件
  */
 export function selectQueueRow(index, event) {
-    if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
+    if (event && event.target.tagName === 'BUTTON') {
+        return;
+    }
+
+    // 如果点击的是 checkbox，同步 active-row 样式
+    if (event && event.target.type === 'checkbox') {
+        const tr = event.target.closest('tr');
+        if (tr) {
+            tr.classList.toggle('active-row', event.target.checked);
+        }
         return;
     }
 
@@ -36,11 +46,17 @@ export function selectQueueRow(index, event) {
     // 再次点击同一行则取消选中 (使用 == 防止类型不一致)
     if (store.selectedTaskIndex == index) {
         store.selectedTaskIndex = -1;
+        // 同步取消 checkbox
+        const cb = document.querySelector(`#queue-row-${index} .row-checkbox`);
+        if (cb) cb.checked = false;
         window.hideVideoPreview();
         window.updatePathPreview();
         return;
     }
     store.selectedTaskIndex = index;
+    // 同步勾选 checkbox
+    const cb = document.querySelector(`#queue-row-${index} .row-checkbox`);
+    if (cb) cb.checked = true;
     // 自动展开配置面板显示预览
     store.configPanelCollapsed = false;
 
@@ -702,13 +718,21 @@ window.selectBatchFolders = function() {
  * 获取批次面板的 Alpine 数据（兼容 Alpine v2/v3）
  */
 function getBatchData() {
+    // 优先查找带有 x-data 的内部 div（Alpine 绑定的实际元素）
+    const xDataDiv = document.querySelector('.batch-panel div[x-data]');
+    if (xDataDiv) {
+        if (typeof Alpine !== 'undefined' && Alpine.$data) {
+            return Alpine.$data(xDataDiv);
+        }
+        return xDataDiv._x_dataStack?.[0] || xDataDiv.__x?.$data || null;
+    }
+    // 回退：查找 .batch-panel 本身
     const panel = document.querySelector('.batch-panel');
     if (!panel) return null;
-    // Alpine v3: Alpine.$data(el), v2: el.__x.$data
     if (typeof Alpine !== 'undefined' && Alpine.$data) {
         return Alpine.$data(panel);
     }
-    return panel.__x?.$data || null;
+    return panel._x_dataStack?.[0] || panel.__x?.$data || null;
 }
 
 /**
@@ -719,16 +743,21 @@ window.batchImport = function(folders) {
     const data = getBatchData();
     const seriesName = data?.seriesName || '';
 
+    showToast('正在识别文件夹...', 'info');
+
     callPython('batch_import', folders, seriesName).then(res => {
         if (res && res.status === 'success') {
-            showToast('正在扫描文件夹...', 'info');
-            // batchId 在异步扫描完成后通过 batch_scan_done 消息设置
-            if (data) {
-                data.batchId = res.batch_id;
+            showToast('正在扫描文件夹内容...', 'info');
+            // 重新获取 Alpine 数据引用（防止过期引用）
+            const batchData = getBatchData();
+            if (batchData) {
+                batchData.batchId = res.batch_id;
             }
         } else {
-            showToast(`批量导入失败：${res?.message}`, 'error');
+            showToast(`批量导入失败：${res?.message || '未知错误'}`, 'error');
         }
+    }).catch(err => {
+        showToast(`批量导入异常：${err}`, 'error');
     });
 };
 

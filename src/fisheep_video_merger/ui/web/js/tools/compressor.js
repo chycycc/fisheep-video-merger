@@ -12,7 +12,7 @@ export const Compressor = {
         const preset = mode === 'twopass' ? `target:${targetSize}` : Alpine.store('settings').toolSettings.compress.preset;
 
         const outputDir = document.getElementById('compress-output-dir')?.value || '';
-        const outputName = Alpine.store('settings').toolSettings.compress.outputName.trim();
+        const outputName = (Alpine.store('settings').toolSettings.compress.outputName || '').trim();
         
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
         const selCount = checkedCount || window.toolFiles[tool].length;

@@ -677,6 +677,10 @@ export function removeToolFile(tool, index) {
     if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
     renderToolTable(tool);
     updateToolStartButton(tool);
+    // 裁剪工具：文件全部移除时重置时间轴
+    if (tool === 'trim' && toolFiles[tool].length === 0 && window.resetTrimTimeline) {
+        window.resetTrimTimeline();
+    }
 }
 
 /**
@@ -991,8 +995,6 @@ export function initTrimTimeline() {
         trimDuration = duration;
         trimStartSec = 0;
         trimEndSec = duration;
-        const timeline = document.getElementById('trim-timeline');
-        if (timeline) timeline.style.display = 'block';
         const hint = document.getElementById('trim-duration-hint');
         if (hint) {
             const h = Math.floor(duration / 3600);
@@ -1002,6 +1004,29 @@ export function initTrimTimeline() {
         }
         updateVisual();
     };
+
+    // 重置时间轴到默认状态（无视频时）
+    window.resetTrimTimeline = function() {
+        trimDuration = 0;
+        trimStartSec = 0;
+        trimEndSec = 0;
+        const hint = document.getElementById('trim-duration-hint');
+        if (hint) hint.textContent = '';
+        // 重置手柄位置到默认（全选范围）
+        const handleStart = document.getElementById('trim-handle-start');
+        const handleEnd = document.getElementById('trim-handle-end');
+        const selected = document.getElementById('trim-selected');
+        if (handleStart) handleStart.style.left = '0%';
+        if (handleEnd) handleEnd.style.left = '100%';
+        if (selected) { selected.style.left = '0%'; selected.style.width = '100%'; }
+        document.getElementById('trim-label-start').textContent = '00:00:00';
+        document.getElementById('trim-label-end').textContent = '00:00:00';
+        document.getElementById('trim-start').value = '00:00:00';
+        document.getElementById('trim-end').value = '';
+    };
+
+    // 初始化时设置默认状态
+    window.resetTrimTimeline();
 }
 
 /**

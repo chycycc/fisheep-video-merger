@@ -430,6 +430,12 @@ body {
     flex-direction: column;
 }
 
+/* 批量合并面板内容溢出时可滚动 */
+#panel-batch-merge {
+    overflow-y: auto;
+    padding: 16px;
+}
+
 /* === 8. 现代无边框隔行变色表格 (Data Table) === */
 .table-container {
     flex: 1;
@@ -1151,8 +1157,8 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 
 .trim-handle-end {
-    right: 0;
-    transform: translateX(50%);
+    left: 100%;
+    transform: translateX(-50%);
 }
 
 .trim-handle-start:hover {
@@ -1160,7 +1166,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 
 .trim-handle-end:hover {
-    transform: translateX(50%) scaleX(1.3);
+    transform: translateX(-50%) scaleX(1.3);
 }
 
 .trim-time-labels {
@@ -1776,7 +1782,7 @@ body.is-resizing * {
     gap: 12px;
 }
 
-/* === ȫ��������� === */
+/* === ȫ��������� === */
 .global-tooltip {
     position: fixed;
     background-color: var(--alt-base-bg, rgba(28, 29, 41, 0.95));
