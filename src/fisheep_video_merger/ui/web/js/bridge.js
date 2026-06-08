@@ -120,9 +120,7 @@ export function syncSettingsFromPython() {
                     if (mode) mode.value = ts.trim.mode || 'reencode';
                 }
                 if (ts.subtitle) {
-                    const op = document.getElementById('subtitle-operation');
-                    if (op) op.value = ts.subtitle.operation || 'adjust';
-                    const offset = document.getElementById('subtitle-offset');
+                    const offset = document.getElementById('subtitle-adjust-offset');
                     if (offset) offset.value = (ts.subtitle.offset_ms || 0) / 1000;
                 }
             }
