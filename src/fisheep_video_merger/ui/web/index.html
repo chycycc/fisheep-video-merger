@@ -354,6 +354,9 @@
                             <option value="mkv">MKV</option>
                             <option value="webm">WebM</option>
                             <option value="avi">AVI</option>
+                            <option value="mov">MOV</option>
+                            <option value="flv">FLV</option>
+                            <option value="ts">TS</option>
                         </select>
                     </div>
                     <div class="tool-option-group">
@@ -361,6 +364,8 @@
                         <select id="convert-mode" x-model="$store.settings.toolSettings.convert.mode" @change="callPython('update_tool_setting', 'convert', 'mode', $event.target.value)">
                             <option value="copy">快速流复制（无损，秒级）</option>
                             <option value="recode">重编码（兼容性更好）</option>
+                            <option value="av1">AV1 重编码（最新压缩，速度较慢）</option>
+                            <option value="vp9">VP9 重编码（YouTube 标准）</option>
                         </select>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">

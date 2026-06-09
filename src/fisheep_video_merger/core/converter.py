@@ -39,21 +39,39 @@ def convert_single(
     if mode == "copy":
         cmd.extend(["-c", "copy"])
     else:
-        # H.264 or HEVC (H.265)
-        vcodec = "libx265" if mode == "hevc" else "libx264"
+        # 编码器映射：mode → vcodec
+        codec_map = {
+            "recode": "libx264",
+            "h264": "libx264",
+            "hevc": "libx265",
+            "av1": "libsvtav1",
+            "vp9": "libvpx-vp9",
+        }
+        vcodec = codec_map.get(mode, "libx264")
         hw_encoder = get_hw_encoder()
-        
+
         # 仅当使用 h264 且存在硬件加速时使用硬编（暂不引入复杂的 h265 硬编检测）
-        if mode == "h264" and hw_encoder:
+        if mode in ("h264", "recode") and hw_encoder:
             vcodec = hw_encoder
 
-        cmd.extend([
-            "-c:v", vcodec,
-            "-preset", preset,
-            "-crf", str(crf),
-            "-c:a", "aac",
-            "-b:a", "192k"
-        ])
+        if mode == "vp9":
+            # VP9 不支持 -preset，使用 -deadline 和 -cpu-used 替代
+            cmd.extend([
+                "-c:v", vcodec,
+                "-deadline", "good",
+                "-cpu-used", "2",
+                "-crf", str(crf),
+                "-c:a", "libopus",
+                "-b:a", "192k"
+            ])
+        else:
+            cmd.extend([
+                "-c:v", vcodec,
+                "-preset", preset,
+                "-crf", str(crf),
+                "-c:a", "aac",
+                "-b:a", "192k"
+            ])
 
     cmd.extend(["-y", output_path])
 
