@@ -15,6 +15,7 @@ from fisheep_video_merger.core.extractor import extract_audio
 from fisheep_video_merger.core.audio_converter import convert_audio
 from fisheep_video_merger.core.compressor import compress_video
 from fisheep_video_merger.core.trimmer import trim_video
+from fisheep_video_merger.core.audio_trimmer import trim_audio
 from fisheep_video_merger.utils.ffprobe import get_video_detail, extract_screenshot
 from fisheep_video_merger.utils.logger import get_logger
 
@@ -187,6 +188,42 @@ class ToolService:
             progress_callback=progress_callback
         )
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+
+    def trim_audio_api(self, input_file: str, start_time: str, end_time: str, mode: str,
+                       output_dir: str = "", output_name: str = "",
+                       output_format: str = "", bitrate: str = "192k",
+                       progress_callback=None) -> Dict:
+        """音频裁剪"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0] + "_trimmed"
+        # 输出格式：优先使用指定格式，否则使用源文件扩展名
+        if output_format:
+            ext = "m4a" if output_format == "aac" else output_format
+        else:
+            ext = os.path.splitext(input_file)[1].lstrip(".")
+        output_path = os.path.join(output_dir, f"{name}.{ext}")
+        output_path = self._resolve_conflict(output_path)
+
+        accurate_mode = (mode == "accurate")
+        try:
+            success, err = trim_audio(
+                input_file, output_path, start_time, end_time,
+                accurate_mode=accurate_mode,
+                output_format=output_format,
+                bitrate=bitrate,
+                progress_callback=progress_callback
+            )
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"音频裁剪异常: {e}")
+            return {"status": "error", "message": str(e)}
 
     def get_video_preview(self, filepath: str) -> Dict:
         """获取视频预览信息（截图 + 元数据，并行执行）"""

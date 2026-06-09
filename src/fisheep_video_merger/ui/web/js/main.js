@@ -12,6 +12,7 @@ import { Extractor } from './tools/extractor.js';
 import { Compressor } from './tools/compressor.js';
 import { Trimmer } from './tools/trimmer.js';
 import { AudioConverter } from './tools/audio_converter.js';
+import { AudioTrimmer } from './tools/audio_trimmer.js';
 
 import { registerComponents } from './store.js';
 
@@ -107,6 +108,7 @@ window.startToolTask = function(tool) {
     else if (tool === 'audio-convert') AudioConverter.start();
     else if (tool === 'compress') Compressor.start();
     else if (tool === 'trim') Trimmer.start();
+    else if (tool === 'audio-trim') AudioTrimmer.start();
     else if (tool === 'merge') {
         const globalStartBtn = document.getElementById('global-start-btn');
         if (globalStartBtn) globalStartBtn.click();
@@ -148,14 +150,15 @@ document.addEventListener('alpine:init', () => {
         audioCodec: 'aac',
         audioBitrate: '192k',
         // 工具输出目录
-        toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '' },
+        toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '', 'audio-trim': '' },
         // 工具设置
         toolSettings: {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
             extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
             compress: { mode: 'crf', targetSize: '50', targetBitrate: '', preset: 'balanced', resolution: '1080p', crf: '', audioCodec: 'copy', audioBitrate: '128k', outputName: '' },
             trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, audioMode: 'keep', outputFormat: '', outputName: '' },
-            audioConvert: { format: 'mp3', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', volume: '1.0', outputName: '' }
+            audioConvert: { format: 'mp3', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', volume: '1.0', outputName: '' },
+            audioTrim: { start: '00:00:00', end: '', mode: 'fast', outputFormat: '', bitrate: '192k', outputName: '' }
         }
     });
 });
@@ -170,7 +173,7 @@ function initTabs() {
     // Hash 路由：根据 URL hash 切换工具（使用 Alpine.store）
     function navigateFromHash() {
         const hash = window.location.hash.replace('#', '') || 'merge';
-        const validTools = ['merge', 'convert', 'extract', 'audio-convert', 'compress', 'trim', 'settings'];
+        const validTools = ['merge', 'convert', 'extract', 'audio-convert', 'audio-trim', 'compress', 'trim', 'settings'];
         if (validTools.includes(hash)) {
             Alpine.store('app').currentTool = hash;
         }
@@ -391,6 +394,8 @@ function initMockOrBridge() {
                     runToolTask('trim', (file) => {
                         return window.pywebview.api.trim_video_api(file.filepath, start, end, accurate, outputDir, nameForBatch, keepAudio, keepVideo, outputFormat);
                     });
+                } else if (tool === 'audio-trim') {
+                    AudioTrimmer.start();
                 }
             }
         });

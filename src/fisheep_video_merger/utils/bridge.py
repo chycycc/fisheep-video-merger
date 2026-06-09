@@ -61,13 +61,14 @@ class UIBridge:
             "output_dir_template": "",
             "path_depth": 0,
             "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
-            "tool_output_dirs": {"convert": "", "extract": "", "audio-convert": "", "compress": "", "trim": ""},
+            "tool_output_dirs": {"convert": "", "extract": "", "audio-convert": "", "compress": "", "trim": "", "audio-trim": ""},
             "tool_settings": {
                 "convert": {"format": "mp4", "mode": "copy"},
                 "extract": {"format": "aac", "bitrate": "192k"},
                 "audioConvert": {"format": "mp3", "bitrate": "192k"},
                 "compress": {"preset": "balanced", "resolution": "720p"},
-                "trim": {"mode": "reencode"}
+                "trim": {"mode": "reencode"},
+                "audioTrim": {"mode": "fast", "bitrate": "192k"}
             },
             "window_x": None,
             "window_y": None,
@@ -622,6 +623,17 @@ class UIBridge:
             keep_audio=keep_audio, keep_video=keep_video,
             output_format=output_format,
             progress_callback=self._make_tool_progress_callback('trim')
+        )
+
+    def trim_audio_api(self, input_file: str, start_time: str, end_time: str, mode: str,
+                       output_dir: str = "", output_name: str = "",
+                       output_format: str = "", bitrate: str = "192k") -> Dict:
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.trim_audio_api(
+            input_file, start_time, end_time, mode, output_dir, output_name,
+            output_format=output_format, bitrate=bitrate,
+            progress_callback=self._make_tool_progress_callback('audio-trim')
         )
 
     def get_video_preview(self, filepath: str) -> Dict:

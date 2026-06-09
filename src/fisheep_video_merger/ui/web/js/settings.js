@@ -575,7 +575,11 @@ export function selectFilesForTool(tool) {
  */
 function addFilesToTool(tool, paths) {
     // 过滤支持的格式
-    const supportedExts = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.m4s', '.ts', '.wmv'];
+    let supportedExts = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.m4s', '.ts', '.wmv'];
+    // 音频裁剪工具额外支持音频格式
+    if (tool === 'audio-trim') {
+        supportedExts = supportedExts.concat(['.mp3', '.aac', '.flac', '.wav', '.opus', '.ogg', '.m4a', '.wma']);
+    }
     const validPaths = paths.filter(p => {
         const ext = p.toLowerCase().substring(p.lastIndexOf('.'));
         return supportedExts.includes(ext);
