@@ -18,8 +18,18 @@ def build_ffmpeg_command(
     output_path: str,
     shortest: bool = False,
     audio_recode: bool = False,
+    audio_codec: str = "aac",
+    audio_bitrate: str = "192k",
 ) -> list[str]:
     """构建 ffmpeg 合并命令"""
+    # 音频编码名称到 FFmpeg 编码器的映射
+    codec_map = {
+        "aac": "aac",
+        "mp3": "libmp3lame",
+        "ac3": "ac3",
+        "flac": "flac",
+    }
+
     cmd = [get_ffmpeg_path()]
 
     if video_file:
@@ -29,7 +39,11 @@ def build_ffmpeg_command(
 
     if audio_recode:
         # Fallback 容错模式：复制视频流，重编码音频流
-        cmd.extend(["-c:v", "copy", "-c:a", "aac", "-b:a", "192k"])
+        ffmpeg_codec = codec_map.get(audio_codec, "aac")
+        cmd.extend(["-c:v", "copy", "-c:a", ffmpeg_codec])
+        # FLAC 为无损编码，无需指定码率
+        if audio_codec != "flac":
+            cmd.extend(["-b:a", audio_bitrate])
     else:
         # 默认极致流复制
         cmd.extend(["-c", "copy"])
@@ -61,6 +75,8 @@ def merge_single(
     shortest: bool = False,
     progress_callback: Optional[Callable[[str], None]] = None,
     process_callback=None,
+    audio_codec: str = "aac",
+    audio_bitrate: str = "192k",
 ) -> tuple[bool, Optional[str]]:
     """执行单个合并任务"""
     err = ensure_output_dir(output_path)
@@ -79,7 +95,11 @@ def merge_single(
         logger.warning(f"合并流复制失败，触发音频重编码降级重试: {output_path}")
         if progress_callback:
             progress_callback(f"流复制失败，正在进行兼容模式重试: {os.path.basename(output_path)}")
-        cmd_fallback = build_ffmpeg_command(video_file, audio_file, output_path, shortest=shortest, audio_recode=True)
+        cmd_fallback = build_ffmpeg_command(
+            video_file, audio_file, output_path,
+            shortest=shortest, audio_recode=True,
+            audio_codec=audio_codec, audio_bitrate=audio_bitrate,
+        )
         success, err_msg = run_ffmpeg(cmd_fallback, output_path, progress_callback, "合并(降级)", process_callback)
 
     return success, err_msg

@@ -99,7 +99,9 @@ class MergeControllerService:
             success, err = merge_single(
                 task.video_file, task.audio_file, output_path,
                 progress_callback=on_progress,
-                process_callback=on_process
+                process_callback=on_process,
+                audio_codec=settings.get("audio_codec", "aac"),
+                audio_bitrate=settings.get("audio_bitrate", "192k"),
             )
 
             self._active_processes.pop(index, None)

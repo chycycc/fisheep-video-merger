@@ -143,6 +143,8 @@ document.addEventListener('alpine:init', () => {
         overwrite: true,
         deleteSource: false,
         outputDir: '',
+        audioCodec: 'aac',
+        audioBitrate: '192k',
         // 工具输出目录
         toolOutputDirs: { convert: '', extract: '', compress: '', trim: '' },
         // 工具设置
@@ -304,7 +306,9 @@ function initMockOrBridge() {
                     overwrite: Alpine.store('settings').overwrite,
                     delete_source: Alpine.store('settings').deleteSource,
                     output_format: Alpine.store('settings').outputFormat,
-                    concurrency: Alpine.store('settings').concurrency
+                    concurrency: Alpine.store('settings').concurrency,
+                    audio_codec: Alpine.store('settings').audioCodec,
+                    audio_bitrate: Alpine.store('settings').audioBitrate
                 };
                 callPython('start_merging', 'merge', settings).then(res => {
                     if (res && res.status === 'error') {
