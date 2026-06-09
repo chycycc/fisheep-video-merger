@@ -18,10 +18,14 @@ _FORMAT_CODEC = {
     "aac": "aac",
     "flac": "flac",
     "wav": "pcm_s16le",
+    "opus": "libopus",
+    "ogg": "libvorbis",
+    "m4a": "aac",
+    "wma": "wmav2",
 }
 
 # 支持码率设置的格式
-_BITRATE_FORMATS = {"mp3", "aac"}
+_BITRATE_FORMATS = {"mp3", "aac", "m4a", "opus", "ogg", "wma"}
 
 # 源编码到目标格式的流复制兼容映射
 _STREAM_COPY_COMPAT = {
@@ -29,6 +33,10 @@ _STREAM_COPY_COMPAT = {
     "aac": {"aac"},
     "flac": {"flac"},
     "wav": {"wav", "pcm_s16le", "pcm_s24le", "pcm_f32le"},
+    "opus": {"opus"},
+    "ogg": {"vorbis"},
+    "m4a": {"aac"},
+    "wma": {"wmav2"},
 }
 
 
@@ -75,7 +83,7 @@ def extract_audio(
     Args:
         input_file: 输入文件路径
         output_path: 输出文件路径
-        audio_format: 输出格式（mp3/aac/flac/wav）
+        audio_format: 输出格式（mp3/aac/flac/wav/opus/ogg/m4a/wma）
         bitrate: 音频码率（如 "192k"）
         channels: 声道（"original"/"stereo"/"mono"）
         sample_rate: 采样率（"original"/"44100"/"48000" 等）
@@ -98,8 +106,12 @@ def extract_audio(
         
         if stream_copy:
             cmd.extend(["-c:a", "copy"])
-            if audio_format == "aac":
+            if audio_format in ("aac", "m4a"):
                 cmd.extend(["-f", "mp4"])
+            elif audio_format == "opus":
+                cmd.extend(["-f", "ogg"])
+            elif audio_format == "ogg":
+                cmd.extend(["-f", "ogg"])
         else:
             if channels == "mono":
                 cmd.extend(["-ac", "1"])
@@ -117,7 +129,7 @@ def extract_audio(
             if filters:
                 cmd.extend(["-af", ",".join(filters)])
 
-            if audio_format == "aac":
+            if audio_format in ("aac", "m4a"):
                 cmd.extend(["-c:a", "aac"])
                 if bitrate_mode == "vbr":
                     cmd.extend(["-q:a", "2"])
@@ -130,8 +142,16 @@ def extract_audio(
                 if audio_format in _BITRATE_FORMATS:
                     if bitrate_mode == "vbr" and audio_format == "mp3":
                         cmd.extend(["-q:a", "2"])
+                    elif bitrate_mode == "vbr" and audio_format == "opus":
+                        # Opus VBR 通过 -b:a 设目标码率，libopus 默认 VBR
+                        cmd.extend(["-b:a", bitrate, "-vbr", "on"])
                     else:
                         cmd.extend(["-b:a", bitrate])
+                # 指定容器格式
+                if audio_format == "opus":
+                    cmd.extend(["-f", "ogg"])
+                elif audio_format == "ogg":
+                    cmd.extend(["-f", "ogg"])
                         
         # 继承元数据
         cmd.extend(["-map_metadata", "0"])
