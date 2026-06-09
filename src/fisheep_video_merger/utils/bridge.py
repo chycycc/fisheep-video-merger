@@ -61,10 +61,11 @@ class UIBridge:
             "output_dir_template": "",
             "path_depth": 0,
             "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
-            "tool_output_dirs": {"convert": "", "extract": "", "compress": "", "trim": ""},
+            "tool_output_dirs": {"convert": "", "extract": "", "audio-convert": "", "compress": "", "trim": ""},
             "tool_settings": {
                 "convert": {"format": "mp4", "mode": "copy"},
                 "extract": {"format": "aac", "bitrate": "192k"},
+                "audioConvert": {"format": "mp3", "bitrate": "192k"},
                 "compress": {"preset": "balanced", "resolution": "720p"},
                 "trim": {"mode": "reencode"}
             },
@@ -578,6 +579,18 @@ class UIBridge:
             input_file, audio_format, bitrate, output_dir, output_name,
             channels, sample_rate, volume, bitrate_mode,
             self._make_tool_progress_callback('extract')
+        )
+
+    def convert_audio_api(self, input_file: str, output_format: str, bitrate: str,
+                          output_dir: str = "", output_name: str = "",
+                          channels: str = "original", sample_rate: str = "original",
+                          volume: float = 1.0, bitrate_mode: str = "cbr") -> Dict:
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.convert_audio_api(
+            input_file, output_format, bitrate, output_dir, output_name,
+            channels, sample_rate, volume, bitrate_mode,
+            self._make_tool_progress_callback('audio-convert')
         )
 
     def compress_video_api(self, input_file: str, preset: str, resolution: str,

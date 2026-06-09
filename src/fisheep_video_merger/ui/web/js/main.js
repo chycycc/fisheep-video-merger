@@ -11,6 +11,7 @@ import { Converter } from './tools/converter.js';
 import { Extractor } from './tools/extractor.js';
 import { Compressor } from './tools/compressor.js';
 import { Trimmer } from './tools/trimmer.js';
+import { AudioConverter } from './tools/audio_converter.js';
 
 import { registerComponents } from './store.js';
 
@@ -103,6 +104,7 @@ import {
 window.startToolTask = function(tool) {
     if (tool === 'convert') Converter.start();
     else if (tool === 'extract') Extractor.start();
+    else if (tool === 'audio-convert') AudioConverter.start();
     else if (tool === 'compress') Compressor.start();
     else if (tool === 'trim') Trimmer.start();
     else if (tool === 'merge') {
@@ -146,13 +148,14 @@ document.addEventListener('alpine:init', () => {
         audioCodec: 'aac',
         audioBitrate: '192k',
         // 工具输出目录
-        toolOutputDirs: { convert: '', extract: '', compress: '', trim: '' },
+        toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '' },
         // 工具设置
         toolSettings: {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
             extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
             compress: { mode: 'crf', targetSize: '50', targetBitrate: '', preset: 'balanced', resolution: '1080p', crf: '', audioCodec: 'copy', audioBitrate: '128k', outputName: '' },
-            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, audioMode: 'keep', outputFormat: '', outputName: '' }
+            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, audioMode: 'keep', outputFormat: '', outputName: '' },
+            audioConvert: { format: 'mp3', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', volume: '1.0', outputName: '' }
         }
     });
 });
@@ -167,7 +170,7 @@ function initTabs() {
     // Hash 路由：根据 URL hash 切换工具（使用 Alpine.store）
     function navigateFromHash() {
         const hash = window.location.hash.replace('#', '') || 'merge';
-        const validTools = ['merge', 'convert', 'extract', 'compress', 'trim', 'settings'];
+        const validTools = ['merge', 'convert', 'extract', 'audio-convert', 'compress', 'trim', 'settings'];
         if (validTools.includes(hash)) {
             Alpine.store('app').currentTool = hash;
         }
@@ -342,6 +345,20 @@ function initMockOrBridge() {
                         return window.pywebview.api.extract_audio_api(
                             file.filepath, format, '192k', outputDir, nameForBatch,
                             'original', 'original', 1.0, 'cbr'
+                        );
+                    });
+                } else if (tool === 'audio-convert') {
+                    const acs = Alpine.store('settings').toolSettings.audioConvert;
+                    const format = acs.format || 'mp3';
+                    const bitrate = acs.bitrate || '192k';
+                    const bitrateMode = acs.bitrateMode || 'cbr';
+                    const channels = acs.channels || 'original';
+                    const sampleRate = acs.sampleRate || 'original';
+                    const volumeFloat = parseFloat(acs.volume || '1.0');
+                    runToolTask('audio-convert', (file) => {
+                        return window.pywebview.api.convert_audio_api(
+                            file.filepath, format, bitrate, outputDir, nameForBatch,
+                            channels, sampleRate, volumeFloat, bitrateMode
                         );
                     });
                 } else if (tool === 'compress') {

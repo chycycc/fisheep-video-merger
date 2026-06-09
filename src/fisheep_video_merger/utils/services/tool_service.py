@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor as TPE
 
 from fisheep_video_merger.core.converter import convert_single
 from fisheep_video_merger.core.extractor import extract_audio
+from fisheep_video_merger.core.audio_converter import convert_audio
 from fisheep_video_merger.core.compressor import compress_video
 from fisheep_video_merger.core.trimmer import trim_video
 from fisheep_video_merger.utils.ffprobe import get_video_detail, extract_screenshot
@@ -74,6 +75,37 @@ class ToolService:
             return {"status": "success" if success else "error", "output_path": output_path, "message": err}
         except Exception as e:
             logger.error(f"提取音频异常: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def convert_audio_api(self, input_file: str, output_format: str, bitrate: str,
+                          output_dir: str = "", output_name: str = "",
+                          channels: str = "original", sample_rate: str = "original",
+                          volume: float = 1.0, bitrate_mode: str = "cbr",
+                          progress_callback=None) -> Dict:
+        """音频转换"""
+        if not os.path.exists(input_file):
+            return {"status": "error", "message": "文件不存在"}
+
+        if not output_dir:
+            output_dir = os.path.dirname(input_file)
+        if output_name:
+            name = os.path.splitext(output_name)[0]
+        else:
+            name = os.path.splitext(os.path.basename(input_file))[0]
+        ext = "m4a" if output_format == "aac" else output_format
+        output_path = os.path.join(output_dir, f"{name}.{ext}")
+        output_path = self._resolve_conflict(output_path)
+
+        try:
+            success, err = convert_audio(
+                input_file, output_path, output_format, bitrate,
+                channels=channels, sample_rate=sample_rate,
+                volume=volume, bitrate_mode=bitrate_mode,
+                progress_callback=progress_callback
+            )
+            return {"status": "success" if success else "error", "output_path": output_path, "message": err}
+        except Exception as e:
+            logger.error(f"音频转换异常: {e}")
             return {"status": "error", "message": str(e)}
 
     def compress_video_api(self, input_file: str, preset: str, resolution: str,
