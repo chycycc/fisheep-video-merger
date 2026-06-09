@@ -18,9 +18,11 @@ _PRESETS = {
 # 分辨率缩放
 _RESOLUTION_SCALE = {
     "original": None,
+    "4k": "3840:-2",
     "1080p": "1920:-2",
     "720p": "1280:-2",
     "480p": "854:-2",
+    "360p": "640:-2",
 }
 
 
@@ -30,6 +32,10 @@ def compress_video(
     preset: str = "balanced",
     resolution: str = "original",
     target_size_mb: Optional[float] = None,
+    target_bitrate: Optional[str] = None,
+    custom_crf: Optional[int] = None,
+    audio_codec: str = "aac",
+    audio_bitrate: str = "128k",
     audio_copy: bool = True,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
@@ -39,30 +45,40 @@ def compress_video(
         return False, err
 
     crf, ffmpeg_preset = _PRESETS.get(preset, _PRESETS["balanced"])
+    # 自定义 CRF 覆盖预设值
+    if custom_crf is not None:
+        crf = custom_crf
     scale = _RESOLUTION_SCALE.get(resolution)
-    
+
     # 构建基础参数
     base_cmd = [get_ffmpeg_path(), "-i", input_file]
     if scale:
         base_cmd.extend(["-vf", f"scale={scale}"])
 
     # 确定音频参数
-    audio_args = ["-c:a", "copy"] if audio_copy else ["-c:a", "aac", "-b:a", "128k"]
+    if audio_copy:
+        audio_args = ["-c:a", "copy"]
+    else:
+        audio_args = ["-c:a", audio_codec, "-b:a", audio_bitrate]
     
     hw_encoder = get_hw_encoder()
 
-    if target_size_mb:
+    if target_size_mb or target_bitrate:
         # 启用精准 Two-Pass 压缩
         try:
             from fisheep_video_merger.utils.ffprobe import get_video_detail
             detail = get_video_detail(input_file)
             if not detail or detail.duration <= 0:
                 return False, "无法获取视频时长，Two-Pass 失败"
-            
-            # 计算目标视频码率 (kbps)
-            target_total_bitrate = (target_size_mb * 8192) / detail.duration
-            audio_bitrate = 128 if not audio_copy else 192 # 简化估算
-            target_video_bitrate = max(100, int(target_total_bitrate - audio_bitrate))
+
+            if target_bitrate:
+                # 按目标码率压缩：直接使用用户指定的码率
+                target_video_bitrate = int(target_bitrate.replace("k", "").replace("K", ""))
+            else:
+                # 按目标文件大小压缩：计算目标视频码率 (kbps)
+                target_total_bitrate = (target_size_mb * 8192) / detail.duration
+                ab = int(audio_bitrate.replace("k", "").replace("K", "")) if not audio_copy else 192
+                target_video_bitrate = max(100, int(target_total_bitrate - ab))
             
             passlog_path = output_path + "_passlog"
             

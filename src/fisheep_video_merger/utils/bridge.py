@@ -581,12 +581,21 @@ class UIBridge:
         )
 
     def compress_video_api(self, input_file: str, preset: str, resolution: str,
-                           output_dir: str = "", output_name: str = "") -> Dict:
+                           output_dir: str = "", output_name: str = "",
+                           target_size_mb=None, target_bitrate=None,
+                           custom_crf=None, audio_codec="aac",
+                           audio_bitrate="128k", audio_copy=True) -> Dict:
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
         return self._tool_svc.compress_video_api(
             input_file, preset, resolution, output_dir, output_name,
-            self._make_tool_progress_callback('compress')
+            target_size_mb=target_size_mb,
+            target_bitrate=target_bitrate,
+            custom_crf=custom_crf,
+            audio_codec=audio_codec,
+            audio_bitrate=audio_bitrate,
+            audio_copy=audio_copy,
+            progress_callback=self._make_tool_progress_callback('compress')
         )
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str,

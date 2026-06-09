@@ -6,20 +6,30 @@ export const Compressor = {
             return;
         }
 
-        const mode = Alpine.store('settings').toolSettings.compress.mode;
-        const targetSize = Alpine.store('settings').toolSettings.compress.targetSize;
-        const resolution = Alpine.store('settings').toolSettings.compress.resolution;
-        const preset = mode === 'twopass' ? `target:${targetSize}` : Alpine.store('settings').toolSettings.compress.preset;
+        const settings = Alpine.store('settings').toolSettings.compress;
+        const mode = settings.mode;
+        const targetSize = settings.targetSize;
+        const targetBitrate = settings.targetBitrate?.trim() || '';
+        const resolution = settings.resolution;
+        const preset = mode === 'twopass' ? `target:${targetSize}` : settings.preset;
+        const crf = settings.crf?.trim() || '';
+        const audioCodec = settings.audioCodec || 'copy';
+        const audioBitrate = settings.audioBitrate || '128k';
+        const audioCopy = audioCodec === 'copy';
 
         const outputDir = document.getElementById('compress-output-dir')?.value || '';
-        const outputName = Alpine.store('settings').toolSettings.compress.outputName.trim();
-        
+        const outputName = settings.outputName.trim();
+
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
         const selCount = checkedCount || window.toolFiles[tool].length;
         const nameForBatch = selCount === 1 ? outputName : '';
 
         window.runToolTask(tool, (file) => {
-            return window.pywebview.api.compress_video_api(file.filepath, preset, resolution, outputDir, nameForBatch);
+            return window.pywebview.api.compress_video_api(
+                file.filepath, preset, resolution, outputDir, nameForBatch,
+                targetSize || null, targetBitrate || null,
+                crf || null, audioCodec, audioBitrate, audioCopy
+            );
         });
     }
 };

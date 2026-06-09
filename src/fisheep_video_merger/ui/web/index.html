@@ -494,7 +494,7 @@
                     </div>
                 </header>
 
-                <div class="tool-options">
+                <div class="tool-options" style="flex-wrap: wrap;">
                     <div class="tool-option-group">
                         <label>压缩模式</label>
                         <select id="compress-preset" x-model="$store.settings.toolSettings.compress.preset" @change="callPython('update_tool_setting', 'compress', 'preset', $event.target.value)">
@@ -507,9 +507,39 @@
                         <label>分辨率缩放</label>
                         <select id="compress-resolution" x-model="$store.settings.toolSettings.compress.resolution" @change="callPython('update_tool_setting', 'compress', 'resolution', $event.target.value)">
                             <option value="original" selected>原始分辨率</option>
+                            <option value="4k">缩放至 4K</option>
                             <option value="1080p">缩放至 1080p</option>
                             <option value="720p">缩放至 720p</option>
                             <option value="480p">缩放至 480p</option>
+                            <option value="360p">缩放至 360p</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>自定义 CRF <span style="color: var(--text-muted); font-weight: normal;">（留空使用预设值，0-51）</span></label>
+                        <input type="number" id="compress-crf" x-model="$store.settings.toolSettings.compress.crf" placeholder="例如: 23" min="0" max="51" style="width: 120px;">
+                    </div>
+                    <div class="tool-option-group">
+                        <label>目标码率 <span style="color: var(--text-muted); font-weight: normal;">（如 2000k，与目标大小二选一）</span></label>
+                        <input type="text" id="compress-target-bitrate" x-model="$store.settings.toolSettings.compress.targetBitrate" placeholder="例如: 2000k" style="width: 120px;">
+                    </div>
+                    <div class="tool-option-group">
+                        <label>音频编码</label>
+                        <select id="compress-audio-codec" x-model="$store.settings.toolSettings.compress.audioCodec">
+                            <option value="copy">复制原始音频（最快）</option>
+                            <option value="aac">AAC</option>
+                            <option value="mp3">MP3</option>
+                            <option value="ac3">AC3</option>
+                            <option value="flac">FLAC</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group" x-show="$store.settings.toolSettings.compress.audioCodec !== 'copy'">
+                        <label>音频码率</label>
+                        <select id="compress-audio-bitrate" x-model="$store.settings.toolSettings.compress.audioBitrate">
+                            <option value="64k">64 kbps</option>
+                            <option value="128k" selected>128 kbps</option>
+                            <option value="192k">192 kbps</option>
+                            <option value="256k">256 kbps</option>
+                            <option value="320k">320 kbps</option>
                         </select>
                     </div>
                     <div class="tool-option-group" style="flex: 1;">

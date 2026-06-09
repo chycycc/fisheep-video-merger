@@ -149,7 +149,7 @@ document.addEventListener('alpine:init', () => {
         toolSettings: {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
             extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
-            compress: { mode: 'crf', targetSize: '50', preset: 'balanced', resolution: '1080p', outputName: '' },
+            compress: { mode: 'crf', targetSize: '50', targetBitrate: '', preset: 'balanced', resolution: '1080p', crf: '', audioCodec: 'copy', audioBitrate: '128k', outputName: '' },
             trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, outputName: '' }
         }
     });
@@ -341,11 +341,22 @@ function initMockOrBridge() {
                         );
                     });
                 } else if (tool === 'compress') {
-                    const mode = document.getElementById('compress-mode')?.value || 'crf';
-                    const targetSize = document.getElementById('compress-target-size')?.value || '50';
-                    const preset = mode === 'twopass' ? `target:${targetSize}` : 'balanced';
+                    const cs = Alpine.store('settings').toolSettings.compress;
+                    const mode = cs.mode;
+                    const targetSize = cs.targetSize;
+                    const targetBitrate = cs.targetBitrate?.trim() || '';
+                    const preset = mode === 'twopass' ? `target:${targetSize}` : cs.preset;
+                    const resolution = cs.resolution || 'original';
+                    const crf = cs.crf?.trim() || '';
+                    const audioCodec = cs.audioCodec || 'copy';
+                    const audioBitrate = cs.audioBitrate || '128k';
+                    const audioCopy = audioCodec === 'copy';
                     runToolTask('compress', (file) => {
-                        return window.pywebview.api.compress_video_api(file.filepath, preset, '1080p', outputDir, nameForBatch);
+                        return window.pywebview.api.compress_video_api(
+                            file.filepath, preset, resolution, outputDir, nameForBatch,
+                            targetSize || null, targetBitrate || null,
+                            crf || null, audioCodec, audioBitrate, audioCopy
+                        );
                     });
                 } else if (tool === 'trim') {
                     const start = document.getElementById('trim-start')?.value || '00:00:00';

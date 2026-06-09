@@ -78,6 +78,9 @@ class ToolService:
 
     def compress_video_api(self, input_file: str, preset: str, resolution: str,
                            output_dir: str = "", output_name: str = "",
+                           target_size_mb=None, target_bitrate=None,
+                           custom_crf=None, audio_codec="aac",
+                           audio_bitrate="128k", audio_copy=True,
                            progress_callback=None) -> Dict:
         """视频压缩"""
         if not os.path.exists(input_file):
@@ -93,7 +96,32 @@ class ToolService:
         output_path = os.path.join(output_dir, f"{name}{ext}")
         output_path = self._resolve_conflict(output_path)
 
-        success, err = compress_video(input_file, output_path, preset, resolution, progress_callback)
+        # 解析 target_size_mb
+        target_size_val = None
+        if target_size_mb:
+            try:
+                target_size_val = float(target_size_mb)
+            except (ValueError, TypeError):
+                pass
+
+        # 解析 custom_crf
+        crf_val = None
+        if custom_crf is not None and custom_crf != "":
+            try:
+                crf_val = int(custom_crf)
+            except (ValueError, TypeError):
+                pass
+
+        success, err = compress_video(
+            input_file, output_path, preset, resolution,
+            target_size_mb=target_size_val,
+            target_bitrate=target_bitrate or None,
+            custom_crf=crf_val,
+            audio_codec=audio_codec,
+            audio_bitrate=audio_bitrate,
+            audio_copy=audio_copy,
+            progress_callback=progress_callback
+        )
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str,
