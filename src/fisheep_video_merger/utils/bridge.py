@@ -599,12 +599,16 @@ class UIBridge:
         )
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str,
-                       output_dir: str = "", output_name: str = "") -> Dict:
+                       output_dir: str = "", output_name: str = "",
+                       keep_audio: bool = True, keep_video: bool = True,
+                       output_format: str = "") -> Dict:
         if not output_dir:
             output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
         return self._tool_svc.trim_video_api(
             input_file, start_time, end_time, mode, output_dir, output_name,
-            self._make_tool_progress_callback('trim')
+            keep_audio=keep_audio, keep_video=keep_video,
+            output_format=output_format,
+            progress_callback=self._make_tool_progress_callback('trim')
         )
 
     def get_video_preview(self, filepath: str) -> Dict:

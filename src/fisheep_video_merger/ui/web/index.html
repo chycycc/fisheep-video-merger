@@ -608,6 +608,24 @@
                             <option value="recode">精确裁剪（重编码，帧级精度）</option>
                         </select>
                     </div>
+                    <div class="tool-option-group">
+                        <label>音频处理</label>
+                        <select id="trim-audio" x-model="$store.settings.toolSettings.trim.audioMode" @change="callPython('update_tool_setting', 'trim', 'audio_mode', $event.target.value)">
+                            <option value="keep">保留音频</option>
+                            <option value="remove">去除音频（仅视频）</option>
+                            <option value="only">仅保留音频（去除视频）</option>
+                        </select>
+                    </div>
+                    <div class="tool-option-group">
+                        <label>输出格式</label>
+                        <select id="trim-output-format" x-model="$store.settings.toolSettings.trim.outputFormat" @change="callPython('update_tool_setting', 'trim', 'output_format', $event.target.value)">
+                            <option value="">与源文件相同</option>
+                            <option value="mp4">MP4</option>
+                            <option value="mkv">MKV</option>
+                            <option value="ts">TS</option>
+                            <option value="avi">AVI</option>
+                        </select>
+                    </div>
                     <div class="tool-option-group" style="flex: 1;">
                         <label>输出目录</label>
                         <div style="display: flex; gap: 8px;">

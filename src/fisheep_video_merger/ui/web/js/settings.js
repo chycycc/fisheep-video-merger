@@ -802,6 +802,11 @@ export function initToolStartButtons() {
             const mode = document.getElementById('trim-mode').value;
             const outputDir = document.getElementById('trim-output-dir')?.value || '';
             const outputName = document.getElementById('trim-output-name')?.value?.trim() || '';
+            const trimSettings = Alpine.store('settings').toolSettings.trim;
+            const audioMode = trimSettings.audioMode || 'keep';
+            const keepAudio = audioMode !== 'remove';
+            const keepVideo = audioMode !== 'only';
+            const outputFormat = trimSettings.outputFormat || '';
             const checkedCount = document.querySelectorAll('#trim-tbody .tool-row-cb:checked').length;
             const selCount = checkedCount || toolFiles.trim.length;
             const nameForBatch = selCount === 1 ? outputName : '';
@@ -810,7 +815,7 @@ export function initToolStartButtons() {
                 return;
             }
             runToolTask('trim', (file) => {
-                return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir, nameForBatch);
+                return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir, nameForBatch, keepAudio, keepVideo, outputFormat);
             });
         });
     }

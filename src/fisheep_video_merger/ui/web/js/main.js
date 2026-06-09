@@ -150,7 +150,7 @@ document.addEventListener('alpine:init', () => {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
             extract: { format: 'mp3', volume: '1.0', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', outputName: '' },
             compress: { mode: 'crf', targetSize: '50', targetBitrate: '', preset: 'balanced', resolution: '1080p', crf: '', audioCodec: 'copy', audioBitrate: '128k', outputName: '' },
-            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, outputName: '' }
+            trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, audioMode: 'keep', outputFormat: '', outputName: '' }
         }
     });
 });
@@ -362,8 +362,13 @@ function initMockOrBridge() {
                     const start = document.getElementById('trim-start')?.value || '00:00:00';
                     const end = document.getElementById('trim-end')?.value || '';
                     const accurate = document.getElementById('trim-accurate-mode')?.checked ? 'accurate' : 'fast';
+                    const trimSettings = Alpine.store('settings').toolSettings.trim;
+                    const audioMode = trimSettings.audioMode || 'keep';
+                    const keepAudio = audioMode !== 'remove';
+                    const keepVideo = audioMode !== 'only';
+                    const outputFormat = trimSettings.outputFormat || '';
                     runToolTask('trim', (file) => {
-                        return window.pywebview.api.trim_video_api(file.filepath, start, end, accurate, outputDir, nameForBatch);
+                        return window.pywebview.api.trim_video_api(file.filepath, start, end, accurate, outputDir, nameForBatch, keepAudio, keepVideo, outputFormat);
                     });
                 }
             }

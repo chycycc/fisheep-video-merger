@@ -126,6 +126,8 @@ class ToolService:
 
     def trim_video_api(self, input_file: str, start_time: str, end_time: str, mode: str,
                        output_dir: str = "", output_name: str = "",
+                       keep_audio: bool = True, keep_video: bool = True,
+                       output_format: str = "",
                        progress_callback=None) -> Dict:
         """视频裁剪"""
         if not os.path.exists(input_file):
@@ -137,12 +139,21 @@ class ToolService:
             name = os.path.splitext(output_name)[0]
         else:
             name = os.path.splitext(os.path.basename(input_file))[0] + "_trimmed"
-        ext = os.path.splitext(input_file)[1]
+        # 输出格式：优先使用指定格式，否则使用源文件扩展名
+        if output_format:
+            ext = f".{output_format}"
+        else:
+            ext = os.path.splitext(input_file)[1]
         output_path = os.path.join(output_dir, f"{name}{ext}")
         output_path = self._resolve_conflict(output_path)
 
         accurate_mode = (mode == "accurate")
-        success, err = trim_video(input_file, output_path, start_time, end_time, accurate_mode=accurate_mode, progress_callback=progress_callback)
+        success, err = trim_video(
+            input_file, output_path, start_time, end_time,
+            accurate_mode=accurate_mode,
+            keep_audio=keep_audio, keep_video=keep_video,
+            progress_callback=progress_callback
+        )
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def get_video_preview(self, filepath: str) -> Dict:

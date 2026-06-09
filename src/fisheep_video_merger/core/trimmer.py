@@ -44,6 +44,8 @@ def trim_video(
     end_time: Optional[str] = None,
     duration: Optional[float] = None,
     accurate_mode: bool = False,
+    keep_audio: bool = True,
+    keep_video: bool = True,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[bool, Optional[str]]:
     """裁剪视频片段（极速关键帧 vs 逐帧精准）"""
@@ -87,6 +89,12 @@ def trim_video(
         hw_encoder = get_hw_encoder()
         video_codec = hw_encoder if hw_encoder else "libx264"
         cmd.extend(["-c:v", video_codec, "-c:a", "aac"])
+
+    # 音视频流控制：去除音频或视频
+    if not keep_audio:
+        cmd.extend(["-an"])
+    if not keep_video:
+        cmd.extend(["-vn"])
 
     cmd.extend(["-y", output_path])
 
