@@ -1468,14 +1468,18 @@ function bindRowSelectionListeners() {
         });
         
         tbody.addEventListener('change', (e) => {
-            if (e.target.classList.contains('row-checkbox-pending') || 
-                e.target.classList.contains('row-checkbox-muxed')) {
+            if (e.target.classList.contains('row-checkbox-pending') ||
+                e.target.classList.contains('row-checkbox-muxed') ||
+                e.target.classList.contains('tool-row-cb')) {
+                // 先清除同 tbody 内所有行的高亮
+                tbody.querySelectorAll('tr.active-row').forEach(other => {
+                    other.classList.remove('active-row');
+                });
+                // 再根据选中状态设置当前行
                 const tr = e.target.closest('tr');
                 if (tr) {
                     if (e.target.checked) {
                         tr.classList.add('active-row');
-                    } else {
-                        tr.classList.remove('active-row');
                     }
                     if (window.updatePathPreview) {
                         window.updatePathPreview();

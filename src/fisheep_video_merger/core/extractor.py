@@ -44,6 +44,7 @@ def _can_use_stream_copy(input_file: str, audio_format: str,
                          channels: str, sample_rate: str, volume: float) -> bool:
     """判断是否可用流复制（源编码匹配 + 无滤镜修改）"""
     # 有滤镜/声道/采样率修改时必须重编码
+    volume = volume if volume is not None else 1.0
     if channels != "original" or sample_rate != "original" or (volume != 1.0 and volume > 0):
         return False
     # 检测源音频编码
@@ -124,7 +125,7 @@ def extract_audio(
             filters = []
             if use_loudnorm:
                 filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
-            elif volume != 1.0 and volume > 0:
+            elif volume is not None and volume != 1.0 and volume > 0:
                 filters.append(f"volume={volume}")
             if filters:
                 cmd.extend(["-af", ",".join(filters)])

@@ -399,10 +399,35 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'convert', actionName: '转换' }">
-                    <task-list></task-list>
+                <div x-data="{ localTool: 'convert', actionName: '转换', activeTab: 'task-list' }"
+                     @tool-switch-result-tab.window="if ($event.detail.tool === 'convert') activeTab = 'result'">
+                    <div class="subtab-bar">
+                        <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
+                        <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 转换结果</button>
+                    </div>
 
-                <action-bar></action-bar>
+                    <!-- 任务列表面板 -->
+                    <div x-show="activeTab === 'task-list'">
+                        <task-list></task-list>
+                        <action-bar></action-bar>
+                    </div>
+
+                    <!-- 转换结果面板 -->
+                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('convert') })">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>源文件名</th>
+                                        <th>输出格式</th>
+                                        <th>输出目录</th>
+                                        <th width="80">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="convert-result-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="tool-panel" id="tool-extract" :class="{ 'active': $store.app.currentTool === 'extract' }">
@@ -494,10 +519,31 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'extract', actionName: '提取' }">
-                    <task-list></task-list>
-
-                <action-bar></action-bar>
+                <div x-data="{ localTool: 'extract', actionName: '提取', activeTab: 'task-list' }"
+                     @tool-switch-result-tab.window="if ($event.detail.tool === 'extract') activeTab = 'result'">
+                    <div class="subtab-bar">
+                        <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
+                        <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 提取结果</button>
+                    </div>
+                    <div x-show="activeTab === 'task-list'">
+                        <task-list></task-list>
+                        <action-bar></action-bar>
+                    </div>
+                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('extract') })">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>源文件名</th>
+                                        <th>输出格式</th>
+                                        <th>输出目录</th>
+                                        <th width="80">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="extract-result-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             <!-- ========== 工具面板：音频转换 ========== -->
@@ -582,10 +628,31 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'audio-convert', actionName: '转换' }">
-                    <task-list></task-list>
-
-                <action-bar></action-bar>
+                <div x-data="{ localTool: 'audio-convert', actionName: '转换', activeTab: 'task-list' }"
+                     @tool-switch-result-tab.window="if ($event.detail.tool === 'audio-convert') activeTab = 'result'">
+                    <div class="subtab-bar">
+                        <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
+                        <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 转换结果</button>
+                    </div>
+                    <div x-show="activeTab === 'task-list'">
+                        <task-list></task-list>
+                        <action-bar></action-bar>
+                    </div>
+                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('audio-convert') })">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>源文件名</th>
+                                        <th>输出格式</th>
+                                        <th>输出目录</th>
+                                        <th width="80">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audio-convert-result-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             <!-- ========== 工具面板：音频裁剪 ========== -->
@@ -731,10 +798,31 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'compress', actionName: '压缩' }">
-                    <task-list></task-list>
-
-                <action-bar></action-bar>
+                <div x-data="{ localTool: 'compress', actionName: '压缩', activeTab: 'task-list' }"
+                     @tool-switch-result-tab.window="if ($event.detail.tool === 'compress') activeTab = 'result'">
+                    <div class="subtab-bar">
+                        <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
+                        <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 压缩结果</button>
+                    </div>
+                    <div x-show="activeTab === 'task-list'">
+                        <task-list></task-list>
+                        <action-bar></action-bar>
+                    </div>
+                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('compress') })">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>源文件名</th>
+                                        <th>输出格式</th>
+                                        <th>输出目录</th>
+                                        <th width="80">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="compress-result-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="tool-panel" id="tool-trim" :class="{ 'active': $store.app.currentTool === 'trim' }">

@@ -96,7 +96,14 @@ export function syncSettingsFromPython() {
 
             // 同步工具设置
             if (settings.tool_settings) {
-                Object.assign(store.toolSettings, settings.tool_settings);
+                // 深合并：保留 JS 侧默认值（如 volume），不被 Python 侧覆盖丢失
+                for (const [key, val] of Object.entries(settings.tool_settings)) {
+                    if (store.toolSettings[key] && typeof store.toolSettings[key] === 'object' && !Array.isArray(val)) {
+                        Object.assign(store.toolSettings[key], val);
+                    } else {
+                        store.toolSettings[key] = val;
+                    }
+                }
                 // 恢复到 DOM 元素
                 const ts = settings.tool_settings;
                 if (ts.convert) {
