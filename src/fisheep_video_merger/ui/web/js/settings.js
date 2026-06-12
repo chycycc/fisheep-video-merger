@@ -5,6 +5,7 @@
 
 import { callPython, handleBackendResponse, syncSettingsFromPython } from './bridge.js';
 import { showToast } from './ui.js';
+import { Subtitle } from './tools/subtitle.js';
 
 /**
  * 监听配置面板中表单控件的值变化并更新到 Python
@@ -164,32 +165,13 @@ export function selectOutputDir() {
  * 设置面板初始化
  */
 export function initSettingsPanel() {
-    // 从 Python 同步设置到 UI
+    // 从 Python 同步设置到 UI（仅同步实际存在的元素）
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.get_current_settings().then(settings => {
             if (!settings) return;
             const themeSelect = document.getElementById('settings-theme');
-            const outputDir = document.getElementById('settings-output-dir');
-            const format = document.getElementById('settings-output-format');
-            const concurrency = document.getElementById('settings-concurrency');
-            const overwrite = document.getElementById('settings-overwrite');
-            const deleteSource = document.getElementById('settings-delete-source');
-
             if (themeSelect) themeSelect.value = settings.theme || 'auto';
-            if (outputDir) outputDir.value = settings.output_dir || '';
-            if (format) format.value = settings.output_format || 'mp4';
-            if (concurrency) concurrency.value = settings.concurrency || 2;
-            if (overwrite) overwrite.checked = !!settings.overwrite;
-            if (deleteSource) deleteSource.checked = !!settings.delete_allowed;
         });
-
-    }
-
-    // FFmpeg 路径检测
-    const ffmpegDisplay = document.getElementById('settings-ffmpeg-path');
-    if (ffmpegDisplay && window.pywebview && window.pywebview.api) {
-        // 用一个已知不存在的文件触发 bridge 的 ffmpeg 检测
-        ffmpegDisplay.textContent = 'ffmpeg 可用（通过 bridge 自动检测）';
     }
 
     // 主题切换
@@ -205,49 +187,8 @@ export function initSettingsPanel() {
         });
     }
 
-    // 输出目录
-    const outputDirInput = document.getElementById('settings-output-dir');
-    if (outputDirInput) {
-        outputDirInput.addEventListener('change', (e) => {
-            callPython('update_setting', 'output_dir', e.target.value);
-        });
-    }
-
-    // 输出格式
-    const formatSelect = document.getElementById('settings-output-format');
-    if (formatSelect) {
-        formatSelect.addEventListener('change', (e) => {
-            callPython('update_setting', 'output_format', e.target.value);
-        });
-    }
-
-    // 并发数
-    const concurrencyInput = document.getElementById('settings-concurrency');
-    if (concurrencyInput) {
-        concurrencyInput.addEventListener('change', (e) => {
-            let val = parseInt(e.target.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > 8) val = 8;
-            e.target.value = val;
-            callPython('update_setting', 'concurrency', val);
-        });
-    }
-
-    // 覆盖
-    const overwriteCb = document.getElementById('settings-overwrite');
-    if (overwriteCb) {
-        overwriteCb.addEventListener('change', (e) => {
-            callPython('update_setting', 'overwrite', e.target.checked);
-        });
-    }
-
-    // 删除源文件
-    const deleteCb = document.getElementById('settings-delete-source');
-    if (deleteCb) {
-        deleteCb.addEventListener('change', (e) => {
-            callPython('update_setting', 'delete_allowed', e.target.checked);
-        });
-    }
+    // 注意：输出目录、格式、并发数、覆盖、删除源文件等设置
+    // 已在合并配置面板（右侧 config panel）中管理，此处不再重复
 }
 
 /**
@@ -257,8 +198,7 @@ export function selectSettingsOutputDir() {
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.select_output_dir_dialog().then(res => {
             if (res && res.output_dir) {
-                const input = document.getElementById('settings-output-dir');
-                if (input) input.value = res.output_dir;
+                // 输出目录设置已在合并配置面板中管理
                 callPython('update_setting', 'output_dir', res.output_dir);
             }
         });
@@ -479,7 +419,7 @@ export function startSidebarResize(e) {
 // =====================================================
 
 // 各工具的任务列表缓存
-window.toolFiles = { convert: [], extract: [], compress: [], trim: [] };
+window.toolFiles = { convert: [], extract: [], compress: [], trim: [], subtitle: [] };
 const toolFiles = window.toolFiles;
 
 /**
@@ -507,7 +447,7 @@ export function updateToolProgress(tool, text, pct) {
  * 为工具面板初始化拖拽区域
  */
 export function initToolDropZones() {
-    ['convert', 'extract', 'compress', 'trim'].forEach(tool => {
+    ['convert', 'extract', 'compress', 'trim', 'subtitle'].forEach(tool => {
         const panel = document.getElementById(`tool-${tool}`);
         if (!panel) return;
 
@@ -603,6 +543,7 @@ function addFilesToTool(tool, paths) {
                 if (!fileData.name) fileData.name = baseName;
                 if (!fileData.filepath) fileData.filepath = path;
                 toolFiles[tool].push(fileData);
+                if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
                 renderToolTable(tool);
                 updateToolStartButton(tool);
                 showToast(`已添加: ${baseName}`, 'success');
@@ -618,6 +559,7 @@ function addFilesToTool(tool, paths) {
                 name: path.split(/[\\/]/).pop(),
                 size: '未知',
             });
+            if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
             renderToolTable(tool);
             updateToolStartButton(tool);
         }
@@ -641,7 +583,7 @@ function renderToolTable(tool) {
 
     const files = toolFiles[tool];
     if (files.length === 0) {
-        const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️' };
+        const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️', subtitle: '📝' };
         tbody.innerHTML = `
             <tr class="empty-state-row" onclick="selectFilesForTool('${tool}')" style="cursor: pointer;">
                 <td colspan="6">
@@ -736,8 +678,13 @@ export function openToolFileFolder(tool, index) {
  */
 export function removeToolFile(tool, index) {
     toolFiles[tool].splice(index, 1);
+    if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
     renderToolTable(tool);
     updateToolStartButton(tool);
+    // 裁剪工具：文件全部移除时重置时间轴
+    if (tool === 'trim' && toolFiles[tool].length === 0 && window.resetTrimTimeline) {
+        window.resetTrimTimeline();
+    }
 }
 
 /**
@@ -821,6 +768,22 @@ export function initToolStartButtons() {
             runToolTask('trim', (file) => {
                 return window.pywebview.api.trim_video_api(file.filepath, start, end, mode, outputDir, nameForBatch, keepAudio, keepVideo, outputFormat);
             });
+        });
+    }
+
+    // 字幕工具
+    const subtitleBtn = document.getElementById('subtitle-start-btn');
+    if (subtitleBtn) {
+        subtitleBtn.addEventListener('click', () => {
+            Subtitle.start();
+        });
+    }
+
+    // 字幕合并（独立按钮）
+    const subtitleMergeBtn = document.getElementById('subtitle-merge-btn');
+    if (subtitleMergeBtn) {
+        subtitleMergeBtn.addEventListener('click', () => {
+            Subtitle.startMerge();
         });
     }
 }
@@ -1041,8 +1004,6 @@ export function initTrimTimeline() {
         trimDuration = duration;
         trimStartSec = 0;
         trimEndSec = duration;
-        const timeline = document.getElementById('trim-timeline');
-        if (timeline) timeline.style.display = 'block';
         const hint = document.getElementById('trim-duration-hint');
         if (hint) {
             const h = Math.floor(duration / 3600);
@@ -1052,6 +1013,29 @@ export function initTrimTimeline() {
         }
         updateVisual();
     };
+
+    // 重置时间轴到默认状态（无视频时）
+    window.resetTrimTimeline = function() {
+        trimDuration = 0;
+        trimStartSec = 0;
+        trimEndSec = 0;
+        const hint = document.getElementById('trim-duration-hint');
+        if (hint) hint.textContent = '';
+        // 重置手柄位置到默认（全选范围）
+        const handleStart = document.getElementById('trim-handle-start');
+        const handleEnd = document.getElementById('trim-handle-end');
+        const selected = document.getElementById('trim-selected');
+        if (handleStart) handleStart.style.left = '0%';
+        if (handleEnd) handleEnd.style.left = '100%';
+        if (selected) { selected.style.left = '0%'; selected.style.width = '100%'; }
+        document.getElementById('trim-label-start').textContent = '00:00:00';
+        document.getElementById('trim-label-end').textContent = '00:00:00';
+        document.getElementById('trim-start').value = '00:00:00';
+        document.getElementById('trim-end').value = '';
+    };
+
+    // 初始化时设置默认状态
+    window.resetTrimTimeline();
 }
 
 /**

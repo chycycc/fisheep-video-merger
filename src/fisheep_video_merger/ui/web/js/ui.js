@@ -211,10 +211,17 @@ export function showToastWithAction(message, actionLabel, actionFn) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast toast-success';
-    toast.innerHTML = `<span>🎉</span><span>${message}</span><button onclick="this.parentElement.remove(); (${actionFn.toString()})()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px 8px; color: white; cursor: pointer; font-size: 11px; margin-left: 8px;">${actionLabel}</button>`;
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = '🎉 ' + message;
+    const btn = document.createElement('button');
+    btn.textContent = actionLabel;
+    btn.style.cssText = 'background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px 8px; color: white; cursor: pointer; font-size: 11px; margin-left: 8px;';
+    btn.addEventListener('click', () => { toast.remove(); if (typeof actionFn === 'function') actionFn(); });
+    toast.appendChild(msgSpan);
+    toast.appendChild(btn);
     container.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 50);
-    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => container.removeChild(toast), 300); }, 8000);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300); }, 8000);
 }
 
 /**

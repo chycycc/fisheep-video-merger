@@ -13,6 +13,7 @@ import { Compressor } from './tools/compressor.js';
 import { Trimmer } from './tools/trimmer.js';
 import { AudioConverter } from './tools/audio_converter.js';
 import { AudioTrimmer } from './tools/audio_trimmer.js';
+import { Subtitle } from './tools/subtitle.js';
 
 import { registerComponents } from './store.js';
 
@@ -109,6 +110,7 @@ window.startToolTask = function(tool) {
     else if (tool === 'compress') Compressor.start();
     else if (tool === 'trim') Trimmer.start();
     else if (tool === 'audio-trim') AudioTrimmer.start();
+    else if (tool === 'subtitle') Subtitle.start();
     else if (tool === 'merge') {
         const globalStartBtn = document.getElementById('global-start-btn');
         if (globalStartBtn) globalStartBtn.click();
@@ -136,7 +138,10 @@ document.addEventListener('alpine:init', () => {
         theme: localStorage.getItem('theme') || 'dark',
         configWidth: 320,
         sidebarWidth: 240,
+        toolFilesVersion: 0,  // 响应式计数器，文件变化时自增
         getTasksForTool(tool) {
+            // 引用 toolFilesVersion 使 Alpine 追踪依赖
+            void this.toolFilesVersion;
             return window.toolFiles ? (window.toolFiles[tool] || []) : [];
         },
     });
@@ -150,7 +155,7 @@ document.addEventListener('alpine:init', () => {
         audioCodec: 'aac',
         audioBitrate: '192k',
         // 工具输出目录
-        toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '', 'audio-trim': '' },
+        toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '', 'audio-trim': '', subtitle: '' },
         // 工具设置
         toolSettings: {
             convert: { format: 'mp4', mode: 'copy', crf: '23', outputName: '' },
@@ -158,7 +163,8 @@ document.addEventListener('alpine:init', () => {
             compress: { mode: 'crf', targetSize: '50', targetBitrate: '', preset: 'balanced', resolution: '1080p', crf: '', audioCodec: 'copy', audioBitrate: '128k', outputName: '' },
             trim: { start: '00:00:00', end: '', mode: 'recode', accurate: false, audioMode: 'keep', outputFormat: '', outputName: '' },
             audioConvert: { format: 'mp3', bitrate: '192k', bitrateMode: 'cbr', channels: 'original', sampleRate: 'original', volume: '1.0', outputName: '' },
-            audioTrim: { start: '00:00:00', end: '', mode: 'fast', outputFormat: '', bitrate: '192k', outputName: '' }
+            audioTrim: { start: '00:00:00', end: '', mode: 'fast', outputFormat: '', bitrate: '192k', outputName: '' },
+            subtitle: { operation: 'adjust', offsetMs: 0, layout: 'top_bottom', outputName: '' }
         }
     });
 });
@@ -173,7 +179,7 @@ function initTabs() {
     // Hash 路由：根据 URL hash 切换工具（使用 Alpine.store）
     function navigateFromHash() {
         const hash = window.location.hash.replace('#', '') || 'merge';
-        const validTools = ['merge', 'convert', 'extract', 'audio-convert', 'audio-trim', 'compress', 'trim', 'settings'];
+        const validTools = ['merge', 'convert', 'extract', 'audio-convert', 'audio-trim', 'compress', 'trim', 'subtitle', 'settings'];
         if (validTools.includes(hash)) {
             Alpine.store('app').currentTool = hash;
         }
@@ -305,6 +311,12 @@ function initMockOrBridge() {
             const outputName = document.getElementById('global-output-name')?.value?.trim() || '';
 
             if (tool === 'merge') {
+                // 检查是否有选中的任务
+                const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
+                if (checkedBoxes.length === 0) {
+                    showToast('请先勾选要合并的任务', 'warning');
+                    return;
+                }
                 let settings = {
                     output_name_template: outputName,
                     output_dir_template: outputDir,

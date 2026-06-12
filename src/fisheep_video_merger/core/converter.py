@@ -53,6 +53,16 @@ def convert_single(
         # 仅当使用 h264 且存在硬件加速时使用硬编（暂不引入复杂的 h265 硬编检测）
         if mode in ("h264", "recode") and hw_encoder:
             vcodec = hw_encoder
+            # NVENC 预设映射：libx264 预设 -> NVENC 预设
+            nvenc_preset_map = {
+                "ultrafast": "fast", "superfast": "fast", "veryfast": "fast",
+                "faster": "fast", "fast": "fast", "medium": "medium",
+                "slow": "slow", "slower": "slow", "veryslow": "slow",
+            }
+            preset = nvenc_preset_map.get(preset, "medium")
+
+        # NVENC 用 -cq 代替 -crf
+        crf_flag = "-cq" if (mode == "h264" and hw_encoder) else "-crf"
 
         if mode == "vp9":
             # VP9 不支持 -preset，使用 -deadline 和 -cpu-used 替代
@@ -68,7 +78,7 @@ def convert_single(
             cmd.extend([
                 "-c:v", vcodec,
                 "-preset", preset,
-                "-crf", str(crf),
+                crf_flag, str(crf),
                 "-c:a", "aac",
                 "-b:a", "192k"
             ])

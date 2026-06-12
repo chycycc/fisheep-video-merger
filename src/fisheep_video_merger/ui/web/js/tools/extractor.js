@@ -15,7 +15,7 @@ export const Extractor = {
         const volumeFloat = parseFloat(volume === 'original' ? '1.0' : volume);
 
         const outputDir = document.getElementById('extract-output-dir')?.value || '';
-        const outputName = Alpine.store('settings').toolSettings.extract.outputName.trim();
+        const outputName = (Alpine.store('settings').toolSettings.extract.outputName || '').trim();
         
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
         const selCount = checkedCount || window.toolFiles[tool].length;

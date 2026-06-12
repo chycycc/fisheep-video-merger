@@ -18,7 +18,7 @@ export const Compressor = {
         const audioCopy = audioCodec === 'copy';
 
         const outputDir = document.getElementById('compress-output-dir')?.value || '';
-        const outputName = settings.outputName.trim();
+        const outputName = (settings.outputName || '').trim();
 
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
         const selCount = checkedCount || window.toolFiles[tool].length;

@@ -19,7 +19,9 @@ def parse_time(time_str: str) -> float:
     - MM:SS（如 90:00）
     - 纯数字（秒数，如 5400）
     """
-    time_str = time_str.strip()
+    if not time_str:
+        raise ValueError("时间字符串为空")
+    time_str = str(time_str).strip()
 
     # 纯数字
     if re.match(r"^\d+(\.\d+)?$", time_str):
@@ -52,6 +54,10 @@ def trim_video(
     err = ensure_output_dir(output_path)
     if err:
         return False, err
+
+    # 防御 None 值
+    start_time = start_time or "00:00:00"
+    end_time = end_time or None
 
     try:
         start_sec = parse_time(start_time)

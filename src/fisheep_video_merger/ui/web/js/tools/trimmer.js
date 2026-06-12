@@ -21,7 +21,7 @@ export const Trimmer = {
         }
 
         const outputDir = document.getElementById('trim-output-dir')?.value || '';
-        const outputName = trimSettings.outputName.trim();
+        const outputName = (trimSettings.outputName || '').trim();
 
         const checkedCount = document.querySelectorAll(`#${tool}-tbody .tool-row-cb:checked`).length;
         const selCount = checkedCount || window.toolFiles[tool].length;

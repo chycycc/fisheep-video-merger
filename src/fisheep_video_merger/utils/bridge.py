@@ -61,14 +61,15 @@ class UIBridge:
             "output_dir_template": "",
             "path_depth": 0,
             "enabled_formats": [".m4s", ".webm", ".mp4", ".ts", ".flv", ".m4a", ".aac", ".mp3", ".flac", ".wav"],
-            "tool_output_dirs": {"convert": "", "extract": "", "audio-convert": "", "compress": "", "trim": "", "audio-trim": ""},
+            "tool_output_dirs": {"convert": "", "extract": "", "audio-convert": "", "compress": "", "trim": "", "audio-trim": "", "subtitle": ""},
             "tool_settings": {
                 "convert": {"format": "mp4", "mode": "copy"},
                 "extract": {"format": "aac", "bitrate": "192k"},
                 "audioConvert": {"format": "mp3", "bitrate": "192k"},
                 "compress": {"preset": "balanced", "resolution": "720p"},
                 "trim": {"mode": "reencode"},
-                "audioTrim": {"mode": "fast", "bitrate": "192k"}
+                "audioTrim": {"mode": "fast", "bitrate": "192k"},
+                "subtitle": {"operation": "adjust", "offset_ms": 0, "layout": "top_bottom"}
             },
             "window_x": None,
             "window_y": None,
@@ -514,6 +515,9 @@ class UIBridge:
         if settings:
             # Update global settings from frontend
             self.settings.update(settings)
+            # 前端发送 output_name_template，同步到 naming_template
+            if "output_name_template" in settings:
+                self.settings["naming_template"] = settings["output_name_template"]
             self._save_workspace_state()
 
         est = self._merge_ctrl.get_merge_estimate(self.tasks, int(self.settings.get("concurrency", 2)), self.settings)
@@ -635,6 +639,36 @@ class UIBridge:
             output_format=output_format, bitrate=bitrate,
             progress_callback=self._make_tool_progress_callback('audio-trim')
         )
+
+    def subtitle_adjust_api(self, input_file, offset_ms, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_adjust_api(input_file, offset_ms, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_adjust_segments_api(self, input_file, segments, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_adjust_segments_api(input_file, segments, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_merge_api(self, file_a, file_b, output_dir="", output_name="", layout="top_bottom"):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(file_a)
+        return self._tool_svc.subtitle_merge_api(file_a, file_b, output_dir, output_name, layout, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_convert_api(self, input_file, target_format, output_dir="", output_name=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_convert_api(input_file, target_format, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_split_api(self, input_file, output_dir="", output_name="", pattern=""):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_split_api(input_file, output_dir, output_name, pattern or None, self._make_tool_progress_callback('subtitle'))
+
+    def subtitle_extract_api(self, input_file, output_dir="", output_name="", stream_index=0, output_format="srt"):
+        if not output_dir:
+            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+        return self._tool_svc.subtitle_extract_api(input_file, output_dir, output_name, stream_index, output_format, self._make_tool_progress_callback('subtitle'))
 
     def get_video_preview(self, filepath: str) -> Dict:
         return self._tool_svc.get_video_preview(filepath)
@@ -765,7 +799,7 @@ class UIBridge:
 
     def _apply_naming_template(self):
         """如果有命名模板设置，重新生成所有任务的输出名"""
-        template = self.settings.get("naming_template", "").strip()
+        template = (self.settings.get("naming_template") or "").strip()
         if not template:
             return
         for i, task in enumerate(self.tasks):
@@ -777,7 +811,7 @@ class UIBridge:
         """生成前端渲染所需的规格数据"""
         tasks_list = []
         for i, t in enumerate(self.tasks):
-            fmt = self.settings.get("output_format", "mp4").upper()
+            fmt = (self.settings.get("output_format") or "mp4").upper()
             size_str = "未知"
             if task_video := getattr(t, "video_file", None):
                 if os.path.exists(task_video):

@@ -9,6 +9,7 @@ import { showToast } from './ui.js';
 // 预览请求计数器（防竞态）
 window._previewDebounce = null;
 window._previewRequestId = 0;
+window._currentPreviewFile = null;  // 当前预览的文件路径（muxed/pending）
 
 // 拖拽排序起始索引
 window._dragFromIndex = null;
@@ -23,24 +24,88 @@ export function toggleConfigPanel() {
 
 /**
  * 单击列表行，更新右侧的预计输出路径预览 + 视频预览
+ * 同时同步行首 checkbox 选中状态与 active-row 样式
  * @param {number} index - 任务索引
  * @param {Event} event - 点击事件
  */
 export function selectQueueRow(index, event) {
-    if (event && (event.target.type === 'checkbox' || event.target.tagName === 'BUTTON')) {
+    if (event && event.target.tagName === 'BUTTON') {
         return;
     }
 
-    // 通过 Alpine.store 更新选中索引（active-row 由 :class 绑定自动控制）
     const store = Alpine.store('app');
-    // 再次点击同一行则取消选中 (使用 == 防止类型不一致)
+
+    // 切换到合并队列时，清除 muxed/pending 预览文件标记
+    window._currentPreviewFile = null;
+
+    // 辅助函数：清除所有行的 active-row 样式
+    function clearAllActiveRows() {
+        document.querySelectorAll('#queue-tbody tr').forEach(tr => {
+            tr.classList.remove('active-row');
+        });
+    }
+
+    // 辅助函数：设置指定行的 active-row 样式
+    function setActiveRow(idx) {
+        const tr = document.getElementById(`queue-row-${idx}`);
+        if (tr) tr.classList.add('active-row');
+    }
+
+    // 如果点击的是 checkbox，同步选中状态
+    if (event && event.target.type === 'checkbox') {
+        const isChecked = event.target.checked;
+        const tr = event.target.closest('tr');
+        if (tr) tr.classList.toggle('active-row', isChecked);
+        if (isChecked) {
+            store.selectedTaskIndex = index;
+            store.configPanelCollapsed = false;
+            window.loadVideoPreview(index);
+        } else {
+            // 检查是否还有其他选中的行
+            const anyChecked = document.querySelectorAll('#queue-tbody .row-checkbox:checked').length > 0;
+            if (!anyChecked) {
+                store.selectedTaskIndex = -1;
+                window.hideVideoPreview();
+            }
+        }
+        window.updatePathPreview();
+        return;
+    }
+
+    // 点击行：切换选中状态
     if (store.selectedTaskIndex == index) {
+        // 再次点击同一行则取消选中
         store.selectedTaskIndex = -1;
+        clearAllActiveRows();
+        // 同步取消所有 checkbox
+        document.querySelectorAll('#queue-tbody .row-checkbox').forEach(cb => cb.checked = false);
         window.hideVideoPreview();
         window.updatePathPreview();
         return;
     }
+
     store.selectedTaskIndex = index;
+
+    // 同步：清除所有 active-row，设置当前行
+    clearAllActiveRows();
+    setActiveRow(index);
+
+    // 同步：勾选当前行 checkbox
+    const cb = document.querySelector(`#queue-row-${index} .row-checkbox`);
+    if (cb) cb.checked = true;
+
+    // 自动展开配置面板显示预览
+    store.configPanelCollapsed = false;
+
+    // 自动填充输出目录为视频所在目录
+    const task = store.tasks[index];
+    if (task && task.source_dir) {
+        const outputDirInput = document.getElementById('global-output-dir');
+        if (outputDirInput && !outputDirInput.value.trim()) {
+            outputDirInput.value = task.source_dir;
+        }
+    }
+
     // 自动展开配置面板显示预览
     store.configPanelCollapsed = false;
 
@@ -54,10 +119,17 @@ export function selectQueueRow(index, event) {
  */
 export function loadPreviewForFile(filepath) {
     if (!filepath) return;
+    // 记录当前预览文件
+    window._currentPreviewFile = filepath;
     // 自动展开配置面板
     Alpine.store('app').configPanelCollapsed = false;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'block';
+
+    // 立即显示文件路径
+    const pathLabel = document.getElementById('detail-path-label');
+    if (pathLabel) pathLabel.textContent = filepath;
+
     const reqId = ++window._previewRequestId;
     callPython('get_video_preview', filepath).then(res => {
         if (reqId !== window._previewRequestId) return;
@@ -87,6 +159,7 @@ export function loadPreviewForFile(filepath) {
  * 隐藏预览面板
  */
 export function hideVideoPreview() {
+    window._currentPreviewFile = null;
     const panel = document.getElementById('video-preview');
     if (panel) panel.style.display = 'none';
     const img = document.getElementById('preview-img');
@@ -182,6 +255,12 @@ export function updatePathPreview() {
     const label = document.getElementById('detail-path-label');
     const filenameInput = document.getElementById('global-output-name');
     if (!label) return;
+
+    // 如果当前有预览的 muxed/pending 文件，优先显示其路径
+    if (window._currentPreviewFile) {
+        label.textContent = window._currentPreviewFile;
+        return;
+    }
 
     const activeRows = document.querySelectorAll('#queue-tbody tr.active-row');
     const checkedBoxes = document.querySelectorAll('#queue-tbody .row-checkbox:checked');
@@ -702,13 +781,21 @@ window.selectBatchFolders = function() {
  * 获取批次面板的 Alpine 数据（兼容 Alpine v2/v3）
  */
 function getBatchData() {
+    // 优先查找带有 x-data 的内部 div（Alpine 绑定的实际元素）
+    const xDataDiv = document.querySelector('.batch-panel div[x-data]');
+    if (xDataDiv) {
+        if (typeof Alpine !== 'undefined' && Alpine.$data) {
+            return Alpine.$data(xDataDiv);
+        }
+        return xDataDiv._x_dataStack?.[0] || xDataDiv.__x?.$data || null;
+    }
+    // 回退：查找 .batch-panel 本身
     const panel = document.querySelector('.batch-panel');
     if (!panel) return null;
-    // Alpine v3: Alpine.$data(el), v2: el.__x.$data
     if (typeof Alpine !== 'undefined' && Alpine.$data) {
         return Alpine.$data(panel);
     }
-    return panel.__x?.$data || null;
+    return panel._x_dataStack?.[0] || panel.__x?.$data || null;
 }
 
 /**
@@ -719,16 +806,21 @@ window.batchImport = function(folders) {
     const data = getBatchData();
     const seriesName = data?.seriesName || '';
 
+    showToast('正在识别文件夹...', 'info');
+
     callPython('batch_import', folders, seriesName).then(res => {
         if (res && res.status === 'success') {
-            showToast('正在扫描文件夹...', 'info');
-            // batchId 在异步扫描完成后通过 batch_scan_done 消息设置
-            if (data) {
-                data.batchId = res.batch_id;
+            showToast('正在扫描文件夹内容...', 'info');
+            // 重新获取 Alpine 数据引用（防止过期引用）
+            const batchData = getBatchData();
+            if (batchData) {
+                batchData.batchId = res.batch_id;
             }
         } else {
-            showToast(`批量导入失败：${res?.message}`, 'error');
+            showToast(`批量导入失败：${res?.message || '未知错误'}`, 'error');
         }
+    }).catch(err => {
+        showToast(`批量导入异常：${err}`, 'error');
     });
 };
 

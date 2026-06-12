@@ -1,2 +1,3 @@
 send2trash
 pywebview==6.2.1
+pysubs2

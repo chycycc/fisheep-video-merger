@@ -25,7 +25,7 @@ python build.py
 
 **技术栈**：Python 3.12 + pywebview（Edge WebView2）+ HTML/CSS/JS + Alpine.js。PyInstaller 打包为单文件 EXE。
 
-**WebView 前端**：纯前端，无构建工具，通过 pywebview 的 `file://` 协议直接加载。前端文件在 `src/fisheep_video_merger/ui/web/`，JS 按职责拆分为 `app.js`（主逻辑）、`bridge.js`（Python 调用封装）、`store.js`（Alpine store）、`merger.js`、`settings.js`、`ui.js`，工具页独立在 `js/tools/` 下（converter/extractor/compressor/trimmer）。
+**WebView 前端**：纯前端，无构建工具，通过 pywebview 的 `file://` 协议直接加载。前端文件在 `src/fisheep_video_merger/ui/web/`，JS 按职责拆分为 `main.js`（入口）、`bridge.js`（Python 调用封装）、`store.js`（Alpine store）、`merger.js`、`settings.js`、`ui.js`，工具页独立在 `js/tools/` 下（converter/extractor/compressor/trimmer）。HTML 组件在 `components/` 下（action_bar / batch_panel / file_drop_area / task_list）。
 
 **Python-JS 桥接**：`utils/bridge.py` 中的 `UIBridge` 类是薄门面，通过 pywebview 的 `js_api` 暴露方法给 JS。实际业务委托给 `utils/services/` 下的独立服务：
 - `state_persistence.py` — 工作区状态持久化
@@ -33,6 +33,8 @@ python build.py
 - `merge_controller.py` — 合并流程控制
 - `tool_service.py` — 工具页操作（转换/提取/压缩/裁剪）
 - `dialog_service.py` — 对话框服务
+
+`UIBridge` 还直接持有 `BatchProcessor`（来自 `core.batch`），暴露 `batch_import` / `batch_preview` / `batch_merge` 三个批处理 API。
 
 JS 调 Python 用 `window.pywebview.api.methodName()`，Python 推送更新到 JS 用 `window.evaluate_js()`。
 
@@ -46,6 +48,7 @@ JS 调 Python 用 `window.pywebview.api.methodName()`，Python 推送更新到 J
 - `episode.py` — 集数提取
 - `naming.py` — 命名模板系统
 - `bilibili.py` — B站元数据读取
+- `batch.py` — 批处理引擎（Batch/BatchProcessor，多文件夹批量扫描+合并）
 
 **状态持久化**：工作区状态保存在 `%LOCALAPPDATA%/fisheep-video-merger/workspace_state.json`。
 
