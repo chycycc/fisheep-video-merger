@@ -419,7 +419,7 @@ export function startSidebarResize(e) {
 // =====================================================
 
 // 各工具的任务列表缓存
-window.toolFiles = { convert: [], extract: [], compress: [], trim: [], subtitle: [] };
+window.toolFiles = { convert: [], extract: [], compress: [], trim: [], 'audio-convert': [], 'audio-trim': [], subtitle: [] };
 const toolFiles = window.toolFiles;
 
 /**
@@ -447,7 +447,7 @@ export function updateToolProgress(tool, text, pct) {
  * 为工具面板初始化拖拽区域
  */
 export function initToolDropZones() {
-    ['convert', 'extract', 'compress', 'trim', 'subtitle'].forEach(tool => {
+    ['convert', 'extract', 'compress', 'trim', 'audio-convert', 'audio-trim', 'subtitle'].forEach(tool => {
         const panel = document.getElementById(`tool-${tool}`);
         if (!panel) return;
 
@@ -484,12 +484,26 @@ export function initToolDropZones() {
 
             const files = Array.from(e.dataTransfer.files);
             if (files.length === 0) return;
-            const paths = files.map(f => f.path || f.name).filter(p => p);
-            if (paths.length === 0) {
-                showToast('无法获取文件路径，请使用点击选择', 'warning');
-                return;
+
+            // WebView2: 通过 pywebview 的 postMessageWithAdditionalObjects 获取完整路径
+            if (window.chrome && window.chrome.webview && window.chrome.webview.postMessageWithAdditionalObjects) {
+                window.chrome.webview.postMessageWithAdditionalObjects('FilesDropped', e.dataTransfer.files);
+                // 等待 Python 端处理完 _dnd_state 后，通过 API 获取路径
+                const fileNames = Array.from(files).map(f => f.name);
+                setTimeout(() => {
+                    window.pywebview.api.resolve_dropped_paths(fileNames).then(res => {
+                        if (res && res.paths && res.paths.length > 0) {
+                            addFilesToTool(tool, res.paths);
+                        } else {
+                            showToast('路径解析失败，请使用"添加文件"按钮', 'warning');
+                        }
+                    });
+                }, 100);
+            } else {
+                // 非 WebView2 环境，直接用 file.path
+                const paths = Array.from(files).map(f => f.path || f.name).filter(p => p);
+                if (paths.length > 0) addFilesToTool(tool, paths);
             }
-            addFilesToTool(tool, paths);
         });
     });
 }
@@ -516,8 +530,8 @@ export function selectFilesForTool(tool) {
 function addFilesToTool(tool, paths) {
     // 过滤支持的格式
     let supportedExts = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.m4s', '.ts', '.wmv'];
-    // 音频裁剪工具额外支持音频格式
-    if (tool === 'audio-trim') {
+    // 音频工具额外支持音频格式
+    if (tool === 'audio-trim' || tool === 'audio-convert') {
         supportedExts = supportedExts.concat(['.mp3', '.aac', '.flac', '.wav', '.opus', '.ogg', '.m4a', '.wma']);
     }
     const validPaths = paths.filter(p => {
@@ -534,11 +548,8 @@ function addFilesToTool(tool, paths) {
     validPaths.forEach(path => {
         const baseName = path.split(/[\\/]/).pop();
         if (window.pywebview && window.pywebview.api) {
-            const apiCall = window.pywebview.api.get_file_info(path).then(info => {
-                return { filepath: path, name: baseName, ...info };
-            }).catch(() => ({ filepath: path, name: baseName, status: 'success' }));
-            apiCall.then(info => {
-                // 始终添加文件，即使信息获取失败
+            window.pywebview.api.get_file_info(path).then(info => {
+                console.log('[addFilesToTool] get_file_info 成功:', JSON.stringify(info));
                 const fileData = { filepath: path, name: baseName, ...(info || {}) };
                 if (!fileData.name) fileData.name = baseName;
                 if (!fileData.filepath) fileData.filepath = path;
@@ -549,9 +560,17 @@ function addFilesToTool(tool, paths) {
                 showToast(`已添加: ${baseName}`, 'success');
 
                 // 裁剪工具：激活时间轴滑块
-                if (tool === 'trim' && fileData.duration && window.setTrimDuration) {
+                console.log('[addFilesToTool] tool:', tool, 'duration:', fileData.duration, 'setTrimDuration:', !!window.setTrimDuration);
+                if (tool === 'trim' && fileData.duration > 0 && window.setTrimDuration) {
                     window.setTrimDuration(fileData.duration);
                 }
+            }).catch(err => {
+                console.error('[addFilesToTool] get_file_info 失败:', err);
+                toolFiles[tool].push({ filepath: path, name: baseName });
+                if (Alpine.store('app')) Alpine.store('app').toolFilesVersion++;
+                renderToolTable(tool);
+                updateToolStartButton(tool);
+                showToast(`已添加: ${baseName}`, 'success');
             });
         } else {
             toolFiles[tool].push({
@@ -565,6 +584,44 @@ function addFilesToTool(tool, paths) {
         }
     });
 }
+
+/**
+ * 选中工具表格行（与合并页 selectQueueRow 对应）
+ * @param {string} tool - 工具名称
+ * @param {number} index - 行索引
+ * @param {Event} event - 点击事件
+ */
+window.selectToolRow = function(tool, index, event) {
+    // 点击按钮时不处理
+    if (event && event.target.tagName === 'BUTTON') return;
+
+    const tbody = document.getElementById(`${tool}-tbody`);
+    if (!tbody) return;
+
+    // 清除所有行的高亮
+    tbody.querySelectorAll('tr.active-row').forEach(tr => tr.classList.remove('active-row'));
+
+    const tr = event.target.closest('tr');
+    if (!tr) return;
+
+    // 如果点击的是 checkbox，同步选中状态
+    if (event.target.type === 'checkbox') {
+        if (event.target.checked) {
+            tr.classList.add('active-row');
+        }
+        return;
+    }
+
+    // 点击行文字：选中当前行，取消其他
+    const cb = tr.querySelector('.tool-row-cb');
+    if (cb) {
+        tbody.querySelectorAll('.tool-row-cb').forEach(other => {
+            if (other !== cb) other.checked = false;
+        });
+        cb.checked = true;
+        tr.classList.add('active-row');
+    }
+};
 
 /**
  * 渲染工具表格
@@ -609,7 +666,7 @@ function renderToolTable(tool) {
         // 音频提取：显示 编码/码率/声道/时长/大小
         tbody.innerHTML = files.map((file, index) => {
             return `
-                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
+                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}" onclick="selectToolRow('${tool}', ${index}, event)">
                     <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
                     <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${file.codec || '未知'}</td>
@@ -631,7 +688,7 @@ function renderToolTable(tool) {
             const col2 = file.duration_str || file.size || '未知';
             const col3 = file.size || '未知';
             return `
-                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}">
+                <tr class="${file._status === 'processing' ? 'tool-processing' : ''}" onclick="selectToolRow('${tool}', ${index}, event)">
                     <td width="40"><input type="checkbox" class="tool-row-cb" data-index="${index}" ${checkedPaths.has(file.filepath) ? 'checked' : ''}></td>
                     <td style="font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.filepath}">${file.name}</td>
                     <td>${col2}</td>
@@ -646,6 +703,60 @@ function renderToolTable(tool) {
         }).join('');
     }
 }
+
+/**
+ * 渲染转换结果表格
+ * @param {string} tool - 工具名称
+ */
+window.renderConvertResult = function(tool) {
+    const tbody = document.getElementById(`${tool}-result-tbody`);
+    if (!tbody) return;
+
+    const completedFiles = (toolFiles[tool] || []).filter(f => f._status === 'completed');
+    if (completedFiles.length === 0) {
+        tbody.innerHTML = `
+            <tr class="empty-state-row">
+                <td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <h3>暂无转换结果</h3>
+                        <p>完成转换后将在此显示输出文件信息</p>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = completedFiles.map((file, i) => {
+        const outputName = file._outputPath ? file._outputPath.split(/[\\/]/).pop() : '—';
+        const outputExt = file._outputPath ? file._outputPath.split('.').pop().toUpperCase() : '—';
+        const outputDir = file._outputPath ? file._outputPath.replace(/[\\/][^\\/]+$/, '') : '';
+        return `
+            <tr>
+                <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</td>
+                <td>${outputExt}</td>
+                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file._outputPath || ''}">${outputDir || '—'}</td>
+                <td style="white-space: nowrap;">
+                    ${file._outputPath ? `<button class="mini-action-btn" onclick="openToolResultFile('${file._outputPath.replace(/\\/g, '\\\\')}')" title="播放" style="color: #10B981;">▶</button>` : ''}
+                    ${file._outputPath ? `<button class="mini-action-btn" onclick="openToolResultFolder('${file._outputPath.replace(/\\/g, '\\\\')}')" title="打开目录" style="color: #3B82F6;">📂</button>` : ''}
+                </td>
+            </tr>`;
+    }).join('');
+};
+
+/**
+ * 打开转换结果文件（播放）
+ */
+window.openToolResultFile = function(filepath) {
+    callPython('play_video', filepath);
+};
+
+/**
+ * 打开转换结果文件所在目录
+ */
+window.openToolResultFolder = function(filepath) {
+    callPython('open_file_folder', filepath);
+};
 
 /**
  * 打开工具文件（播放）
@@ -844,6 +955,7 @@ export function runToolTask(tool, taskFn) {
             if (result && result.status === 'success') {
                 completed++;
                 file._status = 'completed';
+                file._outputPath = result.output_path || '';
             } else {
                 failed++;
                 file._status = 'failed';
@@ -876,6 +988,13 @@ export function runToolTask(tool, taskFn) {
             btn.disabled = false;
         }
         showToast(`处理完成：成功 ${completed}，失败 ${failed}`, failed > 0 ? 'warning' : 'success');
+
+        // 渲染结果表格并自动切到结果 tab
+        if (completed > 0) {
+            renderConvertResult(tool);
+            // 自定义事件通知 Alpine 切换 tab
+            document.dispatchEvent(new CustomEvent('tool-switch-result-tab', { detail: { tool } }));
+        }
     }
 
     runPool();
@@ -1001,17 +1120,33 @@ export function initTrimTimeline() {
 
     // 暴露给外部调用
     window.setTrimDuration = function(duration) {
-        trimDuration = duration;
+        trimDuration = Number(duration) || 0;
         trimStartSec = 0;
-        trimEndSec = duration;
+        trimEndSec = trimDuration;
+        console.log('[setTrimDuration]', duration, '-> trimDuration:', trimDuration, 'handleStart:', !!handleStart, 'handleEnd:', !!handleEnd);
         const hint = document.getElementById('trim-duration-hint');
-        if (hint) {
-            const h = Math.floor(duration / 3600);
-            const m = Math.floor((duration % 3600) / 60);
-            const s = Math.floor(duration % 60);
+        if (hint && trimDuration > 0) {
+            const h = Math.floor(trimDuration / 3600);
+            const m = Math.floor((trimDuration % 3600) / 60);
+            const s = Math.floor(trimDuration % 60);
             hint.textContent = `(总时长: ${h}h ${m}m ${s}s)`;
         }
-        updateVisual();
+        // 直接操作 DOM 更新手柄位置（不依赖闭包变量，防止元素被重建后引用失效）
+        const hs = document.getElementById('trim-handle-start');
+        const he = document.getElementById('trim-handle-end');
+        const sel = document.getElementById('trim-selected');
+        if (trimDuration > 0 && hs && he) {
+            hs.style.left = '0%';
+            he.style.left = '100%';
+            if (sel) { sel.style.left = '0%'; sel.style.width = '100%'; }
+            document.getElementById('trim-label-start').textContent = '00:00:00';
+            document.getElementById('trim-label-end').textContent = secToTime(trimDuration);
+            document.getElementById('trim-start').value = '00:00:00';
+            document.getElementById('trim-end').value = secToTime(trimDuration);
+            console.log('[setTrimDuration] 时间轴已更新, end:', secToTime(trimDuration));
+        } else {
+            console.log('[setTrimDuration] 更新失败, trimDuration:', trimDuration, 'hs:', !!hs, 'he:', !!he);
+        }
     };
 
     // 重置时间轴到默认状态（无视频时）

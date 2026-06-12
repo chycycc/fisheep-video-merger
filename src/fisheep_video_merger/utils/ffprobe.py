@@ -198,13 +198,11 @@ def _probe_file(filepath: str, extra_args: list = None) -> Optional[dict]:
     probe = get_ffprobe_path()
     if not probe:
         return None
-    if probe == "ffprobe":
-        cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams"]
-    else:
-        cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams", "-i"]
+    # 先拼所有输出选项，最后放 -i 和文件路径（保证 -i 后紧跟文件名）
+    cmd = [probe, "-v", "quiet", "-print_format", "json", "-show_streams"]
     if extra_args:
         cmd.extend(extra_args)
-    cmd.append(filepath)
+    cmd.extend(["-i", filepath])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=True)
         return json.loads(result.stdout)

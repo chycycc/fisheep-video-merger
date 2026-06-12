@@ -568,7 +568,7 @@ class UIBridge:
     def convert_file(self, input_file: str, output_format: str, mode: str,
                      output_dir: str = "", output_name: str = "") -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.convert_file(
             input_file, output_format, mode, output_dir, output_name,
             self._make_tool_progress_callback('convert')
@@ -579,7 +579,7 @@ class UIBridge:
                           channels: str = "original", sample_rate: str = "original",
                           volume: float = 1.0, bitrate_mode: str = "cbr") -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.extract_audio_api(
             input_file, audio_format, bitrate, output_dir, output_name,
             channels, sample_rate, volume, bitrate_mode,
@@ -591,7 +591,7 @@ class UIBridge:
                           channels: str = "original", sample_rate: str = "original",
                           volume: float = 1.0, bitrate_mode: str = "cbr") -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.convert_audio_api(
             input_file, output_format, bitrate, output_dir, output_name,
             channels, sample_rate, volume, bitrate_mode,
@@ -604,7 +604,7 @@ class UIBridge:
                            custom_crf=None, audio_codec="aac",
                            audio_bitrate="128k", audio_copy=True) -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.compress_video_api(
             input_file, preset, resolution, output_dir, output_name,
             target_size_mb=target_size_mb,
@@ -621,7 +621,7 @@ class UIBridge:
                        keep_audio: bool = True, keep_video: bool = True,
                        output_format: str = "") -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.trim_video_api(
             input_file, start_time, end_time, mode, output_dir, output_name,
             keep_audio=keep_audio, keep_video=keep_video,
@@ -633,7 +633,7 @@ class UIBridge:
                        output_dir: str = "", output_name: str = "",
                        output_format: str = "", bitrate: str = "192k") -> Dict:
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.trim_audio_api(
             input_file, start_time, end_time, mode, output_dir, output_name,
             output_format=output_format, bitrate=bitrate,
@@ -642,32 +642,32 @@ class UIBridge:
 
     def subtitle_adjust_api(self, input_file, offset_ms, output_dir="", output_name=""):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.subtitle_adjust_api(input_file, offset_ms, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
 
     def subtitle_adjust_segments_api(self, input_file, segments, output_dir="", output_name=""):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.subtitle_adjust_segments_api(input_file, segments, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
 
     def subtitle_merge_api(self, file_a, file_b, output_dir="", output_name="", layout="top_bottom"):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(file_a)
+            output_dir = os.path.dirname(file_a)
         return self._tool_svc.subtitle_merge_api(file_a, file_b, output_dir, output_name, layout, self._make_tool_progress_callback('subtitle'))
 
     def subtitle_convert_api(self, input_file, target_format, output_dir="", output_name=""):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.subtitle_convert_api(input_file, target_format, output_dir, output_name, self._make_tool_progress_callback('subtitle'))
 
     def subtitle_split_api(self, input_file, output_dir="", output_name="", pattern=""):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.subtitle_split_api(input_file, output_dir, output_name, pattern or None, self._make_tool_progress_callback('subtitle'))
 
     def subtitle_extract_api(self, input_file, output_dir="", output_name="", stream_index=0, output_format="srt"):
         if not output_dir:
-            output_dir = self.settings.get("output_dir") or os.path.dirname(input_file)
+            output_dir = os.path.dirname(input_file)
         return self._tool_svc.subtitle_extract_api(input_file, output_dir, output_name, stream_index, output_format, self._make_tool_progress_callback('subtitle'))
 
     def get_video_preview(self, filepath: str) -> Dict:
@@ -675,6 +675,24 @@ class UIBridge:
 
     def get_file_info(self, filepath: str) -> Dict:
         return self._tool_svc.get_file_info(filepath)
+
+    def resolve_dropped_paths(self, file_names: list) -> Dict:
+        """从 pywebview 的 _dnd_state 中解析拖拽文件的完整路径"""
+        import urllib.parse
+        try:
+            from webview.dom import _dnd_state
+            paths = []
+            for name in file_names:
+                matched = [item for item in _dnd_state['paths'] if urllib.parse.unquote(item[0]) == name]
+                if matched:
+                    paths.append(urllib.parse.unquote(matched[0][1]))
+                    _dnd_state['paths'].remove(matched[0])
+                else:
+                    paths.append(name)  # 回退到文件名
+            return {"paths": paths}
+        except Exception as e:
+            logger.error(f"[resolve_dropped_paths] 异常: {e}")
+            return {"paths": file_names}
 
     def get_hw_accel_info(self) -> Dict:
         return self._tool_svc.get_hw_accel_info()

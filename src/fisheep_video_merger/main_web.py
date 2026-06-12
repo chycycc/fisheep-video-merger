@@ -56,7 +56,16 @@ def main():
     url = os.path.abspath(html_path)  # 使用绝对物理路径，让 pywebview 开启内建 HTTP Server
     logger.info(f"正在准备以 HTTP Server 模式加载网页资源: {url}")
 
-    # 5. 拉起高颜值桌面窗口 (Edge WebView2)
+    # 5. 绕过 pywebview DnD 的 num_listeners 检查，让 WebView2 始终存储拖拽文件路径
+    # pywebview 只在通过 Python DOM API 注册 drop 事件时才递增 num_listeners，
+    # 我们用原生 JS addEventListener，所以需要手动设置为非零值
+    try:
+        from webview.dom import _dnd_state
+        _dnd_state['num_listeners'] = 1
+    except ImportError:
+        pass
+
+    # 6. 拉起高颜值桌面窗口 (Edge WebView2)
     # 从设置中恢复窗口位置
     s = bridge.settings
     window = webview.create_window(

@@ -241,22 +241,32 @@ function initDragAndDrop() {
         const files = e.dataTransfer.files;
         if (files.length === 0) return;
 
-        const filePaths = Array.from(files).map(file => file.path || file.name);
-
         showToast(`已捕获 ${files.length} 个项目，正在提交后端进行依赖扫描与匹配...`, 'info');
 
-        if (window.pywebview && window.pywebview.api) {
-            window.pywebview.api.on_files_dropped(filePaths)
-                .then(response => {
-                    handleBackendResponse(response);
-                })
-                .catch(err => {
-                    showToast(`扫描失败: ${err}`, 'error');
-                });
-        } else {
-            console.log('拖入的文件路径:', filePaths);
-            showToast('当前非桌面客户端环境，已在控制台输出测试路径', 'warning');
+        function submitPaths(filePaths) {
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.on_files_dropped(filePaths)
+                    .then(response => { handleBackendResponse(response); })
+                    .catch(err => { showToast(`扫描失败: ${err}`, 'error'); });
+            } else {
+                showToast('当前非桌面客户端环境', 'warning');
+            }
         }
+
+        // WebView2: 通过 pywebview 获取完整路径
+        if (window.chrome && window.chrome.webview && window.chrome.webview.postMessageWithAdditionalObjects) {
+            window.chrome.webview.postMessageWithAdditionalObjects('FilesDropped', e.dataTransfer.files);
+            const fileNames = Array.from(files).map(f => f.name);
+            setTimeout(() => {
+                window.pywebview.api.resolve_dropped_paths(fileNames).then(res => {
+                    submitPaths(res.paths || fileNames);
+                }).catch(() => submitPaths(fileNames));
+            }, 100);
+            return;
+        }
+        // 非 WebView2
+        const filePaths = Array.from(files).map(file => file.path || file.name).filter(p => p);
+        submitPaths(filePaths);
     });
 }
 

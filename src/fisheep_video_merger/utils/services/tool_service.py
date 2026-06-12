@@ -52,7 +52,7 @@ class ToolService:
         output_path = os.path.join(output_dir, f"{name}.{output_format}")
         output_path = self._resolve_conflict(output_path)
 
-        success, err = convert_single(input_file, output_path, mode, progress_callback)
+        success, err = convert_single(input_file, output_path, mode, progress_callback=progress_callback)
         return {"status": "success" if success else "error", "output_path": output_path, "message": err}
 
     def extract_audio_api(self, input_file: str, audio_format: str, bitrate: str,
@@ -390,7 +390,6 @@ class ToolService:
             return {"status": "success" if success else "error", "output_path": output_path, "message": err}
         except Exception as e:
             logger.error(f"字幕提取异常: {e}")
->>>>>>> 29559745accbbf753102861e838a4d8a54fc8f20
             return {"status": "error", "message": str(e)}
 
     def get_video_preview(self, filepath: str) -> Dict:
@@ -460,25 +459,34 @@ class ToolService:
         if not os.path.exists(filepath):
             return {"status": "error", "message": "文件不存在"}
         try:
-            from fisheep_video_merger.utils.ffprobe import get_ffprobe_path, _probe_file
+            from fisheep_video_merger.utils.ffprobe import _probe_file
             data = _probe_file(filepath, extra_args=["-show_format"])
             if data is None:
                 return {"status": "error", "message": "ffprobe 调用失败"}
 
-            audio_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "audio"]
-            video_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "video"]
-            fmt = data.get("format", {})
+            all_streams = data.get("streams") or []
+            audio_streams = [s for s in all_streams if s.get("codec_type") == "audio"]
+            video_streams = [s for s in all_streams if s.get("codec_type") == "video"]
+            fmt = data.get("format") or {}
 
-            # 时长优先从音频流获取，回退到 format 级别
-            duration = 0
+            # 时长：音频流 → format → 视频流，每层防御 None
+            duration = 0.0
             if audio_streams:
-                duration = float(audio_streams[0].get("duration", 0) or 0)
+                try:
+                    duration = float(audio_streams[0].get("duration") or 0)
+                except (TypeError, ValueError):
+                    duration = 0.0
             if duration <= 0:
-                duration = float(fmt.get("duration", 0) or 0)
+                try:
+                    duration = float(fmt.get("duration") or 0)
+                except (TypeError, ValueError):
+                    duration = 0.0
             if duration <= 0 and video_streams:
-                duration = float(video_streams[0].get("duration", 0) or 0)
+                try:
+                    duration = float(video_streams[0].get("duration") or 0)
+                except (TypeError, ValueError):
+                    duration = 0.0
 
-            bitrate_raw = 0
             result = {
                 "status": "success",
                 "duration": duration,
@@ -486,24 +494,28 @@ class ToolService:
                 "name": os.path.basename(filepath),
                 "filepath": filepath,
                 "size": f"{os.path.getsize(filepath) / (1024*1024):.1f} MB",
+                "codec": "未知",
+                "bitrate": 0,
+                "channels": 0,
+                "channel_layout": "未知",
+                "sample_rate": "未知",
             }
 
             if audio_streams:
                 a = audio_streams[0]
                 bitrate_raw = a.get("bit_rate") or fmt.get("bit_rate") or 0
                 result.update({
-                    "codec": a.get("codec_name", "未知"),
+                    "codec": a.get("codec_name") or "未知",
                     "bitrate": int(bitrate_raw) // 1000 if bitrate_raw else 0,
-                    "channels": a.get("channels", 0),
-                    "channel_layout": a.get("channel_layout", "未知"),
-                    "sample_rate": a.get("sample_rate", "未知"),
+                    "channels": a.get("channels") or 0,
+                    "channel_layout": a.get("channel_layout") or "未知",
+                    "sample_rate": a.get("sample_rate") or "未知",
                 })
             elif video_streams:
-                # 无音频流时，返回视频编码信息
                 v = video_streams[0]
                 bitrate_raw = v.get("bit_rate") or fmt.get("bit_rate") or 0
                 result.update({
-                    "codec": v.get("codec_name", "未知"),
+                    "codec": v.get("codec_name") or "未知",
                     "bitrate": int(bitrate_raw) // 1000 if bitrate_raw else 0,
                     "channels": 0,
                     "channel_layout": "无音频",
@@ -512,6 +524,7 @@ class ToolService:
 
             return result
         except Exception as e:
+            logger.error(f"[get_file_info] 异常: {e}")
             return {"status": "error", "message": str(e)}
 
     def get_hw_accel_info(self) -> Dict:

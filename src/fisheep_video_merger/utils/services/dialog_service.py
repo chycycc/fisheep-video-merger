@@ -68,7 +68,7 @@ class DialogService:
         result = self._window.create_file_dialog(
             webview.OPEN_DIALOG,
             allow_multiple=True,
-            file_types=('视频文件 (*.mp4;*.mkv;*.flv;*.mov;*.avi;*.webm;*.m4s;*.ts;*.wmv)', '所有文件 (*.*)')
+            file_types=('音视频文件 (*.mp4;*.mkv;*.flv;*.mov;*.avi;*.webm;*.m4s;*.ts;*.wmv;*.mp3;*.aac;*.flac;*.wav;*.opus;*.ogg;*.m4a;*.wma)', '所有文件 (*.*)')
         )
         if result and len(result) > 0:
             return {"status": "success", "files": list(result)}
