@@ -92,15 +92,18 @@ import {
 } from './settings.js';
 
 import {
-    updateToolProgress,
     initToolDropZones,
-    initToolStartButtons,
     selectFilesForTool,
     openToolFile,
     openToolFileFolder,
     removeToolFile,
-    runToolTask,
 } from './tool-files.js';
+
+import {
+    updateToolProgress,
+    initToolStartButtons,
+    runToolTask,
+} from './tool-runner.js';
 
 // =====================================================
 // 工具路由启动
