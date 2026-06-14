@@ -252,7 +252,7 @@ export function startConfigResize(e) {
             cleanup();
         } else {
             store.configPanelCollapsed = false;
-            store.configWidth = Math.min(600, newWidth);
+            store.configWidth = Math.min(450, newWidth);
         }
     }
 
@@ -284,7 +284,7 @@ export function startSidebarResize(e) {
         }
         if (hasMoved) {
             let newWidth = startWidth + delta;
-            store.sidebarWidth = Math.max(72, Math.min(400, newWidth));
+            store.sidebarWidth = Math.max(72, Math.min(300, newWidth));
         }
     }
 

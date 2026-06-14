@@ -1743,11 +1743,10 @@ body.is-resizing * {
 .panel-collapser {
     position: absolute;
     left: -24px;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 8px;
     width: 24px;
-    height: 48px;
-    background-color: var(--sidebar-bg);
+    height: 32px;
+    background-color: var(--base-bg);
     border: 1px solid var(--border-color);
     border-right: none;
     border-radius: 8px 0 0 8px;
@@ -1757,7 +1756,8 @@ body.is-resizing * {
     cursor: pointer;
     color: var(--text-muted);
     z-index: 10;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+    font-size: 12px;
+    transition: color 0.2s, background-color 0.2s;
 }
 .panel-collapser:hover {
     color: var(--primary-color);

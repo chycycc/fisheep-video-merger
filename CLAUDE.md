@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Fisheep 视频工具箱 — Windows 桌面应用，支持合并分离式音视频文件、格式转换、音频提取、视频压缩、视频裁剪等多功能。支持 B站（m4s）、YouTube（webm/mp4）、通用格式（mp4/mkv/ts + aac/mp3/flac）等多平台缓存。当前版本 v0.8.0。
+Fisheep 视频工具箱 — Windows 桌面应用，支持合并分离式音视频文件、格式转换、音频提取、视频压缩、视频裁剪等多功能。支持 B站（m4s）、YouTube（webm/mp4）、通用格式（mp4/mkv/ts + aac/mp3/flac）等多平台缓存。当前版本 v0.9.0。
 
 ## 常用命令
 

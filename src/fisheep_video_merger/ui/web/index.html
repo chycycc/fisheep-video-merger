@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐑 Fisheep 视频工具箱 v0.6.0</title>
+    <title>🐑 Fisheep 视频工具箱 v0.9.0</title>
     <!-- 引入本地高阶字体，实现 100% 离线可用 -->
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
@@ -23,7 +23,7 @@
                 <span class="logo-emoji" id="logo-icon">🐑</span>
                 <div class="logo-text">
                     <h1>Fisheep</h1>
-                    <span class="version-tag">v0.6.0 工具箱</span>
+                    <span class="version-tag">v0.9.0 工具箱</span>
                 </div>
             </div>
 
@@ -94,7 +94,7 @@
 
         <!-- 2. 右侧主工作区 (Main Work Area) -->
         <div class="workspace-grid" :class="{ 'panel-collapsed': $store.app.configPanelCollapsed || $store.app.currentTool !== 'merge' }">
-            <main class="center-workspace" :style="{ paddingRight: ($store.app.configPanelCollapsed && $store.app.currentTool === 'merge') ? '48px' : '0' }">
+            <main class="center-workspace">
 
             <!-- ========== 工具面板：音视频合并 ========== -->
             <div class="tool-panel" id="tool-merge" :class="{ 'active': $store.app.currentTool === 'merge' }">
@@ -1126,7 +1126,7 @@
                             </div>
                             <div class="settings-info-item">
                                 <span class="settings-info-label">版本</span>
-                                <span style="color: var(--text-muted);">v0.8.0 · Python + pywebview</span>
+                                <span style="color: var(--text-muted);">v0.9.0 · Python + pywebview</span>
                             </div>
                         </div>
                     </div>
@@ -1135,7 +1135,7 @@
                     <div class="config-card">
                         <h4>🐑 Fisheep 视频工具箱</h4>
                         <div style="font-size: 12px; color: var(--text-muted); line-height: 1.8;">
-                            <div>版本 v0.8.0 · 基于 Python + pywebview + FFmpeg</div>
+                            <div>版本 v0.9.0 · 基于 Python + pywebview + FFmpeg</div>
                             <div>支持 B站/YouTube/通用格式的音视频合并、格式转换、音频提取、视频压缩、视频裁剪</div>
                             <div style="margin-top: 4px;">
                                 <a href="https://github.com/chycycc/fisheep-video-merger" target="_blank" style="color: var(--primary-color); text-decoration: none;">📦 GitHub 仓库</a>
