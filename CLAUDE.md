@@ -60,3 +60,17 @@ JS 调 Python 用 `window.pywebview.api.methodName()`，Python 推送更新到 J
 - **线程安全 UI 更新**：后台线程不得直接修改 UI 控件，必须通过 `evaluate_js` 回传主线程。
 - **代码注释**：代码内所有注释、Docstring、技术文档必须使用中文（除非破坏语法或标准库约束）。
 - **语言**：所有解释、分析、架构说明必须使用清晰精确的中文。
+
+## Agent skills
+
+### Issue tracker
+
+本地 markdown，issue 存放在 `.scratch/` 目录。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+使用默认标签：needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context 布局，`CONTEXT.md` + `docs/adr/` 在项目根目录。See `docs/agents/domain.md`.
