@@ -92,18 +92,18 @@ body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    padding: 24px 0; /* 使用固定上下内边距，移除左右内边距，完全消除宽度过渡时的抖动 */
+    padding: 24px 0;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 10;
-    width: 240px; /* 默认展开宽度 */
+    width: 240px;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    overflow: hidden; /* 保证收缩时内容不溢出 */
+    overflow: hidden;
     position: relative;
 }
 
 .sidebar.collapsed {
-    width: 72px; /* 完美的 72px 几何宽度 */
+    width: 72px;
 }
 
 .sidebar-resizer {
@@ -124,9 +124,10 @@ body {
     display: flex;
     align-items: center;
     margin-bottom: 32px;
-    padding: 0 20px; /* 左右边距固定为 20px，Logo 居左 20px + 半宽 16px = 36px 完美中心线 */
+    padding: 0 20px;
     width: 100%;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    gap: 8px;
+    min-height: 40px;
 }
 
 .logo-emoji {
@@ -170,16 +171,19 @@ body {
     border: none;
     border-radius: 8px;
     color: var(--text-muted);
-    padding: 12px; /* 固定内边距 12px。展开时宽度 100%，折叠时宽 48px，内部刚好留出 24px 图标空间 */
+    padding: 12px;
     font-size: 13px;
     font-weight: 600;
     text-align: left;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
     width: 100%;
+    min-height: 44px;
 }
+
 
 .nav-icon {
     width: 24px;
@@ -213,61 +217,53 @@ body {
 
 .theme-toggle-area {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 20px; /* 固定 20px 左右边距，使 32px 的切换按钮中心位于 20 + 16 = 36px 完美中心线 */
+    justify-content: center;
+    padding: 0 12px;
     width: 100%;
 }
 
-.theme-label {
-    font-size: 12px;
-    font-weight: 500;
+.theme-btn {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    padding: 8px 16px;
+    cursor: pointer;
     color: var(--text-muted);
+    transition: all 0.2s ease;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-/* === Sidebar Collapse Specific Styling === */
+.theme-btn:hover {
+    background: var(--alt-base-bg);
+    color: var(--text-color);
+}
+
+/* === Sidebar Collapse Styling === */
+
+/* 文字淡出（只控制 opacity，不触发布局变化） */
 .logo-text,
 .nav-text,
+.version-tag,
 .theme-label {
     opacity: 1;
-    max-width: 150px; /* 限制最大宽度以支持过渡动画 */
-    display: inline-block;
-    vertical-align: middle;
+    transition: opacity 0.15s ease;
     white-space: nowrap;
-    overflow: hidden;
-    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.logo-text {
-    margin-left: 12px;
-}
-
-.nav-text {
-    margin-left: 12px;
 }
 
 .sidebar.collapsed .logo-text,
 .sidebar.collapsed .nav-text,
+.sidebar.collapsed .version-tag,
 .sidebar.collapsed .theme-label {
     opacity: 0;
-    max-width: 0;
-    margin-left: 0;
-    margin-right: 0;
-    pointer-events: none; /* 禁用鼠标交互 */
+    pointer-events: none;
 }
 
-.sidebar.collapsed .nav-btn,
-.sidebar.collapsed .sidebar-footer .nav-btn {
-    justify-content: center;
-    padding-left: 0;
-    padding-right: 0;
-}
-
-.sidebar.collapsed .theme-toggle-area {
-    justify-content: center;
-    padding: 0;
-}
-
+/* Logo 翻转效果 */
 .sidebar.collapsed .logo-emoji {
     transform: scaleX(-1);
 }

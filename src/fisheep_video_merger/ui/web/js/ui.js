@@ -75,11 +75,11 @@ export function initTheme() {
         }
     });
 
-    // 左侧悬浮按钮点击切换 (在深色/浅色之间循环)
+    // 主题按钮点击循环：深色 → 浅色 → 跟随系统 → 深色
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
-            const resolvedCurrent = document.documentElement.getAttribute('data-theme');
-            const nextTheme = resolvedCurrent === 'dark' ? 'light' : 'dark';
+            const cycle = { 'dark': 'light', 'light': 'auto', 'auto': 'dark' };
+            const nextTheme = cycle[currentTheme] || 'dark';
             applyTheme(nextTheme);
             notifyPythonTheme(nextTheme);
         });
@@ -104,9 +104,11 @@ export function initTheme() {
 
         document.documentElement.setAttribute('data-theme', resolvedTheme);
 
-        // 同步修改两个控制组件的视觉属性
+        // 更新主题按钮图标
+        const themeIcons = { 'dark': '🌙', 'light': '☀️', 'auto': '🌓' };
         if (themeBtn) {
-            themeBtn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
+            const icon = themeBtn.querySelector('.nav-icon');
+            if (icon) icon.textContent = themeIcons[theme] || '🌓';
         }
         if (themeSelect) {
             themeSelect.value = theme;
