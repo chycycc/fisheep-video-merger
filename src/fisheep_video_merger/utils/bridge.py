@@ -85,8 +85,8 @@ class UIBridge:
         self._dialog_svc = DialogService()
         self._batch_proc = BatchProcessor()
 
-        # 将 task_mgr 注入 AppState，供 ImportService 使用
-        self._app_state._task_mgr = self._task_mgr
+        # 将 task_mgr 注入 AppState，供序列化任务状态使用
+        self._app_state.set_task_manager(self._task_mgr)
 
         # 导入服务（自治，通过 AppState 共享状态）
         from fisheep_video_merger.utils.services.import_service import ImportService
