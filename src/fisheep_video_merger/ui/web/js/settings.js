@@ -705,43 +705,86 @@ function renderToolTable(tool) {
 }
 
 /**
- * 渲染转换结果表格
+ * 结果页列配置（按工具定制）
+ * key: 列标识 | label: 表头 | width: 列宽 | td: 渲染函数(file) => html
+ */
+const RESULT_COLUMNS = {
+    convert: [
+        { key: 'source', label: '源文件名', width: '', td: f => `<td class="cell-ellipsis" title="${f.name}">${f.name}</td>` },
+        { key: 'outputName', label: '输出文件名', width: '', td: f => { const n = f._outputPath ? f._outputPath.split(/[\\/]/).pop() : '—'; return `<td class="cell-ellipsis" title="${n}">${n}</td>`; } },
+        { key: 'format', label: '输出格式', width: '80', td: f => `<td>${f._outputPath ? f._outputPath.split('.').pop().toUpperCase() : '—'}</td>` },
+        { key: 'outputDir', label: '输出目录', width: '', td: f => { const d = f._outputPath ? f._outputPath.replace(/[\\/][^\\/]+$/, '') : ''; return `<td class="cell-ellipsis" title="${d}">${d || '—'}</td>`; } },
+        { key: 'actions', label: '操作', width: '80', td: f => renderResultActions(f) },
+    ],
+    extract: [
+        { key: 'source', label: '源文件名', width: '', td: f => `<td class="cell-ellipsis" title="${f.name}">${f.name}</td>` },
+        { key: 'outputName', label: '输出文件名', width: '', td: f => { const n = f._outputPath ? f._outputPath.split(/[\\/]/).pop() : '—'; return `<td class="cell-ellipsis" title="${n}">${n}</td>`; } },
+        { key: 'format', label: '音频格式', width: '80', td: f => `<td>${f._outputPath ? f._outputPath.split('.').pop().toUpperCase() : '—'}</td>` },
+        { key: 'bitrate', label: '码率', width: '80', td: () => `<td>${Alpine.store('settings').toolSettings.extract.bitrate || '—'}</td>` },
+        { key: 'outputDir', label: '输出目录', width: '', td: f => { const d = f._outputPath ? f._outputPath.replace(/[\\/][^\\/]+$/, '') : ''; return `<td class="cell-ellipsis" title="${d}">${d || '—'}</td>`; } },
+        { key: 'actions', label: '操作', width: '80', td: f => renderResultActions(f) },
+    ],
+    'audio-convert': [
+        { key: 'source', label: '源文件名', width: '', td: f => `<td class="cell-ellipsis" title="${f.name}">${f.name}</td>` },
+        { key: 'outputName', label: '输出文件名', width: '', td: f => { const n = f._outputPath ? f._outputPath.split(/[\\/]/).pop() : '—'; return `<td class="cell-ellipsis" title="${n}">${n}</td>`; } },
+        { key: 'format', label: '输出格式', width: '80', td: f => `<td>${f._outputPath ? f._outputPath.split('.').pop().toUpperCase() : '—'}</td>` },
+        { key: 'outputDir', label: '输出目录', width: '', td: f => { const d = f._outputPath ? f._outputPath.replace(/[\\/][^\\/]+$/, '') : ''; return `<td class="cell-ellipsis" title="${d}">${d || '—'}</td>`; } },
+        { key: 'actions', label: '操作', width: '80', td: f => renderResultActions(f) },
+    ],
+    compress: [
+        { key: 'source', label: '源文件名', width: '', td: f => `<td class="cell-ellipsis" title="${f.name}">${f.name}</td>` },
+        { key: 'outputName', label: '输出文件名', width: '', td: f => { const n = f._outputPath ? f._outputPath.split(/[\\/]/).pop() : '—'; return `<td class="cell-ellipsis" title="${n}">${n}</td>`; } },
+        { key: 'preset', label: '压缩模式', width: '100', td: () => { const p = Alpine.store('settings').toolSettings.compress.preset; const m = { fast: '⚡ 快速', balanced: '🎯 均衡', quality: '💎 高质量' }; return `<td>${m[p] || p || '—'}</td>`; } },
+        { key: 'outputDir', label: '输出目录', width: '', td: f => { const d = f._outputPath ? f._outputPath.replace(/[\\/][^\\/]+$/, '') : ''; return `<td class="cell-ellipsis" title="${d}">${d || '—'}</td>`; } },
+        { key: 'actions', label: '操作', width: '80', td: f => renderResultActions(f) },
+    ],
+};
+
+/** 结果操作按钮 */
+function renderResultActions(file) {
+    if (!file._outputPath) return '<td></td>';
+    const p = file._outputPath.replace(/\\/g, '\\\\');
+    return `<td style="white-space: nowrap;">
+        <button class="mini-action-btn" onclick="openToolResultFile('${p}')" title="播放" style="color: #10B981;">▶</button>
+        <button class="mini-action-btn" onclick="openToolResultFolder('${p}')" title="打开目录" style="color: #3B82F6;">📂</button>
+    </td>`;
+}
+
+/**
+ * 渲染结果表格（通用，按工具列配置）
  * @param {string} tool - 工具名称
  */
 window.renderConvertResult = function(tool) {
+    const columns = RESULT_COLUMNS[tool];
+    if (!columns) return;
+
+    const thead = document.getElementById(`${tool}-result-thead`);
     const tbody = document.getElementById(`${tool}-result-tbody`);
     if (!tbody) return;
+
+    // 渲染表头
+    if (thead) {
+        thead.innerHTML = `<tr>${columns.map(c => `<th${c.width ? ` width="${c.width}"` : ''}>${c.label}</th>`).join('')}</tr>`;
+    }
 
     const completedFiles = (toolFiles[tool] || []).filter(f => f._status === 'completed');
     if (completedFiles.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-state-row">
-                <td colspan="5">
+                <td colspan="${columns.length}">
                     <div class="empty-state">
                         <div class="empty-icon">📭</div>
-                        <h3>暂无转换结果</h3>
-                        <p>完成转换后将在此显示输出文件信息</p>
+                        <h3>暂无处理结果</h3>
+                        <p>完成处理后将在此显示输出文件信息</p>
                     </div>
                 </td>
             </tr>`;
         return;
     }
 
-    tbody.innerHTML = completedFiles.map((file, i) => {
-        const outputName = file._outputPath ? file._outputPath.split(/[\\/]/).pop() : '—';
-        const outputExt = file._outputPath ? file._outputPath.split('.').pop().toUpperCase() : '—';
-        const outputDir = file._outputPath ? file._outputPath.replace(/[\\/][^\\/]+$/, '') : '';
-        return `
-            <tr>
-                <td style="font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</td>
-                <td>${outputExt}</td>
-                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file._outputPath || ''}">${outputDir || '—'}</td>
-                <td style="white-space: nowrap;">
-                    ${file._outputPath ? `<button class="mini-action-btn" onclick="openToolResultFile('${file._outputPath.replace(/\\/g, '\\\\')}')" title="播放" style="color: #10B981;">▶</button>` : ''}
-                    ${file._outputPath ? `<button class="mini-action-btn" onclick="openToolResultFolder('${file._outputPath.replace(/\\/g, '\\\\')}')" title="打开目录" style="color: #3B82F6;">📂</button>` : ''}
-                </td>
-            </tr>`;
-    }).join('');
+    tbody.innerHTML = completedFiles.map(file =>
+        `<tr>${columns.map(c => c.td(file)).join('')}</tr>`
+    ).join('');
 };
 
 /**

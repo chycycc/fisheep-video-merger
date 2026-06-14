@@ -1247,6 +1247,15 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     padding: 16px;
 }
 
+/* 表格单元格文本溢出省略 */
+.cell-ellipsis {
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
 /* 状态列可选中复制 */
 .tool-status {
     user-select: text;

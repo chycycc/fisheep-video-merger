@@ -422,14 +422,7 @@
                     <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('convert') })">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>源文件名</th>
-                                        <th>输出格式</th>
-                                        <th>输出目录</th>
-                                        <th width="80">操作</th>
-                                    </tr>
-                                </thead>
+                                <thead id="convert-result-thead"></thead>
                                 <tbody id="convert-result-tbody"></tbody>
                             </table>
                         </div>
@@ -538,14 +531,7 @@
                     <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('extract') })">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>源文件名</th>
-                                        <th>输出格式</th>
-                                        <th>输出目录</th>
-                                        <th width="80">操作</th>
-                                    </tr>
-                                </thead>
+                                <thead id="extract-result-thead"></thead>
                                 <tbody id="extract-result-tbody"></tbody>
                             </table>
                         </div>
@@ -647,14 +633,7 @@
                     <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('audio-convert') })">
                         <div class="table-container">
                             <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>源文件名</th>
-                                        <th>输出格式</th>
-                                        <th>输出目录</th>
-                                        <th width="80">操作</th>
-                                    </tr>
-                                </thead>
+                                <thead id="audio-convert-result-thead"></thead>
                                 <tbody id="audio-convert-result-tbody"></tbody>
                             </table>
                         </div>
@@ -818,13 +797,7 @@
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>
-                                    <tr>
-                                        <th>源文件名</th>
-                                        <th>输出格式</th>
-                                        <th>输出目录</th>
-                                        <th width="80">操作</th>
-                                    </tr>
-                                </thead>
+                                <thead id="compress-result-thead"></thead>
                                 <tbody id="compress-result-tbody"></tbody>
                             </table>
                         </div>
