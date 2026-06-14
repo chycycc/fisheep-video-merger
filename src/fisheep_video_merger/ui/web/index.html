@@ -419,7 +419,7 @@
                     </div>
 
                     <!-- 转换结果面板 -->
-                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('convert') })">
+                    <div class="tool-tab-panel" x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('convert') })">
                         <div class="table-container">
                             <table class="data-table">
                                 <thead id="convert-result-thead"></thead>
@@ -528,7 +528,7 @@
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
-                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('extract') })">
+                    <div class="tool-tab-panel" x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('extract') })">
                         <div class="table-container">
                             <table class="data-table">
                                 <thead id="extract-result-thead"></thead>
@@ -630,7 +630,7 @@
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
-                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('audio-convert') })">
+                    <div class="tool-tab-panel" x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('audio-convert') })">
                         <div class="table-container">
                             <table class="data-table">
                                 <thead id="audio-convert-result-thead"></thead>
@@ -793,7 +793,7 @@
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
-                    <div x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('compress') })">
+                    <div class="tool-tab-panel" x-show="activeTab === 'result'" x-init="$watch('activeTab', val => { if (val === 'result') renderConvertResult('compress') })">
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>

@@ -643,7 +643,7 @@ function renderToolTable(tool) {
         const emptyIcons = { convert: '🔄', extract: '🎵', compress: '📦', trim: '✂️', 'audio-convert': '🎧', 'audio-trim': '✂️', subtitle: '📝' };
         tbody.innerHTML = `
             <tr class="empty-state-row" onclick="selectFilesForTool('${tool}')" style="cursor: pointer;">
-                <td colspan="6">
+                <td colspan="10">
                     <div class="empty-state">
                         <div class="empty-icon">${emptyIcons[tool]}</div>
                         <h3>拖入视频文件或点击此处选择</h3>
