@@ -1341,15 +1341,7 @@
     <div class="config-backdrop" :class="{ 'visible': $store.app.configPanelOpen }"
          @click="$store.app.configPanelOpen = false"></div>
 
-    <!-- 5. 全窗口拖拽半透明毛玻璃蒙层 (Drag and Drop Overlay) -->
-    <div id="drop-overlay" class="hidden">
-        <div class="drop-border-frame">
-            <div class="drop-icon">🐑</div>
-            <div class="drop-text">释放鼠标，立即导入视频合并任务</div>
-        </div>
-    </div>
-
-    <!-- 6. 全局通知 Toast 容器 -->
+    <!-- 5. 全局通知 Toast 容器 -->
     <div id="toast-container"></div>
 
     <!-- 7. 右键自定义上下文菜单 -->

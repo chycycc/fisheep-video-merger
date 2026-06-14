@@ -191,52 +191,43 @@ function initTabs() {
 }
 
 // =====================================================
-// 高性能 Drag & Drop 捕获 (OS 级文件拖拽)
+// Drag & Drop — 合并队列面板级拖拽
 // =====================================================
 
 function initDragAndDrop() {
-    const dropOverlay = document.getElementById('drop-overlay');
+    const mergePanel = document.getElementById('tool-merge');
+    if (!mergePanel) return;
+
     let dragCounter = 0;
 
-    window.addEventListener('dragenter', (e) => {
+    mergePanel.addEventListener('dragenter', (e) => {
         e.preventDefault();
-        // 只在合并工具激活时显示全局拖拽蒙层
-        const mergePanel = document.getElementById('tool-merge');
-        if (!mergePanel || !mergePanel.classList.contains('active')) return;
-
+        e.stopPropagation();
         dragCounter++;
         if (dragCounter === 1) {
-            dropOverlay.classList.remove('hidden');
+            mergePanel.classList.add('drag-over');
         }
     });
 
-    window.addEventListener('dragover', (e) => {
-        // 阻止浏览器默认打开文件行为
+    mergePanel.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation();
     });
 
-    window.addEventListener('dragleave', (e) => {
+    mergePanel.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        const mergePanel = document.getElementById('tool-merge');
-        if (!mergePanel || !mergePanel.classList.contains('active')) return;
-
+        e.stopPropagation();
         dragCounter--;
         if (dragCounter === 0) {
-            dropOverlay.classList.add('hidden');
+            mergePanel.classList.remove('drag-over');
         }
     });
 
-    window.addEventListener('drop', (e) => {
+    mergePanel.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         dragCounter = 0;
-        dropOverlay.classList.add('hidden');
-
-        // 清除所有工具面板的拖拽状态
-        document.querySelectorAll('.tool-panel.drag-over').forEach(p => p.classList.remove('drag-over'));
-
-        // 如果当前不是合并工具，让工具面板自己的 handler 处理
-        const mergePanel = document.getElementById('tool-merge');
-        if (!mergePanel || !mergePanel.classList.contains('active')) return;
+        mergePanel.classList.remove('drag-over');
 
         const files = e.dataTransfer.files;
         if (files.length === 0) return;
