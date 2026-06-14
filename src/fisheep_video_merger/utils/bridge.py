@@ -21,6 +21,7 @@ from fisheep_video_merger.core.matcher import (
 )
 from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
+from fisheep_video_merger.utils.app_state import AppState
 from fisheep_video_merger.utils.services.state_persistence import StatePersistenceService
 from fisheep_video_merger.utils.services.task_manager import TaskManagerService
 from fisheep_video_merger.utils.services.merge_controller import MergeControllerService
@@ -42,13 +43,13 @@ class UIBridge:
 
     def __init__(self):
         self._window: Optional[webview.Window] = None
-        self.root_paths: List[str] = []
-        self.all_stream_infos: List[StreamInfo] = []
-        self.muxed_files: List[StreamInfo] = []
-        self.pending_videos: List[StreamInfo] = []
-        self.pending_audios: List[StreamInfo] = []
 
-        self.settings: Dict = {
+        # 状态持久化服务
+        self._state_persistence = StatePersistenceService()
+
+        # 应用状态容器（所有共享状态集中管理）
+        self._app_state = AppState(self._state_persistence)
+        self._app_state.settings = {
             "output_format": "mp4",
             "output_dir": "",
             "delete_allowed": False,
@@ -78,33 +79,47 @@ class UIBridge:
         self._lock = threading.Lock()
 
         # 初始化 Service 实例
-        self._state = StatePersistenceService()
         self._task_mgr = TaskManagerService()
         self._merge_ctrl = MergeControllerService()
         self._tool_svc = ToolService()
         self._dialog_svc = DialogService()
         self._batch_proc = BatchProcessor()
 
-        # 导入服务（共享状态容器）
+        # 将 task_mgr 注入 AppState，供 ImportService 使用
+        self._app_state._task_mgr = self._task_mgr
+
+        # 导入服务（自治，通过 AppState 共享状态）
         from fisheep_video_merger.utils.services.import_service import ImportService
-        self._shared_state = {
-            'root_paths': self.root_paths,
-            'all_stream_infos': self.all_stream_infos,
-            'pending_videos': self.pending_videos,
-            'pending_audios': self.pending_audios,
-            'muxed_files': self.muxed_files,
-            'settings': self.settings,
-        }
         self._import_svc = ImportService(
-            state=self._shared_state, lock=self._lock, task_mgr=self._task_mgr,
-            apply_naming_template=self._apply_naming_template,
-            save_state=self._save_workspace_state,
-            get_queue_data=self._get_queue_data,
-            send_message=self._send_message,
+            app_state=self._app_state, lock=self._lock, task_mgr=self._task_mgr
         )
 
         # 加载历史工作状态
         self._load_workspace_state()
+
+    # 委托属性（AppState 共享状态）
+    @property
+    def root_paths(self): return self._app_state.root_paths
+    @root_paths.setter
+    def root_paths(self, v): self._app_state.root_paths = v
+    @property
+    def all_stream_infos(self): return self._app_state.all_stream_infos
+    @all_stream_infos.setter
+    def all_stream_infos(self, v): self._app_state.all_stream_infos = v
+    @property
+    def muxed_files(self): return self._app_state.muxed_files
+    @muxed_files.setter
+    def muxed_files(self, v): self._app_state.muxed_files = v
+    @property
+    def pending_videos(self): return self._app_state.pending_videos
+    @pending_videos.setter
+    def pending_videos(self, v): self._app_state.pending_videos = v
+    @property
+    def pending_audios(self): return self._app_state.pending_audios
+    @pending_audios.setter
+    def pending_audios(self, v): self._app_state.pending_audios = v
+    @property
+    def settings(self): return self._app_state.settings
 
     @property
     def tasks(self):
@@ -128,39 +143,16 @@ class UIBridge:
     # ====================================================================
 
     def _get_state_file_path(self) -> str:
-        return self._state.get_state_file_path()
+        return self._state_persistence.get_state_file_path()
 
     def _save_workspace_state(self):
-        self._state.save_debounced(self._build_state)
+        self._app_state.save_debounced()
 
     def _do_save_workspace_state(self):
-        self._state._do_save(self._build_state)
-
-    def _build_state(self) -> Dict:
-        """构建要保存的状态字典"""
-        with self._lock:
-            from fisheep_video_merger.utils.ffprobe import StreamInfo as SI
-            def serialize_info(info):
-                return {
-                    "filepath": info.filepath,
-                    "stream_type": info.stream_type.value,
-                    "has_video": info.has_video,
-                    "has_audio": info.has_audio,
-                    "video_codec": info.video_codec,
-                    "audio_codec": info.audio_codec,
-                    "error": info.error,
-                }
-            return {
-                "settings": self.settings,
-                "root_paths": self.root_paths,
-                "tasks": self._task_mgr.serialize_tasks(),
-                "pending_videos": [serialize_info(x) for x in self.pending_videos],
-                "pending_audios": [serialize_info(x) for x in self.pending_audios],
-                "muxed_files": [serialize_info(x) for x in self.muxed_files],
-            }
+        self._app_state.save_immediate()
 
     def _load_workspace_state(self):
-        state = self._state.load()
+        state = self._state_persistence.load()
         if not state:
             return
         try:
@@ -335,16 +327,34 @@ class UIBridge:
         if folders:
             new_dirs = self._import_svc.scan_folders(folders)
             if new_dirs:
-                self._import_svc.run_folder_scan(new_dirs)
+                self._import_svc.run_folder_scan(new_dirs, on_complete=self._on_scan_done)
         if media_files:
-            self._import_svc.run_file_import(media_files)
+            old_count = len(self.tasks)
+            self._import_svc.run_file_import(media_files, on_complete=lambda data, *a: self._on_import_done(data, a[0] if a else [], a[1] if len(a) > 1 else [], a[2] if len(a) > 2 else [], old_count))
         return self._get_queue_data()
 
     def add_folder(self, directory: str) -> Dict:
         new_dirs = self._import_svc.scan_folders([directory])
         if new_dirs:
-            self._import_svc.run_folder_scan(new_dirs)
+            self._import_svc.run_folder_scan(new_dirs, on_complete=self._on_scan_done)
         return self._get_queue_data()
+
+    def _on_scan_done(self, queue_data, has_results):
+        """扫描完成回调"""
+        self._send_message("state_update", queue_data)
+        if has_results:
+            self._send_message("toast", {"message": "文件夹扫描完成", "type": "success"})
+        else:
+            self._send_message("toast", {"message": "选中文件夹内未发现支持的视频缓存", "type": "warning"})
+
+    def _on_import_done(self, queue_data, new_videos, new_audios, new_muxed, old_count):
+        """文件导入完成回调"""
+        self._send_message("state_update", queue_data)
+        if new_videos or new_audios:
+            if len(self.tasks) <= old_count:
+                self._send_message("toast", {"message": "导入的片段由于缺少对应音/视频，已自动归入【待整理】队列", "type": "warning"})
+        elif new_muxed:
+            self._send_message("toast", {"message": "导入的视频已是完整文件，自动归入【已完整】队列", "type": "info"})
 
     # ====================================================================
     # 📦 批量处理 API
@@ -726,7 +736,7 @@ class UIBridge:
 
     def _get_queue_data(self) -> Dict:
         """生成前端渲染所需的队列视图模型"""
-        return self._task_mgr.build_queue_view_model(
+        return self._task_mgr.get_queue_view_model(
             self.pending_videos, self.pending_audios, self.muxed_files, self.settings
         )
 

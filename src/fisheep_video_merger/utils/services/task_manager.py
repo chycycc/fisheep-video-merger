@@ -150,7 +150,17 @@ class TaskManagerService:
 
         self.tasks = new_tasks
 
-    def build_queue_view_model(self, pending_videos, pending_audios, muxed_files, settings) -> Dict:
+    @staticmethod
+    def _file_stat(filepath):
+        """获取文件大小和修改时间"""
+        size_str = mtime_str = "未知"
+        if os.path.exists(filepath):
+            stat = os.stat(filepath)
+            size_str = f"{stat.st_size / (1024*1024):.1f} MB"
+            mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+        return size_str, mtime_str
+
+    def get_queue_view_model(self, pending_videos, pending_audios, muxed_files, settings) -> Dict:
         """构建前端渲染所需的队列视图模型"""
         fmt = (settings.get("output_format") or "mp4").upper()
 
@@ -188,43 +198,31 @@ class TaskManagerService:
                 "output_path": getattr(t, "output_path", "") or "",
             })
 
-        def _file_info_list(infos):
-            result = []
-            for info in infos:
-                size_str = mtime_str = "未知"
-                if os.path.exists(info.filepath):
-                    stat = os.stat(info.filepath)
-                    size_str = f"{stat.st_size / (1024*1024):.1f} MB"
-                    mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
-                result.append({
-                    "filepath": info.filepath,
-                    "name": os.path.basename(info.filepath),
-                    "size": size_str,
-                    "mtime": mtime_str,
-                    "stream_type": info.stream_type.value,
-                })
-            return result
+        pending_list = []
+        for info in (pending_videos + pending_audios):
+            size_str, mtime_str = self._file_stat(info.filepath)
+            pending_list.append({
+                "filepath": info.filepath,
+                "name": os.path.basename(info.filepath),
+                "size": size_str,
+                "mtime": mtime_str,
+                "stream_type": info.stream_type.value,
+            })
 
-        def _muxed_info_list(infos):
-            result = []
-            for info in infos:
-                size_str = mtime_str = "未知"
-                if os.path.exists(info.filepath):
-                    stat = os.stat(info.filepath)
-                    size_str = f"{stat.st_size / (1024*1024):.1f} MB"
-                    mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
-                result.append({
-                    "filepath": info.filepath,
-                    "name": os.path.basename(info.filepath),
-                    "resolution": "1080P" if "1080" in info.filepath else "自动识别",
-                    "size": size_str,
-                    "mtime": mtime_str,
-                })
-            return result
+        muxed_list = []
+        for info in muxed_files:
+            size_str, mtime_str = self._file_stat(info.filepath)
+            muxed_list.append({
+                "filepath": info.filepath,
+                "name": os.path.basename(info.filepath),
+                "resolution": "1080P" if "1080" in info.filepath else "自动识别",
+                "size": size_str,
+                "mtime": mtime_str,
+            })
 
         return {
             "status": "success",
             "tasks": tasks_list,
-            "pending": _file_info_list(pending_videos + pending_audios),
-            "muxed": _muxed_info_list(muxed_files),
+            "pending": pending_list,
+            "muxed": muxed_list,
         }
