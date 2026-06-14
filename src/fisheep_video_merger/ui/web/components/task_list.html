@@ -1,34 +1,34 @@
 <div class="table-container">
-    <table class="w-full border-collapse text-left text-[13px] data-table">
+    <table class="data-table">
         <thead>
             <tr>
-                <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="40"><input type="checkbox" @change="window.toggleSelectAllLocal($event.target.checked, localTool)"></th>
-                <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap">文件名</th>
-                
-                <template x-if="localTool === 'convert'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">原始格式</th></template>
-                <template x-if="localTool === 'convert'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">大小</th></template>
-                <template x-if="localTool === 'convert'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+                <th width="40"><input type="checkbox" @change="window.toggleSelectAllLocal($event.target.checked, localTool)"></th>
+                <th>文件名</th>
 
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">编码</th></template>
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">码率</th></template>
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">声道</th></template>
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">时长</th></template>
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">大小</th></template>
-                <template x-if="localTool === 'extract'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+                <template x-if="localTool === 'convert'"><th style="display:table-cell">原始格式</th></template>
+                <template x-if="localTool === 'convert'"><th style="display:table-cell">大小</th></template>
+                <template x-if="localTool === 'convert'"><th style="display:table-cell">状态</th></template>
 
-                <template x-if="localTool === 'compress'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">原始分辨率</th></template>
-                <template x-if="localTool === 'compress'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">预估压缩率</th></template>
-                <template x-if="localTool === 'compress'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">编码</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">码率</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">声道</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">时长</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">大小</th></template>
+                <template x-if="localTool === 'extract'"><th style="display:table-cell">状态</th></template>
 
-                <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">原时长</th></template>
-                <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">截取范围</th></template>
-                <template x-if="localTool === 'trim'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+                <template x-if="localTool === 'compress'"><th style="display:table-cell">原始分辨率</th></template>
+                <template x-if="localTool === 'compress'"><th style="display:table-cell">预估压缩率</th></template>
+                <template x-if="localTool === 'compress'"><th style="display:table-cell">状态</th></template>
 
-                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">格式</th></template>
-                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">大小</th></template>
-                <template x-if="localTool === 'subtitle'"><th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" style="display:table-cell">状态</th></template>
+                <template x-if="localTool === 'trim'"><th style="display:table-cell">原时长</th></template>
+                <template x-if="localTool === 'trim'"><th style="display:table-cell">截取范围</th></template>
+                <template x-if="localTool === 'trim'"><th style="display:table-cell">状态</th></template>
 
-                <th class="bg-gray-50 dark:bg-[#1a1b26] text-gray-800 dark:text-gray-200 font-bold px-4 py-3.5 border-b-2 border-gray-200 dark:border-[#23273D] sticky top-0 z-10 whitespace-nowrap" width="80">操作</th>
+                <template x-if="localTool === 'subtitle'"><th style="display:table-cell">格式</th></template>
+                <template x-if="localTool === 'subtitle'"><th style="display:table-cell">大小</th></template>
+                <template x-if="localTool === 'subtitle'"><th style="display:table-cell">状态</th></template>
+
+                <th width="80">操作</th>
             </tr>
         </thead>
         <tbody :id="localTool + '-tbody'">
@@ -41,6 +41,8 @@
                                 localTool === 'extract' ? '🎵' :
                                 localTool === 'compress' ? '📦' :
                                 localTool === 'trim' ? '✂️' :
+                                localTool === 'audio-convert' ? '🎧' :
+                                localTool === 'audio-trim' ? '✂️' :
                                 localTool === 'subtitle' ? '💬' : '📁'
                             "></div>
                             <h3 x-text="'拖入视频文件或点击此处选择'"></h3>
