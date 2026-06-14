@@ -222,6 +222,12 @@
                                 </tbody>
                             </table>
                         </div>
+                        <!-- 合并队列操作栏 -->
+                        <div class="action-bar">
+                            <button id="global-start-btn" class="btn btn-primary"
+                                    :disabled="$store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed')"
+                                    :class="{ 'opacity-50 cursor-not-allowed': $store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed') }">🚀 开始合并</button>
+                        </div>
                     </div>
 
                     <!-- 待整理标签页 -->
@@ -399,7 +405,7 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'convert', actionName: '转换', activeTab: 'task-list' }"
+                <div class="tool-body" x-data="{ localTool: 'convert', actionName: '转换', activeTab: 'task-list' }"
                      @tool-switch-result-tab.window="if ($event.detail.tool === 'convert') activeTab = 'result'">
                     <div class="subtab-bar">
                         <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
@@ -407,7 +413,7 @@
                     </div>
 
                     <!-- 任务列表面板 -->
-                    <div x-show="activeTab === 'task-list'">
+                    <div class="tool-tab-panel" x-show="activeTab === 'task-list'">
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
@@ -519,13 +525,13 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'extract', actionName: '提取', activeTab: 'task-list' }"
+                <div class="tool-body" x-data="{ localTool: 'extract', actionName: '提取', activeTab: 'task-list' }"
                      @tool-switch-result-tab.window="if ($event.detail.tool === 'extract') activeTab = 'result'">
                     <div class="subtab-bar">
                         <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
                         <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 提取结果</button>
                     </div>
-                    <div x-show="activeTab === 'task-list'">
+                    <div class="tool-tab-panel" x-show="activeTab === 'task-list'">
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
@@ -628,13 +634,13 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'audio-convert', actionName: '转换', activeTab: 'task-list' }"
+                <div class="tool-body" x-data="{ localTool: 'audio-convert', actionName: '转换', activeTab: 'task-list' }"
                      @tool-switch-result-tab.window="if ($event.detail.tool === 'audio-convert') activeTab = 'result'">
                     <div class="subtab-bar">
                         <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
                         <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 转换结果</button>
                     </div>
-                    <div x-show="activeTab === 'task-list'">
+                    <div class="tool-tab-panel" x-show="activeTab === 'task-list'">
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
@@ -720,7 +726,7 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'audio-trim', actionName: '裁剪' }">
+                <div class="tool-body" x-data="{ localTool: 'audio-trim', actionName: '裁剪' }">
                     <task-list></task-list>
 
                 <action-bar></action-bar>
@@ -798,13 +804,13 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'compress', actionName: '压缩', activeTab: 'task-list' }"
+                <div class="tool-body" x-data="{ localTool: 'compress', actionName: '压缩', activeTab: 'task-list' }"
                      @tool-switch-result-tab.window="if ($event.detail.tool === 'compress') activeTab = 'result'">
                     <div class="subtab-bar">
                         <button class="btn" :class="{ 'active': activeTab === 'task-list' }" @click="activeTab = 'task-list'">📋 任务列表</button>
                         <button class="btn" :class="{ 'active': activeTab === 'result' }" @click="activeTab = 'result'">✅ 压缩结果</button>
                     </div>
-                    <div x-show="activeTab === 'task-list'">
+                    <div class="tool-tab-panel" x-show="activeTab === 'task-list'">
                         <task-list></task-list>
                         <action-bar></action-bar>
                     </div>
@@ -903,7 +909,7 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'trim', actionName: '裁剪' }">
+                <div class="tool-body" x-data="{ localTool: 'trim', actionName: '裁剪' }">
                     <task-list></task-list>
 
                 <action-bar></action-bar>
@@ -1076,7 +1082,7 @@
                     </div>
                 </div>
 
-                <div x-data="{ localTool: 'subtitle', actionName: '处理' }">
+                <div class="tool-body" x-data="{ localTool: 'subtitle', actionName: '处理' }">
                     <task-list></task-list>
 
                     <action-bar></action-bar>
@@ -1324,12 +1330,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="control-footer" style="margin-top:auto; padding-top:16px;" x-show="$store.app.subtab === 'merge-queue'">
-                        <button id="global-start-btn" class="btn btn-primary btn-block"
-                                :disabled="$store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed')"
-                                :class="{ 'opacity-50 cursor-not-allowed': $store.app.tasks.length === 0 || $store.app.tasks.every(t => t.status === 'completed') }">🚀 开始当前队列任务</button>
                     </div>
 
                 </div>

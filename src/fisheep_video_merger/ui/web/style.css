@@ -430,6 +430,39 @@ body {
     flex-direction: column;
 }
 
+/* 工具内容区（表格+按钮撑满） */
+.tool-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Web Components 参与 flex 布局 */
+task-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* 工具任务列表面板（撑满+按钮沉底） */
+.tool-tab-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* 工具操作栏（底部开始按钮） */
+.action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px 0;
+    flex-shrink: 0;
+}
+
 /* 批量合并面板内容溢出时可滚动 */
 #panel-batch-merge {
     overflow-y: auto;
