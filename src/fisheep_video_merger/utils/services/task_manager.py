@@ -1,9 +1,10 @@
 """
 任务管理服务
-负责合并任务的 CRUD 操作（增删改查、排序、重命名）
+负责合并任务的 CRUD 操作（增删改查、排序、重命名）和视图模型构建
 """
 
 import os
+import time
 from typing import Dict, List
 
 from fisheep_video_merger.core.matcher import MergeTask
@@ -148,3 +149,82 @@ class TaskManagerService:
                     new_task.output_path = old_status[key][2]
 
         self.tasks = new_tasks
+
+    def build_queue_view_model(self, pending_videos, pending_audios, muxed_files, settings) -> Dict:
+        """构建前端渲染所需的队列视图模型"""
+        fmt = (settings.get("output_format") or "mp4").upper()
+
+        tasks_list = []
+        for t in self.tasks:
+            size_str = "未知"
+            if task_video := getattr(t, "video_file", None):
+                if os.path.exists(task_video):
+                    v_size = os.path.getsize(task_video)
+                    a_size = os.path.getsize(t.audio_file) if getattr(t, "audio_file", None) and os.path.exists(t.audio_file) else 0
+                    size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
+
+            v_name = os.path.basename(t.video_file) if getattr(t, "video_file", None) else ""
+            a_name = os.path.basename(t.audio_file) if getattr(t, "audio_file", None) else ""
+            if v_name and a_name:
+                source_name = f"🎬 {v_name} ➕ 🎵 {a_name}"
+            elif v_name:
+                source_name = f"🎬 {v_name}"
+            elif a_name:
+                source_name = f"🎵 {a_name}"
+            else:
+                source_name = "未知媒体"
+
+            tasks_list.append({
+                "name": t.output_name,
+                "source_name": source_name,
+                "video_file": getattr(t, "video_file", "") or "",
+                "audio_file": getattr(t, "audio_file", "") or "",
+                "format": fmt,
+                "resolution": "1080P" if "1080" in t.output_name else "自动识别",
+                "size": size_str,
+                "status": t.status,
+                "error": t.error_message,
+                "source_dir": t.source_dir,
+                "output_path": getattr(t, "output_path", "") or "",
+            })
+
+        def _file_info_list(infos):
+            result = []
+            for info in infos:
+                size_str = mtime_str = "未知"
+                if os.path.exists(info.filepath):
+                    stat = os.stat(info.filepath)
+                    size_str = f"{stat.st_size / (1024*1024):.1f} MB"
+                    mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+                result.append({
+                    "filepath": info.filepath,
+                    "name": os.path.basename(info.filepath),
+                    "size": size_str,
+                    "mtime": mtime_str,
+                    "stream_type": info.stream_type.value,
+                })
+            return result
+
+        def _muxed_info_list(infos):
+            result = []
+            for info in infos:
+                size_str = mtime_str = "未知"
+                if os.path.exists(info.filepath):
+                    stat = os.stat(info.filepath)
+                    size_str = f"{stat.st_size / (1024*1024):.1f} MB"
+                    mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+                result.append({
+                    "filepath": info.filepath,
+                    "name": os.path.basename(info.filepath),
+                    "resolution": "1080P" if "1080" in info.filepath else "自动识别",
+                    "size": size_str,
+                    "mtime": mtime_str,
+                })
+            return result
+
+        return {
+            "status": "success",
+            "tasks": tasks_list,
+            "pending": _file_info_list(pending_videos + pending_audios),
+            "muxed": _muxed_info_list(muxed_files),
+        }

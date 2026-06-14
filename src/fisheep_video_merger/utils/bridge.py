@@ -726,81 +726,10 @@ class UIBridge:
             )
 
     def _get_queue_data(self) -> Dict:
-        """生成前端渲染所需的规格数据"""
-        tasks_list = []
-        for i, t in enumerate(self.tasks):
-            fmt = (self.settings.get("output_format") or "mp4").upper()
-            size_str = "未知"
-            if task_video := getattr(t, "video_file", None):
-                if os.path.exists(task_video):
-                    v_size = os.path.getsize(task_video)
-                    a_size = os.path.getsize(t.audio_file) if getattr(t, "audio_file", None) and os.path.exists(t.audio_file) else 0
-                    size_str = f"{(v_size + a_size) / (1024*1024):.1f} MB"
-
-            v_name = os.path.basename(t.video_file) if getattr(t, "video_file", None) else ""
-            a_name = os.path.basename(t.audio_file) if getattr(t, "audio_file", None) else ""
-            if v_name and a_name:
-                source_name = f"🎬 {v_name} ➕ 🎵 {a_name}"
-            elif v_name:
-                source_name = f"🎬 {v_name}"
-            elif a_name:
-                source_name = f"🎵 {a_name}"
-            else:
-                source_name = "未知媒体"
-            tasks_list.append({
-                "name": t.output_name,
-                "source_name": source_name,
-                "video_file": getattr(t, "video_file", "") or "",
-                "audio_file": getattr(t, "audio_file", "") or "",
-                "format": fmt,
-                "resolution": "1080P" if "1080" in t.output_name else "自动识别",
-                "size": size_str,
-                "status": t.status,
-                "error": t.error_message,
-                "source_dir": t.source_dir,
-                "output_path": getattr(t, "output_path", "") or "",
-            })
-
-        pending_list = []
-        for info in (self.pending_videos + self.pending_audios):
-            size_str = "未知"
-            mtime_str = "未知"
-            if os.path.exists(info.filepath):
-                stat = os.stat(info.filepath)
-                size_str = f"{stat.st_size / (1024*1024):.1f} MB"
-                import time
-                mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
-            pending_list.append({
-                "filepath": info.filepath,
-                "name": os.path.basename(info.filepath),
-                "size": size_str,
-                "mtime": mtime_str,
-                "stream_type": info.stream_type.value,
-            })
-
-        muxed_list = []
-        for info in self.muxed_files:
-            size_str = "未知"
-            mtime_str = "未知"
-            if os.path.exists(info.filepath):
-                stat = os.stat(info.filepath)
-                size_str = f"{stat.st_size / (1024*1024):.1f} MB"
-                import time
-                mtime_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
-            muxed_list.append({
-                "filepath": info.filepath,
-                "name": os.path.basename(info.filepath),
-                "resolution": "1080P" if "1080" in info.filepath else "自动识别",
-                "size": size_str,
-                "mtime": mtime_str,
-            })
-
-        return {
-            "status": "success",
-            "tasks": tasks_list,
-            "pending": pending_list,
-            "muxed": muxed_list,
-        }
+        """生成前端渲染所需的队列视图模型"""
+        return self._task_mgr.build_queue_view_model(
+            self.pending_videos, self.pending_audios, self.muxed_files, self.settings
+        )
 
     def _send_message(self, msg_type: str, data: dict = None):
         """向前端发送结构化消息（替代直接拼接 JS 代码）"""
