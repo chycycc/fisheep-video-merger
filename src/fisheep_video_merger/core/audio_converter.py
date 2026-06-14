@@ -13,16 +13,7 @@ logger = get_logger()
 
 
 # 格式到编码器的映射
-_FORMAT_CODEC = {
-    "mp3": "libmp3lame",
-    "aac": "aac",
-    "flac": "flac",
-    "wav": "pcm_s16le",
-    "opus": "libopus",
-    "ogg": "libvorbis",
-    "m4a": "aac",
-    "wma": "wmav2",
-}
+from fisheep_video_merger.core.constants import FORMAT_AUDIO_CODEC as _FORMAT_CODEC
 
 # 支持码率设置的格式
 _BITRATE_FORMATS = {"mp3", "aac", "m4a", "opus", "ogg", "wma"}
