@@ -17,8 +17,7 @@ except ImportError:
 import webview
 
 from fisheep_video_merger.core.matcher import (
-    MergeTask, MatchResult, auto_match, create_manual_task,
-    suggest_output_name, apply_naming_template,
+    MergeTask, auto_match, create_manual_task, apply_naming_template,
 )
 from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
@@ -781,8 +780,6 @@ class UIBridge:
                 if not v_info or not a_info:
                     return {"status": "error", "message": "必须包含 1 个视频和 1 个音频文件"}
 
-                from fisheep_video_merger.core.matcher import create_manual_task
-                import os
                 root = self.root_paths[0] if self.root_paths else ""
                 out_name = output_name or os.path.splitext(os.path.basename(v_info.filepath))[0]
 
@@ -799,9 +796,6 @@ class UIBridge:
 
     def auto_match_pending(self) -> Dict:
         try:
-            from fisheep_video_merger.core.matcher import auto_match
-            from fisheep_video_merger.utils.ffprobe import StreamType
-
             with self._lock:
                 # Pack pending into a stream_infos list
                 streams = self.pending_videos + self.pending_audios
