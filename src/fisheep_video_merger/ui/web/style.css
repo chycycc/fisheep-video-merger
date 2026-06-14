@@ -1256,6 +1256,43 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
     font-weight: 600;
 }
 
+/* 设置页面布局 */
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.settings-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+}
+
+.settings-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-info-item:last-child {
+    border-bottom: none;
+}
+
+.settings-info-label {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
 /* 状态列可选中复制 */
 .tool-status {
     user-select: text;

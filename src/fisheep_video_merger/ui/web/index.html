@@ -1070,80 +1070,82 @@
                     </div>
                 </header>
 
-                <div style="max-width: 600px; display: flex; flex-direction: column; gap: 20px;">
-                    <!-- 外观 -->
-                    <div class="config-card">
-                        <h4>🌓 外观</h4>
-                        <div class="form-group">
-                            <label>主题模式</label>
-                            <select id="settings-theme">
-                                <option value="auto">跟随系统</option>
-                                <option value="dark">深色模式</option>
-                                <option value="light">浅色模式</option>
-                            </select>
+                <div class="settings-grid">
+                    <!-- 第一行：两列卡片 -->
+                    <div class="settings-row">
+                        <div class="config-card">
+                            <h4>🌓 外观</h4>
+                            <div class="form-group">
+                                <label>主题模式</label>
+                                <select id="settings-theme">
+                                    <option value="auto">跟随系统</option>
+                                    <option value="dark">深色模式</option>
+                                    <option value="light">浅色模式</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- 平台统计 -->
-                    <div class="config-card">
-                        <h4>📊 平台统计</h4>
-                        <div id="platform-stats" style="font-size: 12px; color: var(--text-muted);">
-                            <span>加载中...</span>
-                        </div>
-                    </div>
-
-                    <!-- 硬件加速 -->
-                    <div class="config-card">
-                        <h4 style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
-                            @click="window.loadHwAccelInfo && window.loadHwAccelInfo()">
-                            <span>⚡ 硬件加速</span>
-                            <span style="font-size: 10px; color: var(--text-muted);">🔄 点击刷新</span>
-                        </h4>
-                        <div id="hw-accel-info" style="font-size: 12px; color: var(--text-muted);">
-                            <span>检测中...</span>
-                        </div>
-                    </div>
-
-                    <!-- 配置管理 -->
-                    <div class="config-card">
-                        <h4>💾 配置管理</h4>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="exportConfig()" style="flex:1;">📤 导出配置</button>
-                            <button class="btn btn-secondary" onclick="importConfig()" style="flex:1;">📥 导入配置</button>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-top: 8px;">
-                            <button class="btn btn-secondary" onclick="window.restoreDefaults && window.restoreDefaults()" style="flex:1; border: 1px dashed var(--border-color);">🔄 恢复默认设置</button>
-                        </div>
-                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">导出/导入队列配对为 JSON 文件，跨机器复用</p>
-                    </div>
-
-
-
-                    <!-- 环境检测 -->
-                    <div class="config-card">
-                        <h4>🔧 环境检测</h4>
-                        <div class="form-group">
-                            <label>FFmpeg 状态</label>
-                            <div id="settings-ffmpeg-status" class="path-preview-box" x-data="{ status: null }" x-init="callPython('check_ffmpeg_status').then(s => status = s)">
-                                <template x-if="status === null">
-                                    <span style="color: var(--text-muted);">检测中...</span>
-                                </template>
-                                <template x-if="status !== null">
-                                    <div>
-                                        <div :style="status.available ? 'color: #10B981' : 'color: #EF4444'">
-                                            <span x-text="status.available ? '✅ 可用' : '❌ 不可用'"></span>
-                                        </div>
-                                        <div x-show="status.available" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                            <div x-text="'路径: ' + status.path"></div>
-                                            <div x-text="status.version"></div>
-                                        </div>
-                                    </div>
-                                </template>
+                        <div class="config-card">
+                            <h4>💾 配置管理</h4>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary" onclick="exportConfig()" style="flex:1;">📤 导出</button>
+                                <button class="btn btn-secondary" onclick="importConfig()" style="flex:1;">📥 导入</button>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <button class="btn btn-secondary" onclick="window.restoreDefaults && window.restoreDefaults()" style="width: 100%; border: 1px dashed var(--border-color);">🔄 恢复默认</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 日志查看器 -->
+                    <!-- 系统信息 -->
+                    <div class="config-card">
+                        <h4>⚡ 系统信息</h4>
+                        <div class="settings-info-grid">
+                            <div class="settings-info-item">
+                                <span class="settings-info-label">FFmpeg</span>
+                                <span id="settings-ffmpeg-status" x-data="{ status: null }" x-init="callPython('check_ffmpeg_status').then(s => status = s)">
+                                    <template x-if="status === null">
+                                        <span style="color: var(--text-muted);">检测中...</span>
+                                    </template>
+                                    <template x-if="status !== null">
+                                        <span>
+                                            <span :style="status.available ? 'color: #10B981' : 'color: #EF4444'" x-text="status.available ? '✅ 可用' : '❌ 不可用'"></span>
+                                            <span x-show="status.available" style="color: var(--text-muted); font-size: 11px;" x-text="'(' + status.version + ')'"></span>
+                                        </span>
+                                    </template>
+                                </span>
+                            </div>
+                            <div class="settings-info-item">
+                                <span class="settings-info-label">GPU 加速</span>
+                                <span id="hw-accel-info" style="color: var(--text-muted); cursor: pointer;" @click="window.loadHwAccelInfo && window.loadHwAccelInfo()" title="点击刷新">
+                                    <span>检测中...</span>
+                                </span>
+                            </div>
+                            <div class="settings-info-item">
+                                <span class="settings-info-label">文件统计</span>
+                                <span id="platform-stats" style="color: var(--text-muted);">加载中...</span>
+                            </div>
+                            <div class="settings-info-item">
+                                <span class="settings-info-label">版本</span>
+                                <span style="color: var(--text-muted);">v0.8.0 · Python + pywebview</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 项目信息 -->
+                    <div class="config-card">
+                        <h4>🐑 Fisheep 视频工具箱</h4>
+                        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.8;">
+                            <div>版本 v0.8.0 · 基于 Python + pywebview + FFmpeg</div>
+                            <div>支持 B站/YouTube/通用格式的音视频合并、格式转换、音频提取、视频压缩、视频裁剪</div>
+                            <div style="margin-top: 4px;">
+                                <a href="https://github.com/chycycc/fisheep-video-merger" target="_blank" style="color: var(--primary-color); text-decoration: none;">📦 GitHub 仓库</a>
+                                <span style="margin: 0 8px;">·</span>
+                                <span>作者: chycycc</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 日志（可折叠） -->
                     <div class="config-card" x-data="{ logs: [], expanded: false }">
                         <h4 style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
                             @click="expanded = !expanded; if(expanded) callPython('get_logs').then(r => logs = r.logs || [])">
@@ -1159,16 +1161,6 @@
                             </div>
                             <button class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;"
                                     @click="callPython('get_logs').then(r => logs = r.logs || [])">🔄 刷新</button>
-                        </div>
-                    </div>
-
-                    <!-- 关于 -->
-                    <div class="config-card">
-                        <h4>ℹ️ 关于</h4>
-                        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.8;">
-                            <div>Fisheep 视频工具箱 v0.6.0</div>
-                            <div>基于 Python + pywebview + FFmpeg</div>
-                            <div>主题: 蓝色系 / 暗色 + 亮色双模式</div>
                         </div>
                     </div>
                 </div>
