@@ -88,16 +88,19 @@ import {
     importProfile,
     startConfigResize,
     startSidebarResize,
+    initTrimTimeline,
+} from './settings.js';
+
+import {
     updateToolProgress,
     initToolDropZones,
     initToolStartButtons,
-    initTrimTimeline,
     selectFilesForTool,
     openToolFile,
     openToolFileFolder,
     removeToolFile,
-    runToolTask
-} from './settings.js';
+    runToolTask,
+} from './tool-files.js';
 
 // =====================================================
 // 工具路由启动
