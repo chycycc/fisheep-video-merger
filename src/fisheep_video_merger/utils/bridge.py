@@ -20,8 +20,7 @@ from fisheep_video_merger.core.matcher import (
     MergeTask, MatchResult, auto_match, create_manual_task,
     suggest_output_name, apply_naming_template,
 )
-from fisheep_video_merger.core.scanner import scan_multiple_directories
-from fisheep_video_merger.utils.ffprobe import analyze_file, StreamInfo, StreamType
+from fisheep_video_merger.utils.ffprobe import StreamInfo, StreamType
 from fisheep_video_merger.utils.logger import get_logger
 from fisheep_video_merger.utils.services.state_persistence import StatePersistenceService
 from fisheep_video_merger.utils.services.task_manager import TaskManagerService
@@ -86,6 +85,24 @@ class UIBridge:
         self._tool_svc = ToolService()
         self._dialog_svc = DialogService()
         self._batch_proc = BatchProcessor()
+
+        # 导入服务（共享状态容器）
+        from fisheep_video_merger.utils.services.import_service import ImportService
+        self._shared_state = {
+            'root_paths': self.root_paths,
+            'all_stream_infos': self.all_stream_infos,
+            'pending_videos': self.pending_videos,
+            'pending_audios': self.pending_audios,
+            'muxed_files': self.muxed_files,
+            'settings': self.settings,
+        }
+        self._import_svc = ImportService(
+            state=self._shared_state, lock=self._lock, task_mgr=self._task_mgr,
+            apply_naming_template=self._apply_naming_template,
+            save_state=self._save_workspace_state,
+            get_queue_data=self._get_queue_data,
+            send_message=self._send_message,
+        )
 
         # 加载历史工作状态
         self._load_workspace_state()
@@ -315,137 +332,20 @@ class UIBridge:
     # ====================================================================
 
     def on_files_dropped(self, file_paths: List[str]) -> Dict:
-        from fisheep_video_merger.core.scanner import SUPPORTED_EXTENSIONS
-        folders = []
-        media_files = []
-        for path in file_paths:
-            if os.path.isdir(path):
-                folders.append(path)
-            elif os.path.splitext(path)[1].lower() in SUPPORTED_EXTENSIONS:
-                media_files.append(path)
+        folders, media_files = self._import_svc.classify_paths(file_paths)
         if folders:
-            self._add_folders(folders, is_drag=True)
+            new_dirs = self._import_svc.scan_folders(folders)
+            if new_dirs:
+                self._import_svc.run_folder_scan(new_dirs)
         if media_files:
-            self._add_files(media_files)
+            self._import_svc.run_file_import(media_files)
         return self._get_queue_data()
 
     def add_folder(self, directory: str) -> Dict:
-        self._add_folders([directory])
+        new_dirs = self._import_svc.scan_folders([directory])
+        if new_dirs:
+            self._import_svc.run_folder_scan(new_dirs)
         return self._get_queue_data()
-
-    def _add_folders(self, directories: List[str], is_drag=False):
-        """扫描添加的文件夹"""
-        new_directories = []
-        for directory in directories:
-            directory = os.path.abspath(directory)
-            if not os.path.isdir(directory):
-                continue
-            if directory not in self.root_paths:
-                self.root_paths.append(directory)
-            new_directories.append(directory)
-
-        if not new_directories:
-            return
-
-        def scan_worker():
-            try:
-                results = scan_multiple_directories(new_directories)
-                if not results:
-                    return
-                with self._lock:
-                    existing_paths = {x.filepath for x in self.all_stream_infos}
-                    for info in results:
-                        if info.filepath not in existing_paths:
-                            self.all_stream_infos.append(info)
-
-                    old_tasks = self._task_mgr.tasks.copy()
-                    match_result = auto_match(self.all_stream_infos, self.root_paths)
-                    self._task_mgr.preserve_status(match_result.auto_tasks)
-                    self.pending_videos = match_result.pending_videos
-                    self.pending_audios = match_result.pending_audios
-                    self._apply_naming_template()
-
-                    if match_result.muxed_files:
-                        for m in match_result.muxed_files:
-                            if not any(x.filepath == m.filepath for x in self.muxed_files):
-                                self.muxed_files.append(m)
-
-                if not self.settings.get("output_dir"):
-                    if self.root_paths:
-                        self.settings["output_dir"] = os.path.dirname(self.root_paths[0])
-
-                self._save_workspace_state()
-                self._send_message("state_update", self._get_queue_data())
-
-                if len(match_result.auto_tasks) > 0 or len(match_result.pending_videos) > 0:
-                    self._send_message("toast", {"message": "文件夹扫描完成", "type": "success"})
-                else:
-                    self._send_message("toast", {"message": "选中文件夹内未发现支持的视频缓存", "type": "warning"})
-            except Exception as e:
-                logger.error(f"异步扫描失败: {e}")
-                self._send_message("toast", {"message": f"扫描失败: {e}", "type": "error"})
-
-        threading.Thread(target=scan_worker, daemon=True).start()
-
-    def _add_files(self, filepaths: List[str]):
-        """添加音视频文件"""
-        from fisheep_video_merger.core.scanner import SUPPORTED_EXTENSIONS
-
-        def files_worker():
-            try:
-                existing_paths = {x.filepath for x in self.all_stream_infos}
-                new_fps = [
-                    fp for fp in filepaths
-                    if os.path.splitext(fp)[1].lower() in SUPPORTED_EXTENSIONS
-                    and fp not in existing_paths
-                ]
-                if not new_fps:
-                    return
-
-                from concurrent.futures import ThreadPoolExecutor as TPE
-                with TPE(max_workers=4) as pool:
-                    results = list(pool.map(analyze_file, new_fps))
-
-                new_videos, new_audios, new_muxed = [], [], []
-                with self._lock:
-                    for info in results:
-                        self.all_stream_infos.append(info)
-                        if info.stream_type == StreamType.VIDEO_ONLY:
-                            new_videos.append(info)
-                        elif info.stream_type == StreamType.AUDIO_ONLY:
-                            new_audios.append(info)
-                        elif info.stream_type == StreamType.MUXED:
-                            new_muxed.append(info)
-
-                with self._lock:
-                    old_tasks_count = len(self.tasks)
-                    match_result = auto_match(self.all_stream_infos, self.root_paths)
-                    self._task_mgr.preserve_status(match_result.auto_tasks)
-                    self.pending_videos = match_result.pending_videos
-                    self.pending_audios = match_result.pending_audios
-                    self._apply_naming_template()
-
-                    if new_muxed:
-                        for m in new_muxed:
-                            if not any(x.filepath == m.filepath for x in self.muxed_files):
-                                self.muxed_files.append(m)
-
-                    self._save_workspace_state()
-
-                self._send_message("state_update", self._get_queue_data())
-
-                if len(new_videos) + len(new_audios) > 0:
-                    if len(self.tasks) > old_tasks_count:
-                        pass
-                    else:
-                        self._send_message("toast", {"message": "导入的片段由于缺少对应音/视频，已自动归入【待整理】队列", "type": "warning"})
-                elif len(new_muxed) > 0:
-                    self._send_message("toast", {"message": "导入的视频已是完整文件，自动归入【已完整】队列", "type": "info"})
-            except Exception as e:
-                logger.error(f"添加文件失败: {e}")
-                self._send_message("toast", {"message": f"添加文件失败: {e}", "type": "error"})
-
-        threading.Thread(target=files_worker, daemon=True).start()
 
     # ====================================================================
     # 📦 批量处理 API
