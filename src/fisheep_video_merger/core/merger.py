@@ -41,8 +41,8 @@ def build_ffmpeg_command(
         # Fallback 容错模式：复制视频流，重编码音频流
         ffmpeg_codec = codec_map.get(audio_codec, "aac")
         cmd.extend(["-c:v", "copy", "-c:a", ffmpeg_codec])
-        # FLAC 为无损编码，无需指定码率
-        if audio_codec != "flac":
+        # FLAC 为无损编码，无需指定码率；auto 跟随原音频码率
+        if audio_codec != "flac" and audio_bitrate and audio_bitrate != "auto":
             cmd.extend(["-b:a", audio_bitrate])
     else:
         # 默认极致流复制

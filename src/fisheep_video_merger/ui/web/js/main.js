@@ -159,7 +159,7 @@ document.addEventListener('alpine:init', () => {
         deleteSource: false,
         outputDir: '',
         audioCodec: 'aac',
-        audioBitrate: '192k',
+        audioBitrate: 'auto',
         // 工具输出目录
         toolOutputDirs: { convert: '', extract: '', 'audio-convert': '', compress: '', trim: '', 'audio-trim': '', subtitle: '' },
         // 工具设置

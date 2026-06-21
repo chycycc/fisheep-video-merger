@@ -1256,8 +1256,9 @@
                                     <div class="form-group" style="flex: 1;">
                                         <label>重编码音频码率</label>
                                         <select id="merge-audio-bitrate" x-model="$store.settings.audioBitrate">
+                                            <option value="auto" selected>跟随原音频</option>
                                             <option value="128k">128 kbps</option>
-                                            <option value="192k" selected>192 kbps</option>
+                                            <option value="192k">192 kbps</option>
                                             <option value="256k">256 kbps</option>
                                             <option value="320k">320 kbps</option>
                                         </select>

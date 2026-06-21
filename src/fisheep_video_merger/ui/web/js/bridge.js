@@ -71,7 +71,7 @@ export function syncSettingsFromPython() {
             store.overwrite = !!settings.overwrite;
             store.deleteSource = !!settings.delete_allowed;
             store.audioCodec = settings.audio_codec || 'aac';
-            store.audioBitrate = settings.audio_bitrate || '192k';
+            store.audioBitrate = settings.audio_bitrate || 'auto';
 
             // 同步命名模板
             const tplInput = document.getElementById('global-output-name');
