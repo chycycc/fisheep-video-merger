@@ -162,6 +162,7 @@ window.__onBridgeMessage = function(msg) {
     switch (type) {
         case 'state_update':
             handleBackendResponse(data);
+            if (window.updateMergeStatusBar) window.updateMergeStatusBar();
             break;
         case 'toast':
             if (window.showToast) window.showToast(data.message, data.type || 'info');

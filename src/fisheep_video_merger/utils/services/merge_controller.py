@@ -6,6 +6,7 @@
 import os
 import re
 import json
+import time
 import threading
 from typing import Dict, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, CancelledError
@@ -87,11 +88,27 @@ class MergeControllerService:
                             break
                         counter += 1
 
-            # 进度回调
+            # 进度回调（计算 ETA 和速度）
+            start_time = time.time()
+            last_percent = 0.0
+
             def on_progress(txt):
+                nonlocal last_percent
                 match = re.search(r"\((\d+(?:\.\d+)?)%\)", txt)
                 percent = float(match.group(1)) if match else 0.0
-                progress_callback(index, percent, "计算中...", "⚡")
+                if percent > 0:
+                    elapsed = time.time() - start_time
+                    if percent > last_percent and elapsed > 1:
+                        remaining = elapsed / percent * (100 - percent)
+                        mins, secs = divmod(int(remaining), 60)
+                        eta_str = f"{mins}分{secs}秒" if mins > 0 else f"{secs}秒"
+                        speed = f"{percent / elapsed:.1f}%/s"
+                        progress_callback(index, percent, eta_str, speed)
+                        last_percent = percent
+                    else:
+                        progress_callback(index, percent, "计算中...", "⚡")
+                else:
+                    progress_callback(index, 0, "计算中...", "⚡")
 
             def on_process(process):
                 self._active_processes[index] = process
